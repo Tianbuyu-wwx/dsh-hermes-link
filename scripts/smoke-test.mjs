@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // scripts/smoke-test.mjs
-// Static structure check for hermes-link v0.1.
+// Static structure check for dsh-hermes-link v0.1.
 // No DSH runtime required. Fails loud on missing files or shape issues.
 
 import { existsSync, statSync, readFileSync } from 'node:fs'
@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
-const pkg = join(root, 'packages', 'hermes-link')
+const pkg = join(root, 'packages', 'dsh-hermes-link')
 
 const checks = []
 let failed = 0
@@ -30,7 +30,7 @@ const required = [
   'cordis.patch.yml',
   'index.mjs',
   'dispatch-spec.schema.json',
-  'skills/hermes-link/SKILL.md',
+  'skills/dsh-hermes-link/SKILL.md',
   'import/request-dump-to-events.mjs',
   'import/import-hermes-session.mjs',
   'services/hermes-session-watcher.mjs',
@@ -63,7 +63,7 @@ try {
   check('package.json parses', false, e.message)
 }
 if (pkgJson) {
-  check('package.json name=hermes-link', pkgJson.name === 'hermes-link', 'name=' + pkgJson.name)
+  check('package.json name=@tianbuyu-wwx/dsh-hermes-link', pkgJson.name === '@tianbuyu-wwx/dsh-hermes-link', 'name=' + pkgJson.name)
   check('package.json type=module', pkgJson.type === 'module')
   check('package.json main=./index.mjs', pkgJson.main === './index.mjs')
   check('package.json has dsh.bundle.patch', pkgJson.dsh && pkgJson.dsh.bundle && pkgJson.dsh.bundle.patch === './cordis.patch.yml')
@@ -71,7 +71,7 @@ if (pkgJson) {
 
 // 3. cordis.patch.yml shape
 const cordisYml = readFileSync(join(pkg, 'cordis.patch.yml'), 'utf8')
-check('cordis.patch.yml mentions hermes-link', /hermes-link/.test(cordisYml))
+check('cordis.patch.yml mentions dsh-hermes-link', /dsh-hermes-link/.test(cordisYml))
 check('cordis.patch.yml has insert section', /insert:/.test(cordisYml))
 
 // 4. dispatch-spec.schema.json valid
@@ -90,7 +90,7 @@ try {
 
 // 5. index.mjs exports
 const indexSrc = readFileSync(join(pkg, 'index.mjs'), 'utf8')
-check('index.mjs exports name', /export const name\s*=\s*['"]hermes-link['"]/.test(indexSrc))
+check('index.mjs exports name', /export const name\s*=\s*['"]dsh-hermes-link['"]/.test(indexSrc))
 check('index.mjs exports inject', /export const inject\s*=/.test(indexSrc))
 check('index.mjs exports apply', /export function apply/.test(indexSrc))
 check('index.mjs has detectHermesHome', /detectHermesHome/.test(indexSrc))
@@ -104,8 +104,8 @@ check('converter emits request/header', /'request\/header'/.test(convSrc))
 check('converter emits session/end-seed', /'session\/end-seed'/.test(convSrc))
 
 // 7. SKILL.md
-const skillMd = readFileSync(join(pkg, 'skills/hermes-link/SKILL.md'), 'utf8')
-check('SKILL.md mentions hermes-link', /hermes-link/.test(skillMd))
+const skillMd = readFileSync(join(pkg, 'skills/dsh-hermes-link/SKILL.md'), 'utf8')
+check('SKILL.md mentions dsh-hermes-link', /dsh-hermes-link/.test(skillMd))
 check('SKILL.md mentions /mcp/collab', /\/mcp\/collab/.test(skillMd))
 
 // 7b. Hermes-side upgrade deliverable (v0.2.2)
@@ -168,10 +168,10 @@ for (const f of mjsFiles) {
 }
 
 // 9. install/uninstall scripts exist
-const installScript = join(root, 'scripts', 'install-hermes-link.ps1')
-const uninstallScript = join(root, 'scripts', 'uninstall-hermes-link.ps1')
-check('install-hermes-link.ps1 exists', existsSync(installScript))
-check('uninstall-hermes-link.ps1 exists', existsSync(uninstallScript))
+const installScript = join(root, 'scripts', 'install-dsh-hermes-link.ps1')
+const uninstallScript = join(root, 'scripts', 'uninstall-dsh-hermes-link.ps1')
+check('install-dsh-hermes-link.ps1 exists', existsSync(installScript))
+check('uninstall-dsh-hermes-link.ps1 exists', existsSync(uninstallScript))
 
 // 9b. v0.2.3 hardening test script exists
 check('scripts/test-v0.2.3-hardening.mjs exists',

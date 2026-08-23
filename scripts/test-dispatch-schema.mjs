@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 // scripts/test-dispatch-schema.mjs
 // Unit tests for http/dispatch.mjs validateSpec + clampInt + formatPersona.
 // No DSH runtime required (dispatch.mjs only imports the JSON schema).
@@ -8,7 +8,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
-const dispatchPath = join(root, 'packages', 'hermes-link', 'http', 'dispatch.mjs')
+const dispatchPath = join(root, 'packages', 'dsh-hermes-link', 'http', 'dispatch.mjs')
 const { validateSpec, clampInt, formatPersona } = await import(pathToFileURL(dispatchPath).href)
 
 let passed = 0, failed = 0

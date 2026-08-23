@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 // scripts/test-foundation-policy.mjs
 // Unit tests for the v0.2.2 foundation slice policy:
 //   - SOUL.md is included
@@ -12,7 +12,7 @@ import { join, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
-const indexUrl = pathToFileURL(join(root, 'packages', 'hermes-link', 'index.mjs')).href
+const indexUrl = pathToFileURL(join(root, 'packages', 'dsh-hermes-link', 'index.mjs')).href
 const { buildFoundationSlice } = await import(indexUrl)
 
 let passed = 0, failed = 0
@@ -22,7 +22,7 @@ function t(name, fn) {
 }
 
 function makeHome() {
-  const home = mkdtempSync(join(tmpdir(), 'hermes-link-found-'))
+  const home = mkdtempSync(join(tmpdir(), 'dsh-hermes-link-found-'))
   return { home, cleanup: () => { try { rmSync(home, { recursive: true, force: true }) } catch {} } }
 }
 

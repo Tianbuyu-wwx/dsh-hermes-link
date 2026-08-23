@@ -1,6 +1,6 @@
-# hermes-link
+﻿# dsh-hermes-link
 
-[![npm version](https://img.shields.io/npm/v/@Tianbuyu-wwx/hermes-link)](https://www.npmjs.com/package/@Tianbuyu-wwx/hermes-link)
+[![npm version](https://img.shields.io/npm/v/@Tianbuyu-wwx/dsh-hermes-link)](https://www.npmjs.com/package/@Tianbuyu-wwx/dsh-hermes-link)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Node >=20](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](package.json)
 [![dsh-plugin](https://img.shields.io/badge/dsh--plugin-blue)](https://github.com/dsh-market/awesome-dsh-plugin)
@@ -11,7 +11,7 @@
 
 ## Table of contents
 
-- [Why hermes-link exists](#why-hermes-link-exists)
+- [Why dsh-hermes-link exists](#why-dsh-hermes-link-exists)
 - [Features](#features)
 - [Quickstart](#quickstart)
 - [Architecture](#architecture)
@@ -24,11 +24,11 @@
 
 ---
 
-## Why hermes-link exists
+## Why dsh-hermes-link exists
 
 Hermes is an *agent*-*orch-estrator* — it plans the work, picks the skill, loads the knowledge slice. DSH is a *coding-runtime* — it runs sub-agents, edits files, runs shells, talks to LLMs. Each tool does its job well in isolation; the question was always how to make them *one system* without dragging each one's concerns into the other.
 
-Earlier we ran this as three separate plugins (`hermes-foundation`, `hermes-oneshot-arbitrate`, `hermes-dispatch-bridge`). That triad is now archived under `dsh-hermes` with an `archive/hermes-legacy-2026-08-22` tag — `hermes-link` is the single plugin that replaced them, and this repository is the home of that replacement.
+Earlier we ran this as three separate plugins (`hermes-foundation`, `hermes-oneshot-arbitrate`, `hermes-dispatch-bridge`). That triad is now archived under `dsh-hermes` with an `archive/hermes-legacy-2026-08-22` tag — `dsh-hermes-link` is the single plugin that replaced them, and this repository is the home of that replacement.
 
 ---
 
@@ -58,7 +58,7 @@ Earlier we ran this as three separate plugins (`hermes-foundation`, `hermes-ones
 | `consult_hermes` | ask Hermes a question (file-based async; reply must carry secret suffix since v0.2.2) |
 | `mirror_session_to_hermes` | opt-in V4 mirror with secret-pattern redaction (v0.2.2; cookies / JWTs / API keys / set-cookie / session_id redacted) |
 | `hermes_inbox` / `hermes_inbox_append` | read / append to the shared conversation record (`~/.dsh/hermes-inbox/session.jsonl`) |
-| `hermes_clear_injected` | audit-only: count turns auto-injected by an older hermes-foundation/hermes-link version, point at "open a new session" |
+| `hermes_clear_injected` | audit-only: count turns auto-injected by an older hermes-foundation/dsh-hermes-link version, point at "open a new session" |
 
 ### Auto-loop
 
@@ -93,21 +93,21 @@ See [docs/security-model.md](docs/security-model.md) for the full layered model.
 # 1. Make sure dsh-market is installed in your profile
 dsh plugin --profile web add dshmarket
 
-# 2. Restart dsh web, open Settings → Plugin Market, search "hermes-link", one-click install
+# 2. Restart dsh web, open Settings → Plugin Market, search "dsh-hermes-link", one-click install
 ```
 
 ### Install from npm directly
 
 ```sh
-dsh plugin --profile web add @Tianbuyu-wwx/hermes-link
+dsh plugin --profile web add @Tianbuyu-wwx/dsh-hermes-link
 ```
 
 ### Install from a local checkout (dev loop)
 
 ```sh
-git clone https://github.com/Tianbuyu-wwx/hermes-link.git
-cd hermes-link
-dsh plugin --profile web add ./packages/hermes-link
+git clone https://github.com/Tianbuyu-wwx/dsh-hermes-link.git
+cd dsh-hermes-link
+dsh plugin --profile web add ./packages/dsh-hermes-link
 ```
 
 Then restart `dsh web`. Open Hermes-config.yaml (`%LOCALAPPDATA%\hermes\config.yaml` on Windows) and add:
@@ -145,7 +145,7 @@ Then in DSH:
         dispatch_task / followup / interrupt / list / get
         dispatch_probe / get_dispatch
                                           ┌──────────────────────────────────────┐
-                                          │ hermes-link (Cordis bundle)          │
+                                          │ dsh-hermes-link (Cordis bundle)          │
                                           │   ├─ HTTP routes /mcp/collab*        │
                                           │   │   ├─ POST /mcp/collab (RPC)       │
                                           │   │   ├─ GET  /mcp/collab/health      │
@@ -213,7 +213,7 @@ Report vulnerabilities privately via **GitHub Security Advisories** on this repo
 
 | | Item | Status |
 |---|---|---|
-| ✅ | L1/L2/L3 three-pack → single `hermes-link` plugin | shipped 2026-08-20 |
+| ✅ | L1/L2/L3 three-pack → single `dsh-hermes-link` plugin | shipped 2026-08-20 |
 | ✅ | v0.1 → v0.2: full bidirectional + continuable + amend nonce + mirror opt-in + foundation SOUL-only | shipped 2026-08-21 |
 | ✅ | v0.2.1: disable main-session auto-injection; `hermes_clear_injected` audit | shipped 2026-08-21 |
 | ✅ | v0.2.2: S1–S4 (mirror opt-in / amend nonce / consult secret / project memory opt-in) | shipped 2026-08-21 |
@@ -227,11 +227,11 @@ Report vulnerabilities privately via **GitHub Security Advisories** on this repo
 
 ## FAQ
 
-**Q: Does Hermes need to upgrade anything to talk to hermes-link v0.2.2+?**
+**Q: Does Hermes need to upgrade anything to talk to dsh-hermes-link v0.2.2+?**
 Yes. The amend nonce + consult reply_secret protocols are breaking changes. See [docs/hermes-upgrade-v0.2.2.md](docs/hermes-upgrade-v0.2.2.md) and the reference gateway in `scripts/hermes-gateway-demo.py`.
 
 **Q: I imported a Hermes session — it shows in the sidebar but I can't open it.**
-That's the v0.2.4 bug (turn:0 envelope failing DSH persistence validator) — fixed in v0.2.4 by bumping `turn/start..turn/end` to 1 and auto-rebuilding corrupt artifacts. Update to v0.2.4 (auto-recovery runs on next sync) or `dsh plugin update hermes-link`.
+That's the v0.2.4 bug (turn:0 envelope failing DSH persistence validator) — fixed in v0.2.4 by bumping `turn/start..turn/end` to 1 and auto-rebuilding corrupt artifacts. Update to v0.2.4 (auto-recovery runs on next sync) or `dsh plugin update dsh-hermes-link`.
 
 **Q: My `import_hermes_session` returns "invalid output" before v0.2.4.**
 Same issue — fixed by declaring `firstUserSnippet` / `model` / `attach` in the tool output schema and normalizing nullable fields. Update to v0.2.4.
@@ -240,7 +240,7 @@ Same issue — fixed by declaring `firstUserSnippet` / `model` / `attach` in the
 Both end up at Hermes. `consult_hermes` is a DSH tool that any user can call inside their session; `dispatch_task` is the agent-comm RPC that Hermes initiates. They share the file-based reply protocol but live on different routes (`POST /mcp/collab/consult` vs `POST /mcp/collab`).
 
 **Q: Why not just one plugin instead of three (`hermes-foundation / -oneshot-arbitrate / -dispatch-bridge`)?**
-That's exactly what v0.2.0 did — those three are archived under `dsh-hermes` with tag `archive/hermes-legacy-2026-08-22`. Single-plugin form is less bookkeeping and easier to reason about; hermes-link is that consolidation.
+That's exactly what v0.2.0 did — those three are archived under `dsh-hermes` with tag `archive/hermes-legacy-2026-08-22`. Single-plugin form is less bookkeeping and easier to reason about; dsh-hermes-link is that consolidation.
 
 ---
 

@@ -1,4 +1,4 @@
-# Security Policy
+﻿# Security Policy
 
 ## Supported versions
 
@@ -19,7 +19,7 @@ A maintainer will acknowledge within **72 hours** and aim for a fix-or-mitigatio
 
 ## Threat model
 
-`hermes-link` mediates between two trust boundaries: a **Hermes Agent** process running as the orchestrator and a **DeepSeek Harness** process running as the runtime. The bridge is exposed on `127.0.0.1:3080/mcp/collab*` by default and runs at the same privilege level as the host DSH.
+`dsh-hermes-link` mediates between two trust boundaries: a **Hermes Agent** process running as the orchestrator and a **DeepSeek Harness** process running as the runtime. The bridge is exposed on `127.0.0.1:3080/mcp/collab*` by default and runs at the same privilege level as the host DSH.
 
 ### What we defend against
 
@@ -68,7 +68,7 @@ When `HERMES_LINK_TOKEN` is set, every `/mcp/collab*` route except `GET /mcp/col
 
 ## Sandbox integration
 
-`hermes-link` itself does not enforce sandbox policies — it relies on DSH's sandbox services. The dispatched sub-agent inherits the parent agent's sandbox profile (default `workspace-write + ask`). A deployment that grants Hermes a `danger-full-access` sub-agent should treat that as an explicit, audited decision.
+`dsh-hermes-link` itself does not enforce sandbox policies — it relies on DSH's sandbox services. The dispatched sub-agent inherits the parent agent's sandbox profile (default `workspace-write + ask`). A deployment that grants Hermes a `danger-full-access` sub-agent should treat that as an explicit, audited decision.
 
 ## What to include in a vulnerability report
 

@@ -1,6 +1,6 @@
----
+﻿---
 name: 🐛 Bug Report
-about: Report incorrect behavior in hermes-link
+about: Report incorrect behavior in dsh-hermes-link
 title: "[bug] "
 labels: ["bug"]
 assignees: []
@@ -14,7 +14,7 @@ assignees: []
 
 <!-- Minimal steps to reproduce. -->
 
-1. `dsh plugin --profile web add @Tianbuyu-wwx/hermes-link`
+1. `dsh plugin --profile web add @Tianbuyu-wwx/dsh-hermes-link`
 2. Restart `dsh web`
 3. ...
 4. ...
@@ -29,7 +29,7 @@ assignees: []
 
 ## Environment
 
-- hermes-link version (`dsh plugin list` or `npm ls @Tianbuyu-wwx/hermes-link`):
+- dsh-hermes-link version (`dsh plugin list` or `npm ls @Tianbuyu-wwx/dsh-hermes-link`):
 - DSH version (`dsh --version`):
 - Hermes version (if applicable, from `%LOCALAPPDATA%\hermes\state.db` query or `hermes --version`):
 - Node version (`node --version`):

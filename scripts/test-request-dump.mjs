@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 // scripts/test-request-dump.mjs
 // Unit tests for import/request-dump-to-events.mjs — the V2 core converter.
 // No DSH runtime required. Pure JSON in, events out.
@@ -8,7 +8,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
-const converterPath = join(root, 'packages', 'hermes-link', 'import', 'request-dump-to-events.mjs')
+const converterPath = join(root, 'packages', 'dsh-hermes-link', 'import', 'request-dump-to-events.mjs')
 const converterUrl = pathToFileURL(converterPath).href
 const { requestDumpToEvents, groupBySession } = await import(converterUrl)
 
@@ -94,7 +94,7 @@ t('case 2: user + assistant text → full round-trip events', () => {
   // DSH Message shape: id, role, content, source
   assert.ok(typeof asst.data.message.id === 'string' && asst.data.message.id.length > 0)
   assert.equal(asst.data.message.source.kind, 'model')
-  assert.equal(asst.data.message.source.provider, 'hermes-link')
+  assert.equal(asst.data.message.source.provider, 'dsh-hermes-link')
 })
 
 t('case 3: assistant tool_use + user tool_result → tool/call + tool/result events', () => {

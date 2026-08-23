@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   publish:
-    name: publish @Tianbuyu-wwx/hermes-link
+    name: publish @tianbuyu-wwx/dsh-hermes-link
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -48,7 +48,7 @@ jobs:
 
       - name: Publish to npm (only when changesets reported changes)
         if: steps.changesets.outputs.published == 'true'
-        run: npm publish --workspace=packages/hermes-link --access public --provenance
+        run: npm publish --workspace=packages/dsh-hermes-link --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -61,6 +61,6 @@ jobs:
             # locally:
             npm install
             npx changeset version
-            npm publish --workspace=packages/hermes-link --access public
+            npm publish --workspace=packages/dsh-hermes-link --access public
             git push --follow-tags
           EOF

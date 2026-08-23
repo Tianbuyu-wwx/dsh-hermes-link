@@ -1,6 +1,6 @@
-// http/dispatch.mjs
+﻿// http/dispatch.mjs
 //
-// All HTTP routes for hermes-link (v0.2). Single file: one webServer.register
+// All HTTP routes for dsh-hermes-link (v0.2). Single file: one webServer.register
 // call (one route block) instead of five. Routing is method+path dispatch.
 //
 //   POST /mcp/collab                 JSON-RPC 2.0 envelope
@@ -34,7 +34,7 @@ import { appendAudit, readAuditLines } from '../services/audit.mjs'
 import { waitForNextReply } from '../services/continuations.mjs'
 import { buildProjectMemorySlice } from '../services/hermes-project-memory.mjs'
 
-const VERSION = '0.2.4'
+const VERSION = '0.2.5'
 const DEFAULT_MAX_TOKENS  = 4000
 const DEFAULT_DEADLINE_MS = 60000
 const PROVIDER_NAME       = 'spawn'
@@ -69,7 +69,7 @@ function checkAuth(req, res) {
 export function register(ctx, deps) {
   const webServer = ctx.get('webServer')
   if (!webServer) {
-    console.error('[hermes-link] webServer unavailable; HTTP routes NOT registered')
+    console.error('[dsh-hermes-link] webServer unavailable; HTTP routes NOT registered')
     return
   }
   const {
@@ -219,8 +219,8 @@ export function register(ctx, deps) {
       const out = personaLoader.loadPersona(hermesHome, { scope })
       res.writeHead(200, {
         'content-type': 'text/plain; charset=utf-8',
-        'x-hermes-link-scope': scope,
-        'x-hermes-link-parts': JSON.stringify(out.parts),
+        'x-dsh-hermes-link-scope': scope,
+        'x-dsh-hermes-link-parts': JSON.stringify(out.parts),
       })
       res.end(out.text)
     },
@@ -286,7 +286,7 @@ export function register(ctx, deps) {
     },
   })
 
-  console.log('[hermes-link v0.2] routes registered: /mcp/collab (+' +
+  console.log('[dsh-hermes-link v0.2] routes registered: /mcp/collab (+' +
     'followup/interrupt/list/get/get_dispatch)  /mcp/collab/health  /mcp/collab/sessions  ' +
     '/mcp/collab/import  /mcp/collab/import-all  /mcp/collab/persona  /mcp/collab/consult  /mcp/collab/memory-suggest')
 }
@@ -308,7 +308,7 @@ async function handleRpc(ctx, body, deps) {
     return mcpResult(id, {
       protocolVersion: '2024-11-05',
       capabilities: { tools: {} },
-      serverInfo: { name: 'hermes-link', version: VERSION },
+      serverInfo: { name: 'dsh-hermes-link', version: VERSION },
     })
   }
   if (method === 'ping') {
@@ -400,7 +400,7 @@ async function handleRpc(ctx, body, deps) {
         },
         {
           name: 'get_dispatch',
-          description: 'Read the hermes-link audit log (last N entries, default 20).',
+          description: 'Read the dsh-hermes-link audit log (last N entries, default 20).',
           inputSchema: {
             type: 'object',
             additionalProperties: false,
@@ -534,10 +534,10 @@ async function handleDispatchTask(ctx, args, deps) {
     try {
       const spawnResult = await ctx.subagents.startContinuable({
         provider,
-        label: 'hermes-link:' + taskId,
+        label: 'dsh-hermes-link:' + taskId,
         signal: controller.signal,
         request: {
-          label: 'hermes-link:' + taskId,
+          label: 'dsh-hermes-link:' + taskId,
           prompt: [{ type: 'text', text: args.task }],
           parent,
           signal: controller.signal,
@@ -591,7 +591,7 @@ async function handleDispatchTask(ctx, args, deps) {
         content: [{
           type: 'text',
           text: [
-            '[hermes-link v' + VERSION + '] continuable child_id=' + childId,
+            '[dsh-hermes-link v' + VERSION + '] continuable child_id=' + childId,
             'task_id=' + taskId + '  skill=' + args.skill + '  model=' + model,
             'parent_agent_id=' + parent.id,
             'message_id=' + String(spawnResult.messageId),
@@ -631,7 +631,7 @@ async function handleDispatchTask(ctx, args, deps) {
   let runResult, error, run
   try {
     run = await ctx.subagents.start(PROVIDER_NAME, {
-      label: 'hermes-link:' + taskId,
+      label: 'dsh-hermes-link:' + taskId,
       prompt: [{ type: 'text', text: args.task }],
       parent,
       signal: controller.signal,
@@ -711,7 +711,7 @@ async function handleDispatchTask(ctx, args, deps) {
     content: [{
       type: 'text',
       text: [
-        '[hermes-link v' + VERSION + '] task_id=' + taskId,
+        '[dsh-hermes-link v' + VERSION + '] task_id=' + taskId,
         'skill=' + args.skill + '  model=' + model + '  mode=one-shot',
         'elapsed_ms=' + (finishedAt - startedAt) + '  stop_reason=' + stopReason,
         realTokens ? 'real_tokens: total=' + realTokens.total_tokens + ' surface=' + realTokens.surface_tokens : 'real_tokens: (unavailable)',
@@ -812,7 +812,7 @@ async function handleDispatchFollowup(ctx, args, deps) {
     content: [{
       type: 'text',
       text: [
-        '[hermes-link v' + VERSION + '] followup child_id=' + childId,
+        '[dsh-hermes-link v' + VERSION + '] followup child_id=' + childId,
         'message_id=' + String(messageId),
         'elapsed_ms=' + (finishedAt - startedAt),
         realTokens ? 'real_tokens: total=' + realTokens.total_tokens : 'real_tokens: (unavailable)',

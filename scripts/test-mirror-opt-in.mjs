@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 // scripts/test-mirror-opt-in.mjs
 // Unit tests for the v0.2.2 opt-in V4 mirror:
 //   - redactEvent scrubs common secret patterns (API keys, AWS, PEM, JWT, generic
@@ -12,7 +12,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
-const mirrorUrl = pathToFileURL(join(root, 'packages', 'hermes-link', 'tools', 'mirror-session-to-hermes.mjs')).href
+const mirrorUrl = pathToFileURL(join(root, 'packages', 'dsh-hermes-link', 'tools', 'mirror-session-to-hermes.mjs')).href
 const { redactEvent } = await import(mirrorUrl)
 
 let passed = 0, failed = 0

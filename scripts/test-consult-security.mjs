@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 // scripts/test-consult-security.mjs
 // Unit tests for the v0.2.2 consult reply_secret protocol.
 // Covers:
@@ -14,7 +14,7 @@ import { join, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
-const consultUrl = pathToFileURL(join(root, 'packages', 'hermes-link', 'services', 'consult-hermes.mjs')).href
+const consultUrl = pathToFileURL(join(root, 'packages', 'dsh-hermes-link', 'services', 'consult-hermes.mjs')).href
 const { createConsultClient } = await import(consultUrl)
 
 let passed = 0, failed = 0
@@ -24,7 +24,7 @@ function t(name, fn) {
 }
 
 function makeHome() {
-  const home = mkdtempSync(join(tmpdir(), 'hermes-link-consult-sec-'))
+  const home = mkdtempSync(join(tmpdir(), 'dsh-hermes-link-consult-sec-'))
   return { home, cleanup: () => { try { rmSync(home, { recursive: true, force: true }) } catch {} } }
 }
 

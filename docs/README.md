@@ -1,4 +1,4 @@
-# hermes-link Documentation Index
+﻿# dsh-hermes-link Documentation Index
 
 This index points at every document in this repository. If you're new here, read [README.md](../README.md) first, then come back here for depth.
 
@@ -36,10 +36,10 @@ This index points at every document in this repository. If you're new here, read
 
 | Doc | Audience |
 |---|---|
-| [superpowers/specs/2026-08-22-hermes-link-open-source-design.md](superpowers/specs/2026-08-22-hermes-link-open-source-design.md) | Maintainers — the open-source + dshmarket release design spec |
+| [superpowers/specs/2026-08-22-dsh-hermes-link-open-source-design.md](superpowers/specs/2026-08-22-dsh-hermes-link-open-source-design.md) | Maintainers — the open-source + dshmarket release design spec |
 
 ## Quick links
 
 - **Hermes-side gateway reference implementation**: [`scripts/hermes-gateway-demo.py`](../scripts/hermes-gateway-demo.py) — standalone Python poller that implements the consult reply + amend writer.
 - **Hermes ↔ DSH file protocol**: see [SECURITY.md § "File protocol trust boundaries"](../SECURITY.md) for the security model; see [plugin-developer-guide.md](plugin-developer-guide.md) for the wire-level details.
-- **Audit log location**: `~/.dsh/hermes-link/audit.jsonl` (host process).
+- **Audit log location**: `~/.dsh/dsh-hermes-link/audit.jsonl` (host process).

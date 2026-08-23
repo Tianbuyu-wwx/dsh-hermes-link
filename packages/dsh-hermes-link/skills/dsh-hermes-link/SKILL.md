@@ -1,8 +1,8 @@
----
-name: hermes-link
+﻿---
+name: dsh-hermes-link
 description: Hermes ↔ DSH bidirectional link. Use when the user wants to import a Hermes session into DSH, load Hermes persona (SOUL + config), load Hermes memory scoped to the current working directory, dispatch a task to a DSH sub-agent (one-shot or continuable), amend a running sub-agent, push a result to / consult Hermes from DSH, or see Hermes's conversation record in DSH. The plugin does NOT auto-inject Hermes turns into the current session (v0.2.1), does NOT auto-mirror DSH sessions to Hermes (v0.2.2), and does NOT auto-load Hermes MEMORY.md (v0.2.3); all cross-project channels are explicit opt-in only.
 when_to_use: |
-  The hermes-link plugin connects DSH to a Hermes Agent installation. DSH-side
+  The dsh-hermes-link plugin connects DSH to a Hermes Agent installation. DSH-side
   tools (callable from this session):
     - list_hermes_sessions         — enumerate Hermes session archives (JSON dumps in Hermes Home/sessions/)
     - import_hermes_session        — convert a Hermes session archive to a live DSH session, seed it with full history
@@ -13,7 +13,7 @@ when_to_use: |
     - hermes_inbox                 — read the shared Hermes/DSH conversation record (~/.dsh/hermes-inbox/session.jsonl)
     - hermes_inbox_append          — append a turn to the shared record (DSH → Hermes)
     - hermes_clear_injected        — audit-only: report how many turns were auto-injected into THIS session by an older version; suggests "open a new session"
-  On the inbound side, hermes-link runs an HTTP listener at POST /mcp/collab (the same path
+  On the inbound side, dsh-hermes-link runs an HTTP listener at POST /mcp/collab (the same path
   Hermes' config.yaml mcp_servers.dsh-bridge.url should point to). Hermes dispatches tasks
   there (JSON-RPC 2.0: dispatch_task one-shot or continuable, dispatch_followup,
   dispatch_interrupt, dispatch_list, dispatch_get); DSH spawns a narrow sub-agent and
@@ -27,7 +27,7 @@ when_to_use: |
   or wants to share conversation records between DSH and Hermes.
 ---
 
-# hermes-link
+# dsh-hermes-link
 
 DSH-side plugin that makes Hermes Agent and DeepSeek Harness a single, bidirectional system.
 
@@ -74,8 +74,8 @@ DSH-side plugin that makes Hermes Agent and DeepSeek Harness a single, bidirecti
   `<Hermes_home>/config.yaml`.
 - Shared conversation record: `~/.dsh/hermes-inbox/session.jsonl` (Hermes writes
   via scripts/hermes-push.mjs; DSH reads/writes via the two hermes_inbox tools).
-- DSH audit + continuation state: `~/.dsh/hermes-link/audit.jsonl`,
-  `~/.dsh/hermes-link/continuables.sqlite`.
+- DSH audit + continuation state: `~/.dsh/dsh-hermes-link/audit.jsonl`,
+  `~/.dsh/dsh-hermes-link/continuables.sqlite`.
 
 ## Tool reference (callable from a DSH session)
 
@@ -89,7 +89,7 @@ DSH-side plugin that makes Hermes Agent and DeepSeek Harness a single, bidirecti
 | `mirror_session_to_hermes` | Opt-in V4 mirror (v0.2.2). Walks the current DSH session's events, redacts API keys / tokens / passwords / PEM / JWTs by default (`redact: false` to opt out), appends to `Hermes Home/inbox/dsh/session-mirror/<sid>.jsonl`. NOT automatic. |
 | `hermes_inbox` | Read the shared conversation record (`tail`/`format` params). |
 | `hermes_inbox_append` | Append a turn to the shared record so Hermes sees it next session-start. |
-| `hermes_clear_injected` | Audit-only: report how many Hermes turns were auto-injected into THIS session by an older hermes-link / hermes-foundation version, and point the user at "open a new session" (DSH Session.events are append-only / deep-frozen and cannot be retroactively removed). |
+| `hermes_clear_injected` | Audit-only: report how many Hermes turns were auto-injected into THIS session by an older dsh-hermes-link / hermes-foundation version, and point the user at "open a new session" (DSH Session.events are append-only / deep-frozen and cannot be retroactively removed). |
 
 ## HTTP (Hermes-side)
 

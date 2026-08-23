@@ -1,8 +1,8 @@
-# v0.6.0 交付报告 — 2026-08-21 (hermes-link v0.1 → v0.2)
+﻿# v0.6.0 交付报告 — 2026-08-21 (dsh-hermes-link v0.1 → v0.2)
 
 ## 范围
 
-按审计清单完成 `hermes-link` 插件 P0–P2 全部工作,将 v0.1 的能力补全为双向、可审计、可持续的完整互通:
+按审计清单完成 `dsh-hermes-link` 插件 P0–P2 全部工作,将 v0.1 的能力补全为双向、可审计、可持续的完整互通:
 
 | 阶段 | 内容 | 状态 |
 |---|---|---|
@@ -12,12 +12,12 @@
 
 ## 新增/改动的文件
 
-### packages/hermes-link/ (v0.2.0)
+### packages/dsh-hermes-link/ (v0.2.0)
 | 文件 | 内容 |
 |---|---|
 | `services/hermes-inbox.mjs` | **迁移自 hermes-foundation v0.7**:共享记录 `~/.dsh/hermes-inbox/session.jsonl` 的读取/渲染/注入;工具 `hermes_inbox` / `hermes_inbox_append`;`agent/session-start` 时向主 session(仅 depth=0,hermes-imported 除外)注入最近 20 轮 Hermes 对话,compaction marker 防重注入 |
 | `services/consult-hermes.mjs` | **修复**:`consult(prompt, ctx, timeoutOverride)` 第三参数生效——之前 `timeout_ms` 被丢弃,永远等 30s |
-| `services/audit.mjs` | D4:dispatch/import/consult 审计落盘 `~/.dsh/hermes-link/audit.jsonl` |
+| `services/audit.mjs` | D4:dispatch/import/consult 审计落盘 `~/.dsh/dsh-hermes-link/audit.jsonl` |
 | `services/outbox.mjs` | D3 心跳(60s,`heartbeat/latest.json`)、D6 usage(`usage.jsonl`)、D7 memory-suggest(`memory-suggest/<ts>.json`)、V4 session-mirror(`session-mirror/<sid>.jsonl`,跳过 hermes-* 与噪音事件) |
 | `services/continuations.mjs` | P2-10:continuable 子 agent SQLite 注册表(重启存活)+ `waitForNextReply` |
 | `services/amend-watcher.mjs` | H4:轮询 `Hermes Home/inbox/dsh/amend/*.json` → `ctx.subagents.followup` 投递,已处理文件移入 `done/` |
@@ -25,7 +25,7 @@
 | `http/dispatch.mjs` | v0.2:bearer auth(**env `HERMES_LINK_TOKEN`**,除 /health 外全部门禁);audit+usage;one-shot 真实 token(`tokenMeter.measure(run.localAgent)`);`dispatch_task mode=continuable` + `dispatch_followup` / `dispatch_interrupt` / `dispatch_list` / `dispatch_get` / `get_dispatch`;`POST /mcp/collab/memory-suggest`;导出 `validateSpec`/`formatPersona`/`clampInt` 等供单测 |
 | `index.mjs` | 装配全部新服务:inbox 工具 + session-start 注入 + session/event mirror hook + 心跳 + amend watcher + 4 tools + 新路由 + `GET /mcp/hermes-inbox/health`(兼容 `hermes-push.mjs --status`);版本 v0.2.0 |
 | `dispatch-spec.schema.json` | `mode: [one-shot, continuable]`,`provider`, `shared_history_n` |
-| `skills/hermes-link/SKILL.md` | 工具表、RPC 工具、文件协议、auth 全部更新 |
+| `skills/dsh-hermes-link/SKILL.md` | 工具表、RPC 工具、文件协议、auth 全部更新 |
 
 ### scripts/
 | 文件 | 内容 |
@@ -34,8 +34,8 @@
 | `test-dispatch-schema.mjs` | **新增**,13 case(validateSpec + clampInt + formatPersona) |
 | `import-check.mjs` | **新增**,16 模块全量加载检查(需要仓库内 `node_modules/@deepseek-ai` junction 指向 DSH 实例) |
 | `smoke-test.mjs` | 覆盖 20 文件 + 16 语法检查(spawnSync 免捕获模式,沙箱可用) |
-| `install-all.ps1` / `uninstall-all.ps1` | 改为 hermes-link 安装器的旧名兼容包装 |
-| `hermes-view-dsh.mjs` | 状态路径改到 `~/.dsh/hermes-link/{audit.jsonl,continuables.sqlite}` |
+| `install-all.ps1` / `uninstall-all.ps1` | 改为 dsh-hermes-link 安装器的旧名兼容包装 |
+| `hermes-view-dsh.mjs` | 状态路径改到 `~/.dsh/dsh-hermes-link/{audit.jsonl,continuables.sqlite}` |
 
 ## 自检结果
 
@@ -95,9 +95,9 @@
 **已改文件**:
 - `index.mjs`(注释 + 钩子替换)
 - `services/hermes-inbox.mjs`(`sessionHasHermesMarker` export + `hermes_clear_injected` 工具 + 头部 doc 更新)
-- `skills/hermes-link/SKILL.md`(描述 + 工具表 + 第 7 节文案)
+- `skills/dsh-hermes-link/SKILL.md`(描述 + 工具表 + 第 7 节文案)
 - `README.md`(用户视图线段 + 路线图新增 v0.2.1 行)
-- `docs/HERMES-LINK-PLAN.md` 头部状态仍为 "v0.2.0 全部实现"(v0.2.1 是对设计本身的修正)
+- `docs/dsh-hermes-link-PLAN.md` 头部状态仍为 "v0.2.0 全部实现"(v0.2.1 是对设计本身的修正)
 
 ---
 
@@ -156,7 +156,7 @@
 - `index.mjs`(移除 session/event mirror hook;`buildFoundationSlice` 只 SOUL;注册两个新工具;VERSION → '0.2.2';`buildFoundationSlice` 导出供测试)
 - `http/dispatch.mjs`(`include_project_memory` 在 persona envelope 注入;`formatPersona` 加 projectMemorySlice 块;continuable metadata 返回 `amend_nonce` + `amend_filename_pattern`)
 - `dispatch-spec.schema.json`(title v0.2.2;加 `include_project_memory: boolean`)
-- `skills/hermes-link/SKILL.md`(描述、工具表、文件协议、矢量图同步)
+- `skills/dsh-hermes-link/SKILL.md`(描述、工具表、文件协议、矢量图同步)
 - `README.md`(用户视图线段、自测清单、文件协议表、路线图、矢量图)
 - `scripts/smoke-test.mjs`(文件 + 语法检查列表)
 - `scripts/test-services.mjs`(加 `project-memory` cwd 匹配 + 老库 ALTER 升级 + amend_nonce roundtrip)
@@ -283,7 +283,7 @@ sha1 12 hex 字符尾巴保证超长 ID 的文件名唯一性。
 - `services/outbox.mjs`(`createHash` 截断)
 - `tools/mirror-session-to-hermes.mjs`(regex 列表 + Set-Cookie)
 - `index.mjs` / `http/dispatch.mjs`(`VERSION = '0.2.3'`)
-- `skills/hermes-link/SKILL.md`(描述 + 工具表)
+- `skills/dsh-hermes-link/SKILL.md`(描述 + 工具表)
 - `README.md` / `PACKAGES.md`(v0.2.3 行 + 自测清单)
 - `scripts/test-v0.2.3-hardening.mjs`(新;18 case)
 - `scripts/smoke-test.mjs`(K.1-K.5 静态断言)

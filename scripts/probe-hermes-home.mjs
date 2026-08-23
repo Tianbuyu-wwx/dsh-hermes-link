@@ -1,6 +1,6 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 // 探 ~/.hermes/ 实际结构, 列出会话文件位置 / 人设文件名 / settings 格式
-// 输出 JSON 到 stdout, 写到 ~/.dsh/hermes-link/probe.json (如目录不存在则建)
+// 输出 JSON 到 stdout, 写到 ~/.dsh/dsh-hermes-link/probe.json (如目录不存在则建)
 
 import { readdirSync, statSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -8,7 +8,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 
 const HERMES_HOME = join(homedir(), '.hermes');
-const OUT_DIR = join(homedir(), '.dsh', 'hermes-link');
+const OUT_DIR = join(homedir(), '.dsh', 'dsh-hermes-link');
 const OUT_FILE = join(OUT_DIR, 'probe.json');
 
 function safeStat(p) {

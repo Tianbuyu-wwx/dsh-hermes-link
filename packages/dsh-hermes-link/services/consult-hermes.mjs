@@ -1,4 +1,4 @@
-// services/consult-hermes.mjs
+﻿// services/consult-hermes.mjs
 //
 // D2: write a consult request to Hermes Home/inbox/dsh/consult/<ts>.json,
 // then poll Hermes Home/inbox/dsh/consult-reply/<ticket>-<secret>.json.
@@ -59,7 +59,7 @@ export function createConsultClient({ hermesHome, timeoutMs = DEFAULT_TIMEOUT_MS
       // <ticket>-<secret>.json. Without the secret suffix, the reply is
       // ignored (or, with HERMES_LINK_TRUST_LEGACY=1, accepted as legacy).
       reply_secret: secret,
-      version: 'hermes-link/0.2.2',
+      version: 'dsh-hermes-link/0.2.2',
     }
     try {
       atomicWriteJson(path, payload)
@@ -84,7 +84,7 @@ export function createConsultClient({ hermesHome, timeoutMs = DEFAULT_TIMEOUT_MS
       }
       await sleep(pollMs)
     }
-    return { status: 'pending', ticket, hint: `Hermes gateway did not reply within ${timeoutHint}ms. File: ${path} (secret suffix required since hermes-link v0.2.2).` }
+    return { status: 'pending', ticket, hint: `Hermes gateway did not reply within ${timeoutHint}ms. File: ${path} (secret suffix required since dsh-hermes-link v0.2.2).` }
   }
 
   function consumeReply(path, ticket, kind) {
@@ -117,7 +117,7 @@ export function createConsultClient({ hermesHome, timeoutMs = DEFAULT_TIMEOUT_MS
     try {
       atomicWriteJson(path, { ...result, ts: Date.now(), source: 'dsh' })
     } catch (e) {
-      console.error('[hermes-link] writeResult failed:', e && e.message || e)
+      console.error('[dsh-hermes-link] writeResult failed:', e && e.message || e)
     }
   }
 

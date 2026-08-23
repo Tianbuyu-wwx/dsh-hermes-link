@@ -1,4 +1,4 @@
-// services/amend-watcher.mjs
+﻿// services/amend-watcher.mjs
 //
 // H4: Hermes amends a running continuable sub-agent mid-task.
 //
@@ -169,7 +169,7 @@ export function createAmendWatcher({ hermesHome, ctx, continuations, pickParentA
       try {
         await deliver(full)
       } catch (e) {
-        console.warn('[hermes-link] amend deliver crashed:', e && e.message || e)
+        console.warn('[dsh-hermes-link] amend deliver crashed:', e && e.message || e)
       }
     }
   }

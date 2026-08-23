@@ -1,6 +1,6 @@
-# Plugin Developer Guide — for Hermes-side gateway developers
+﻿# Plugin Developer Guide — for Hermes-side gateway developers
 
-This guide is for the developer implementing the **Hermes side** of the bridge. If you're implementing a Hermes-side gateway that calls `hermes-link` over `POST /mcp/collab`, or one that reads from / writes to `Hermes Home/inbox/dsh/`, this document tells you exactly what shape to produce.
+This guide is for the developer implementing the **Hermes side** of the bridge. If you're implementing a Hermes-side gateway that calls `dsh-hermes-link` over `POST /mcp/collab`, or one that reads from / writes to `Hermes Home/inbox/dsh/`, this document tells you exactly what shape to produce.
 
 A reference implementation lives at [`scripts/hermes-gateway-demo.py`](../scripts/hermes-gateway-demo.py) — standalone Python poller demonstrating the consult-reply reader + amend writer + legacy fallback.
 
@@ -117,7 +117,7 @@ When `dispatch_task` is called with `mode: continuable`, DSH returns:
 
 ```json
 {
-  "content": [{ "type": "text", "text": "[hermes-link v0.2.4] continuable child_id=<child_id> ... amend filename pattern: <ts>-<task_id>-<amend_nonce>.json ..." }],
+  "content": [{ "type": "text", "text": "[dsh-hermes-link v0.2.4] continuable child_id=<child_id> ... amend filename pattern: <ts>-<task_id>-<amend_nonce>.json ..." }],
   "metadata": {
     "v0_2_status": "continuable_started",
     "task_id": "...",
@@ -194,7 +194,7 @@ File body:
 }
 ```
 
-`hermes-link`'s `amendWatcher` validates the nonce against the SQLite continuations registry and **only delivers** on a match. Mismatches and legacy two-segment names auto-archive to `done/`.
+`dsh-hermes-link`'s `amendWatcher` validates the nonce against the SQLite continuations registry and **only delivers** on a match. Mismatches and legacy two-segment names auto-archive to `done/`.
 
 ### Reference
 
@@ -311,7 +311,7 @@ The sub-agent's tool catalog is restricted to a single tool — the one named in
 
 ## 10. Audit log
 
-DSH writes to `~/.dsh/hermes-link/audit.jsonl` for every dispatch / consult / import. Hermes-side may want to tail this for ops visibility:
+DSH writes to `~/.dsh/dsh-hermes-link/audit.jsonl` for every dispatch / consult / import. Hermes-side may want to tail this for ops visibility:
 
 ```json
 {"ts":"2026-08-22T10:00:00Z","status":"completed","task_id":"...","skill":"...","model":"...","mode":"one-shot","elapsed_ms":12345,"real_tokens":{"total_tokens":1100,"surface_tokens":1000,"projected_tokens":1100,"pressure_tokens":1100,"baseline":0}}
@@ -325,7 +325,7 @@ Use `tools/call get_dispatch {limit: N}` to query it from Hermes.
 
 `tools/list` returns the full schema (JSON-Schema draft-07 dialect). Each method's `inputSchema` describes the `arguments` shape for `tools/call`.
 
-The HTTP variant `POST /mcp/collab` with `method: "tools/list"` returns the same catalog (raw `dispatch_spec.schema.json` is in [`packages/hermes-link/dispatch-spec.schema.json`](../packages/hermes-link/dispatch-spec.schema.json) for reference).
+The HTTP variant `POST /mcp/collab` with `method: "tools/list"` returns the same catalog (raw `dispatch_spec.schema.json` is in [`packages/dsh-hermes-link/dispatch-spec.schema.json`](../packages/dsh-hermes-link/dispatch-spec.schema.json) for reference).
 
 ---
 

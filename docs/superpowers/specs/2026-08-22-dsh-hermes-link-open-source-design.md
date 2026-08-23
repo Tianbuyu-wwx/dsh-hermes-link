@@ -1,4 +1,4 @@
-# hermes-link 开源工程 + dshmarket 适配 — Design Spec
+﻿# dsh-hermes-link 开源工程 + dshmarket 适配 — Design Spec
 
 > **Date**: 2026-08-22
 > **Path**: architectural (brainstorming)
@@ -10,9 +10,9 @@
 
 ## 1. Context
 
-`hermes-link` v0.2.3 (含 v0.2.4 hotfix 修复：turn 包络 0→1、损坏 artifact 重建、工具 output schema 归一化) 是 Hermes Agent ↔ DSH 的双向桥接插件。当前仓库 `dsh-hermes` 是 mono-repo，含 `packages/hermes-link/` + 旧三件套（hermes-foundation/-oneshot-arbitrate/-dispatch-bridge）留档。仓库缺少开源标配（LICENSE/CHANGELOG/CONTRIBUTING 等）和 dshmarket 安装必需的 `cordis.patch.yml`。
+`dsh-hermes-link` v0.2.3 (含 v0.2.4 hotfix 修复：turn 包络 0→1、损坏 artifact 重建、工具 output schema 归一化) 是 Hermes Agent ↔ DSH 的双向桥接插件。当前仓库 `dsh-hermes` 是 mono-repo，含 `packages/dsh-hermes-link/` + 旧三件套（hermes-foundation/-oneshot-arbitrate/-dispatch-bridge）留档。仓库缺少开源标配（LICENSE/CHANGELOG/CONTRIBUTING 等）和 dshmarket 安装必需的 `cordis.patch.yml`。
 
-`dsh-market` 已成熟（npm + GitHub Releases + 中央注册表 `awesome-dsh-plugin.com/plugins.json`，schema 已读：name/owner/url/category/description{zh,en}/npm?/stars?/downloads?/install/added），可一键安装 + 热启用 + 更新 + 备份。目标：让 hermes-link 走完开源 + 收录到 dshmarket 全流程。
+`dsh-market` 已成熟（npm + GitHub Releases + 中央注册表 `awesome-dsh-plugin.com/plugins.json`，schema 已读：name/owner/url/category/description{zh,en}/npm?/stars?/downloads?/install/added），可一键安装 + 热启用 + 更新 + 备份。目标：让 dsh-hermes-link 走完开源 + 收录到 dshmarket 全流程。
 
 ---
 
@@ -20,9 +20,9 @@
 
 | # | 维度 | 决定 |
 |---|---|---|
-| 1 | 仓库布局 | **方案 A**：拆新仓库 `github.com/Tianbuyu-wwx/hermes-link` |
+| 1 | 仓库布局 | **方案 A**：拆新仓库 `github.com/Tianbuyu-wwx/dsh-hermes-link` |
 | 2 | 旧三件套 | 留在 `dsh-hermes` 加 archive tag + README 横幅（不删、不迁出） |
-| 3 | 包名 | `@Tianbuyu-wwx/hermes-link`（个人 scope） |
+| 3 | 包名 | `@Tianbuyu-wwx/dsh-hermes-link`（个人 scope） |
 | 4 | 发布渠道 | npm publish + GitHub Releases 双轨，changesets 驱动 |
 | 5 | 文档语言 | 英文主（README/docs）+ 中文镜像（README.zh.md） |
 | 6 | LICENSE | MIT (Copyright 2026 Tianbuyu-wwx) |
@@ -36,7 +36,7 @@
 ## 3. Repository Tree
 
 ```
-hermes-link/
+dsh-hermes-link/
 ├── .github/
 │   ├── CODEOWNERS
 │   ├── FUNDING.yml
@@ -59,19 +59,19 @@ hermes-link/
 │   ├── hermes-upgrade-v0.2.2.md     # Hermes 端升级指南
 │   └── superpowers/
 │       └── specs/
-│           └── 2026-08-22-hermes-link-open-source-design.md  # 本 spec
+│           └── 2026-08-22-dsh-hermes-link-open-source-design.md  # 本 spec
 ├── packages/
-│   └── hermes-link/
+│   └── dsh-hermes-link/
 │       ├── index.mjs                 # v0.2.4（含 hotfix 修复）
 │       ├── cordis.patch.yml          # ★ 新建：dshmarket patch 必需
 │       ├── dispatch-spec.schema.json
-│       ├── package.json              # @Tianbuyu-wwx/hermes-link v0.2.4
+│       ├── package.json              # @Tianbuyu-wwx/dsh-hermes-link v0.2.4
 │       ├── import/
 │       ├── services/
 │       ├── tools/
 │       ├── http/
 │       └── skills/
-│           └── hermes-link/SKILL.md
+│           └── dsh-hermes-link/SKILL.md
 ├── scripts/
 │   ├── smoke-test.mjs
 │   ├── test-request-dump.mjs        # 含 case 9/10 turn 包络回归
@@ -105,14 +105,14 @@ hermes-link/
 
 ### Phase 1: Bootstrap 仓库
 1. mkdir 完整目录树 ✅
-2. 复制 `packages/hermes-link/` 全部代码 + `scripts/` 11 个 + `docs/` 留档 ✅
+2. 复制 `packages/dsh-hermes-link/` 全部代码 + `scripts/` 11 个 + `docs/` 留档 ✅
 3. 写 spec（本文档）
 
 ### Phase 2: 代码层修改
 4. 新建 `cordis.patch.yml`（dshmarket patch 必需）
-5. 重写 `packages/hermes-link/package.json`：`name: @Tianbuyu-wwx/hermes-link`, `version: 0.2.4`, 加 repository/homepage/bugs/author/engines/os/cpu/publishConfig
-6. `packages/hermes-link/index.mjs` `VERSION = '0.2.4'`
-7. `packages/hermes-link/http/dispatch.mjs` `VERSION = '0.2.4'`
+5. 重写 `packages/dsh-hermes-link/package.json`：`name: @Tianbuyu-wwx/dsh-hermes-link`, `version: 0.2.4`, 加 repository/homepage/bugs/author/engines/os/cpu/publishConfig
+6. `packages/dsh-hermes-link/index.mjs` `VERSION = '0.2.4'`
+7. `packages/dsh-hermes-link/http/dispatch.mjs` `VERSION = '0.2.4'`
 8. 新建 `scripts/version-bump.mjs`（应急本地 bump）
 
 ### Phase 3: 开源标准文档
@@ -146,7 +146,7 @@ hermes-link/
 30. 准备 `REGISTRY-ENTRY.json` 给用户的 PR 草稿（提交到 awesome-dsh-plugin 仓库）
 
 ### Phase 7: 旧仓库处理
-31. `dsh-hermes/README.md` 顶部加横幅 → 指向 `github.com/Tianbuyu-wwx/hermes-link`
+31. `dsh-hermes/README.md` 顶部加横幅 → 指向 `github.com/Tianbuyu-wwx/dsh-hermes-link`
 
 ### Phase 8: 收尾
 32. 探针验证 import-check（19 模块可加载）
@@ -159,7 +159,7 @@ hermes-link/
 
 | 风险 | 缓解 |
 |---|---|
-| npm scope `@Tianbuyu-wwx` 已被他人占用 | npmjs.com 搜 + 占用则改 `@dsh-external/hermes-link`（需 org 权限） |
+| npm scope `@Tianbuyu-wwx` 已被他人占用 | npmjs.com 搜 + 占用则改 `@dsh-external/dsh-hermes-link`（需 org 权限） |
 | `awesome-dsh-plugin` 仓库地址 ≠ 推断 | spec 注明待验证；提交 PR 前 web search 验证 |
 | GitHub Actions secrets（`NPM_TOKEN`）缺失 | release.yml 注释手动 fallback（`pnpm changeset publish` 本地） |
 | 旧 `dsh-hermes` 仓库用户 profile 的 link GBK 乱码路径 | README 横幅只指官方 dshmarket/npm 安装命令 |
@@ -171,7 +171,7 @@ hermes-link/
 - ✅ `node scripts/smoke-test.mjs` 静态结构 + 语法（77 项）
 - ✅ `node scripts/test-request-dump.mjs`（含 case 9/10 turn 包络回归）
 - ✅ `node scripts/import-check.mjs`（19 模块全量加载）
-- ✅ 探针 import-check：在 DSH 进程内动态 import 新仓库的 `packages/hermes-link/index.mjs` 等关键模块，无语法错误
+- ✅ 探针 import-check：在 DSH 进程内动态 import 新仓库的 `packages/dsh-hermes-link/index.mjs` 等关键模块，无语法错误
 - ✅ 探针 mkdir + copyFileSync 完整性：所有文件 size > 0
 
 ---

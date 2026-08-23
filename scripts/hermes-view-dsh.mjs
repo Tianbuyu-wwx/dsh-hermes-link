@@ -1,4 +1,4 @@
-// scripts/hermes-view-dsh.mjs — Hermes-side view of dsh's records.
+﻿// scripts/hermes-view-dsh.mjs — Hermes-side view of dsh's records.
 // Default cross-end sync: Hermes calls this to see what dsh has been
 // doing (audit log, continuable-child registry, recent dispatch results).
 
@@ -9,9 +9,9 @@ import { homedir } from 'node:os'
 
 const DSH_HOME = process.env.DSH_HOME || join(homedir(), '.dsh')
 
-// hermes-link state (consolidated plugin; old dispatch-bridge paths retired).
-const AUDIT_PATH = join(DSH_HOME, 'hermes-link', 'audit.jsonl')
-const SQLITE_PATH = join(DSH_HOME, 'hermes-link', 'continuables.sqlite')
+// dsh-hermes-link state (consolidated plugin; old dispatch-bridge paths retired).
+const AUDIT_PATH = join(DSH_HOME, 'dsh-hermes-link', 'audit.jsonl')
+const SQLITE_PATH = join(DSH_HOME, 'dsh-hermes-link', 'continuables.sqlite')
 const INBOX_LATEST = join(DSH_HOME, 'hermes-inbox', 'latest.md')
 
 const mode = process.argv[2] || 'all'

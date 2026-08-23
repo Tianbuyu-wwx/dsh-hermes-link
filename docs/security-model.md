@@ -1,6 +1,6 @@
-# Security Model
+﻿# Security Model
 
-`hermes-link` is a Cordis bundle that lives inside a DeepSeek Harness (DSH) web process and bridges two trust boundaries: a **Hermes Agent** process (the orchestrator) and the **DSH process** (the runtime). The bridge is exposed on `127.0.0.1:3080/mcp/collab*` by default.
+`dsh-hermes-link` is a Cordis bundle that lives inside a DeepSeek Harness (DSH) web process and bridges two trust boundaries: a **Hermes Agent** process (the orchestrator) and the **DSH process** (the runtime). The bridge is exposed on `127.0.0.1:3080/mcp/collab*` by default.
 
 This document walks through each defensive layer in the order they were added, with the file references and trust boundaries they enforce.
 
@@ -11,7 +11,7 @@ This document walks through each defensive layer in the order they were added, w
 |  Hermes Agent             |        |  DeepSeek Harness (DSH)   |
 |  (orchestrator)           |        |  (web profile, this repo) |
 |                           |  <-->  |                           |
-|  writes:                  |  HTTP  |  Cordis bundle hermes-link|
+|  writes:                  |  HTTP  |  Cordis bundle dsh-hermes-link|
 |   - amend/<ts>-…-nonce    |  127.0 |   - HTTP routes /mcp/collab* |
 |   - consult-reply/<t>-s   |   .0.1 |   - 8 Cordis tools       |
 |                           |   :3080|   - importer, watcher, … |
@@ -28,7 +28,7 @@ This document walks through each defensive layer in the order they were added, w
 
 ## Layer 0 — Trust placement
 
-DSH runs at the same privilege level as the host. The bridge runs **inside** the DSH process — anything hermes-link reads or writes is at host-privilege. **Trust Hermes first.** If Hermes runs as `root` / `Administrator`, the bridge inherits that.
+DSH runs at the same privilege level as the host. The bridge runs **inside** the DSH process — anything dsh-hermes-link reads or writes is at host-privilege. **Trust Hermes first.** If Hermes runs as `root` / `Administrator`, the bridge inherits that.
 
 DSH's sandbox (`workspace-write + ask` by default) does not restrict the bridge. The dispatched sub-agent inherits the parent's sandbox profile; **a deployment that wants to constrain dispatched sub-agents must constrain Hermes first.**
 
@@ -36,7 +36,7 @@ DSH's webserver binds to `127.0.0.1:3080` by default. **Do not expose it to the 
 
 ## Layer 1 (v0.2.1) — Disable main-session auto-injection
 
-**Code**: [`packages/hermes-link/index.mjs`](../packages/hermes-link/index.mjs), `agent/session-start` hook.
+**Code**: [`packages/dsh-hermes-link/index.mjs`](../packages/dsh-hermes-link/index.mjs), `agent/session-start` hook.
 
 **What it does**: On a fresh DSH session, do not auto-inject Hermes turns from `~/.dsh/hermes-inbox/session.jsonl` into the new session's event log.
 
@@ -48,7 +48,7 @@ DSH's webserver binds to `127.0.0.1:3080` by default. **Do not expose it to the 
 
 ## Layer 2 (v0.2.2 S1) — V4 session-mirror is opt-in
 
-**Code**: [`packages/hermes-link/tools/mirror-session-to-hermes.mjs`](../packages/hermes-link/tools/mirror-session-to-hermes.mjs) replaces the previous `ctx.on('session/event', …)` hook.
+**Code**: [`packages/dsh-hermes-link/tools/mirror-session-to-hermes.mjs`](../packages/dsh-hermes-link/tools/mirror-session-to-hermes.mjs) replaces the previous `ctx.on('session/event', …)` hook.
 
 **What it does**: Removes the auto-every-event mirror hook. The mirror tool is **only** invoked when a user calls `mirror_session_to_hermes` (or a Hermes-side dispatch chooses to mirror).
 
@@ -58,7 +58,7 @@ DSH's webserver binds to `127.0.0.1:3080` by default. **Do not expose it to the 
 
 ## Layer 3 (v0.2.2 S2) — H4 amend nonce
 
-**Code**: [`packages/hermes-link/services/continuations.mjs`](../packages/hermes-link/services/continuations.mjs) (nonce generation + validation); [`packages/hermes-link/services/amend-watcher.mjs`](../packages/hermes-link/services/amend-watcher.mjs) (filename parser).
+**Code**: [`packages/dsh-hermes-link/services/continuations.mjs`](../packages/dsh-hermes-link/services/continuations.mjs) (nonce generation + validation); [`packages/dsh-hermes-link/services/amend-watcher.mjs`](../packages/dsh-hermes-link/services/amend-watcher.mjs) (filename parser).
 
 **What it does**: `dispatch_task mode=continuable` returns `amend_nonce` (32 hex chars) in the response metadata. Amend files written by Hermes must be named `<ts>-<task_id>-<nonce>.json`; the watcher parses the filename, validates the nonce against the SQLite continuations registry, and **only delivers** if it matches.
 
@@ -68,7 +68,7 @@ DSH's webserver binds to `127.0.0.1:3080` by default. **Do not expose it to the 
 
 ## Layer 4 (v0.2.2 S3) — Consult reply_secret
 
-**Code**: [`packages/hermes-link/services/consult-hermes.mjs`](../packages/hermes-link/services/consult-hermes.mjs).
+**Code**: [`packages/dsh-hermes-link/services/consult-hermes.mjs`](../packages/dsh-hermes-link/services/consult-hermes.mjs).
 
 **What it does**: `consult(prompt, ctx, timeoutMs)` generates a 16-hex `reply_secret`, writes it into the consult inbox payload, and matches `consult-reply/<ticket>-<secret>.json` (the secret is encoded by the gateway from the outbox payload before writing the reply).
 
@@ -78,7 +78,7 @@ DSH's webserver binds to `127.0.0.1:3080` by default. **Do not expose it to the 
 
 ## Layer 5 (v0.2.2 S4) — Foundation slice is SOUL-only
 
-**Code**: [`packages/hermes-link/index.mjs`](../packages/hermes-link/index.mjs), `buildFoundationSlice(hermesHome)`.
+**Code**: [`packages/dsh-hermes-link/index.mjs`](../packages/dsh-hermes-link/index.mjs), `buildFoundationSlice(hermesHome)`.
 
 **What it does**: The persona envelope sent to every dispatched sub-agent contains **only `Hermes Home/SOUL.md`** — capped at 4096 chars. `MEMORY.md` is **never** broadcast.
 
@@ -88,7 +88,7 @@ DSH's webserver binds to `127.0.0.1:3080` by default. **Do not expose it to the 
 
 ## Layer 6 (v0.2.2 S4) — Cwd-scoped project-memory
 
-**Code**: [`packages/hermes-link/services/hermes-project-memory.mjs`](../packages/hermes-link/services/hermes-project-memory.mjs); [`packages/hermes-link/tools/load-hermes-project-memory.mjs`](../packages/hermes-link/tools/load-hermes-project-memory.mjs).
+**Code**: [`packages/dsh-hermes-link/services/hermes-project-memory.mjs`](../packages/dsh-hermes-link/services/hermes-project-memory.mjs); [`packages/dsh-hermes-link/tools/load-hermes-project-memory.mjs`](../packages/dsh-hermes-link/tools/load-hermes-project-memory.mjs).
 
 **What it does**: Read `MEMORY.md`, match its embedded cwd tags against `agent.session.header.cwd`. **Only the contiguous block tagged with that cwd is returned.** No match → empty result.
 
@@ -98,7 +98,7 @@ DSH's webserver binds to `127.0.0.1:3080` by default. **Do not expose it to the 
 
 ## Layer 7 (v0.2.3 K.2) — Cwd safety on import
 
-**Code**: [`packages/hermes-link/import/import-hermes-session.mjs`](../packages/hermes-link/import/import-hermes-session.mjs), `isSafeCwd(p)`.
+**Code**: [`packages/dsh-hermes-link/import/import-hermes-session.mjs`](../packages/dsh-hermes-link/import/import-hermes-session.mjs), `isSafeCwd(p)`.
 
 **What it does**: When importing a Hermes session, the session's `cwd` (read from Hermes `state.db`) is validated against:
 
@@ -116,7 +116,7 @@ If unsafe, `resolveCwd()` substitutes the hermes-workspace fallback (`~/.dsh/her
 
 ## Layer 8 (v0.2.3 K.3) — Mirror filename truncation
 
-**Code**: [`packages/hermes-link/services/outbox.mjs`](../packages/hermes-link/services/outbox.mjs), `appendSessionEvent`.
+**Code**: [`packages/dsh-hermes-link/services/outbox.mjs`](../packages/dsh-hermes-link/services/outbox.mjs), `appendSessionEvent`.
 
 **What it does**: Session IDs are unvalidated branded strings. When sanitized to a path-safe segment, the resulting filename is capped at 200 chars. Beyond that: head 184 chars + sha1(12 hex) tail.
 
@@ -124,7 +124,7 @@ If unsafe, `resolveCwd()` substitutes the hermes-workspace fallback (`~/.dsh/her
 
 ## Layer 9 (v0.2.3 K.5) — Redact cookie / set-cookie / session_id
 
-**Code**: [`packages/hermes-link/tools/mirror-session-to-hermes.mjs`](../packages/hermes-link/tools/mirror-session-to-hermes.mjs), `redactEvent`.
+**Code**: [`packages/dsh-hermes-link/tools/mirror-session-to-hermes.mjs`](../packages/dsh-hermes-link/tools/mirror-session-to-hermes.mjs), `redactEvent`.
 
 **What it does**: Extends the redact keyword list to 10+ secret shapes. Adds a Set-Cookie-specific regex (`(?:^|[\s;,])(?:cookie|set-cookie)\s*[:=]\s*([^\s"',;]+)`).
 
@@ -132,7 +132,7 @@ If unsafe, `resolveCwd()` substitutes the hermes-workspace fallback (`~/.dsh/her
 
 ## Layer 10 (v0.2.4) — Turn envelope = 1 (not 0)
 
-**Code**: [`packages/hermes-link/import/request-dump-to-events.mjs`](../packages/hermes-link/import/request-dump-to-events.mjs).
+**Code**: [`packages/dsh-hermes-link/import/request-dump-to-events.mjs`](../packages/dsh-hermes-link/import/request-dump-to-events.mjs).
 
 **What it does**: The converter emits `turn/start {turn: 1}`, `step/start {turn: 1, step: 0}`, every assistant/tool message envelope with `turn: 1`, `step/end {turn: 1, step: 0}`, and `turn/end {turn: 1, reason: …}`.
 
@@ -140,13 +140,13 @@ If unsafe, `resolveCwd()` substitutes the hermes-workspace fallback (`~/.dsh/her
 
 **Companion (also v0.2.4)** — auto-rebuild for already-corrupt artifacts:
 
-**Code**: [`packages/hermes-link/import/import-hermes-session.mjs`](../packages/hermes-link/import/import-hermes-session.mjs), `importSession()`.
+**Code**: [`packages/dsh-hermes-link/import/import-hermes-session.mjs`](../packages/dsh-hermes-link/import/import-hermes-session.mjs), `importSession()`.
 
 **What it does**: When `ctx.sessionPersistence.inspect(id)` throws a non-`not-found` error mentioning `failed validation` / `malformed`, remove the on-disk `session.jsonl.zstd` via `listArtifacts()` + `rmSync`, then fall through to `create + append` with the (now-correct) converter. Repairs the previous `already_imported + "persisted but inspect failed"` stuck state.
 
 ## Layer 11 (v0.2.4) — Tool output schema normalization
 
-**Code**: [`packages/hermes-link/tools/import-hermes-session.mjs`](../packages/hermes-link/tools/import-hermes-session.mjs).
+**Code**: [`packages/dsh-hermes-link/tools/import-hermes-session.mjs`](../packages/dsh-hermes-link/tools/import-hermes-session.mjs).
 
 **What it does**: Declares `firstUserSnippet`, `model`, `attach` in the output schema (previously undeclared → `additionalProperties: false` rejection). Execute normalizes nullable fields — drops undefined, keeps only well-typed values.
 

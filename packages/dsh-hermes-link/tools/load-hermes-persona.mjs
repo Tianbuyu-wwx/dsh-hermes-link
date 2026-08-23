@@ -1,4 +1,4 @@
-// tools/load-hermes-persona.mjs
+﻿// tools/load-hermes-persona.mjs
 //
 // V3 tool: load Hermes persona (SOUL.md + relevant config.yaml slices) into the
 // current session's working context. Returns text; the model decides how to use it.
@@ -38,9 +38,9 @@ export function createLoadHermesPersonaTool({ personaLoader, hermesHome }) {
       const out = personaLoader.loadPersona(hermesHome, { scope })
       const present = out.parts.filter((p) => p.present).map((p) => p.name)
       const hint = (requested === 'memory')
-        ? '\n\n<!-- hermes-link: scope="memory" was retired in v0.2.3; use load_hermes_project_memory for cwd-scoped Hermes memory. -->'
+        ? '\n\n<!-- dsh-hermes-link: scope="memory" was retired in v0.2.3; use load_hermes_project_memory for cwd-scoped Hermes memory. -->'
         : ''
-      return out.text + hint + `\n\n<!-- hermes-link: parts=${JSON.stringify(present)} -->`
+      return out.text + hint + `\n\n<!-- dsh-hermes-link: parts=${JSON.stringify(present)} -->`
     },
   })
 }

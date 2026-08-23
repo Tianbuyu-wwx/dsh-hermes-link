@@ -1,7 +1,7 @@
-// services/hermes-inbox.mjs
+﻿// services/hermes-inbox.mjs
 //
 // Shared conversation record between Hermes and DSH, migrated from the
-// retired hermes-foundation plugin (v0.6/v0.7 behavior) into hermes-link.
+// retired hermes-foundation plugin (v0.6/v0.7 behavior) into dsh-hermes-link.
 //
 // Conventions (unchanged from hermes-foundation, so Hermes-side scripts keep
 // working):
@@ -134,7 +134,7 @@ export function sessionHasHermesMarker(session) {
   if (!session || !Array.isArray(session.events)) return false
   for (const e of session.events) {
     // Accept both eras of the marker reason ('hermes-foundation:' pre-migration,
-    // 'hermes-link:' current) so already-injected sessions are never re-injected.
+    // 'dsh-hermes-link:' current) so already-injected sessions are never re-injected.
     if (e && e.type === 'compaction/start' && e.data && typeof e.data.reason === 'string'
       && e.data.reason.endsWith('hermes-inbox-injection-marker')) {
       return true
@@ -188,13 +188,13 @@ export function injectHermesTurns(ctx, agent) {
           id: 'hermes-injected-' + turn.ts + '-a',
           role: 'assistant',
           content: [{ type: 'text', text: '[Hermes] ' + turn.assistant }],
-          source: { kind: 'model', provider: 'hermes-link', model: 'history-sync' },
+          source: { kind: 'model', provider: 'dsh-hermes-link', model: 'history-sync' },
         },
       }, { surfaceOp: 'append' })
     }
   }
   session.append('compaction/start', {
-    reason: 'hermes-link: hermes-inbox-injection-marker',
+    reason: 'dsh-hermes-link: hermes-inbox-injection-marker',
     ts: new Date().toISOString(),
     turns_injected: tail.length,
   })
@@ -266,7 +266,7 @@ export function registerInboxTools(ctx) {
       return { path, total_turns: turns.length, returned: selected.length, turns: selected, content }
     },
   }))
-  console.log('[hermes-link v0.2] tool registered: hermes_inbox')
+  console.log('[dsh-hermes-link v0.2] tool registered: hermes_inbox')
 
   ctx.tools.register(defineTool({
     name: 'hermes_inbox_append',
@@ -327,7 +327,7 @@ export function registerInboxTools(ctx) {
       return { ok: true, path, ts, total_turns: total, size: Buffer.byteLength(line, 'utf8') }
     },
   }))
-  console.log('[hermes-link v0.2] tool registered: hermes_inbox_append')
+  console.log('[dsh-hermes-link v0.2] tool registered: hermes_inbox_append')
 
   // -------------------------------------------------------------------------
   // hermes_clear_injected — audit-only tool for sessions that were
@@ -346,7 +346,7 @@ export function registerInboxTools(ctx) {
   // -------------------------------------------------------------------------
   ctx.tools.register(defineTool({
     name: 'hermes_clear_injected',
-    description: 'Audit-only: report any Hermes turns that were automatically injected into the current main session by hermes-foundation v0.7 or hermes-link v0.2.0. Returns counts and an honest pointer to "start a new session" — DSH Session.events are append-only / deep-frozen and cannot be retroactively edited, so the only way to drop injected events is a fresh session. This tool does NOT modify any state; automatic injection is already disabled as of hermes-link v0.2.1.',
+    description: 'Audit-only: report any Hermes turns that were automatically injected into the current main session by hermes-foundation v0.7 or dsh-hermes-link v0.2.0. Returns counts and an honest pointer to "start a new session" — DSH Session.events are append-only / deep-frozen and cannot be retroactively edited, so the only way to drop injected events is a fresh session. This tool does NOT modify any state; automatic injection is already disabled as of dsh-hermes-link v0.2.1.',
     parameters: {},
     output: {
       schema: {
@@ -418,12 +418,12 @@ export function registerInboxTools(ctx) {
         delegation_depth: Number.isInteger(header.delegationDepth) ? header.delegationDepth : null,
         counts: { user_injected: userInjected, assistant_injected: asstInjected, marker_found: markerFound },
         total_injected_events: total,
-        note: 'DSH Session.events are append-only / deep-frozen; these events cannot be removed retroactively. Going forward, hermes-link v0.2.1+ no longer auto-injects on session-start, so a fresh session will not carry this contamination.',
+        note: 'DSH Session.events are append-only / deep-frozen; these events cannot be removed retroactively. Going forward, dsh-hermes-link v0.2.1+ no longer auto-injects on session-start, so a fresh session will not carry this contamination.',
         suggestion: 'open a New session in the DSH GUI; it will start without any injected Hermes turns.',
       }
     },
   }))
-  console.log('[hermes-link v0.2.1] tool registered: hermes_clear_injected')
+  console.log('[dsh-hermes-link v0.2.1] tool registered: hermes_clear_injected')
 }
 
 /** Health payload for GET /mcp/hermes-inbox/health (kept for hermes-push.mjs --status). */
@@ -441,7 +441,7 @@ export function inboxHealthPayload() {
   return {
     ok: true,
     version: '0.2.0',
-    mode: 'file-based (hermes-link)',
+    mode: 'file-based (dsh-hermes-link)',
     latest_path: latest,
     last_size: lastSize,
     last_ts: lastTs,

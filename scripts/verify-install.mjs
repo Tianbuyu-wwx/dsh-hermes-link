@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 // scripts/verify-install.mjs
 // Post-install structural verification. Checks DSH profile + Hermes config.
 // Idempotent — run anytime to confirm the install is intact.
@@ -25,16 +25,16 @@ function check(label, ok, detail = '') {
 // 1. DSH profile exists
 check('DSH profile exists', existsSync(dshProfile), dshProfile)
 
-// 2. hermes-link installed as junction / link
-const dst = join(dshProfile, 'node_modules', 'hermes-link')
+// 2. dsh-hermes-link installed as junction / link
+const dst = join(dshProfile, 'node_modules', 'dsh-hermes-link')
 const dstExists = existsSync(dst)
-check('hermes-link installed in node_modules', dstExists, dst)
+check('dsh-hermes-link installed in node_modules', dstExists, dst)
 if (dstExists) {
   const st = statSync(dst)
-  check('hermes-link is a directory', st.isDirectory())
-  check('hermes-link/index.mjs readable', existsSync(join(dst, 'index.mjs')))
-  check('hermes-link/cordis.patch.yml readable', existsSync(join(dst, 'cordis.patch.yml')))
-  check('hermes-link/package.json readable', existsSync(join(dst, 'package.json')))
+  check('dsh-hermes-link is a directory', st.isDirectory())
+  check('dsh-hermes-link/index.mjs readable', existsSync(join(dst, 'index.mjs')))
+  check('dsh-hermes-link/cordis.patch.yml readable', existsSync(join(dst, 'cordis.patch.yml')))
+  check('dsh-hermes-link/package.json readable', existsSync(join(dst, 'package.json')))
 }
 
 // 3. Old hermes-* packages should be removed
@@ -53,15 +53,15 @@ if (existsSync(pkgJsonPath)) {
   }
   if (pkgJson) {
     const deps = pkgJson.dependencies || {}
-    check('package.json has hermes-link dependency',
-      Object.keys(deps).includes('hermes-link'),
-      deps['hermes-link'] || '')
+    check('package.json has dsh-hermes-link dependency',
+      Object.keys(deps).includes('dsh-hermes-link'),
+      deps['dsh-hermes-link'] || '')
     for (const pkg of old) {
       check('package.json removed ' + pkg + ' dependency',
         !Object.keys(deps).includes(pkg))
     }
     const bundles = (pkgJson.dsh && pkgJson.dsh.profile && pkgJson.dsh.profile.bundles) || []
-    check('package.json bundles has hermes-link', bundles.includes('hermes-link'))
+    check('package.json bundles has dsh-hermes-link', bundles.includes('dsh-hermes-link'))
     for (const pkg of old) {
       check('package.json bundles removed ' + pkg, !bundles.includes(pkg))
     }
@@ -74,9 +74,9 @@ if (existsSync(pkgJsonPath)) {
 const cordisPatch = join(dshProfile, 'cordis.patch.yml')
 if (existsSync(cordisPatch)) {
   const cp = readFileSync(cordisPatch, 'utf8')
-  // hermes-link row, enabled (multiline; RegExp ctor for flags)
-  check('cordis.patch.yml has hermes-link enabled',
-    new RegExp('^- id: hermes-link\\b.*?disabled:\\s*false', 'ms').test(cp))
+  // dsh-hermes-link row, enabled (multiline; RegExp ctor for flags)
+  check('cordis.patch.yml has dsh-hermes-link enabled',
+    new RegExp('^- id: dsh-hermes-link\\b.*?disabled:\\s*false', 'ms').test(cp))
   // old rows still listed (disabled, idempotent)
   for (const pkg of old) {
     check('cordis.patch.yml still references ' + pkg + ' (disabled)',

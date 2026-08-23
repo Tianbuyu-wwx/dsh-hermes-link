@@ -1,6 +1,6 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 // scripts/test-services.mjs
-// Unit tests for hermes-link services/outbox.mjs (D3/D6/D7/V4),
+// Unit tests for dsh-hermes-link services/outbox.mjs (D3/D6/D7/V4),
 // services/continuations.mjs (P2-10 registry) and services/audit.mjs (D4).
 // No DSH runtime required — temp dirs only, plus node:sqlite.
 
@@ -11,10 +11,10 @@ import { join, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
-const outboxUrl  = pathToFileURL(join(root, 'packages', 'hermes-link', 'services', 'outbox.mjs')).href
-const contUrl    = pathToFileURL(join(root, 'packages', 'hermes-link', 'services', 'continuations.mjs')).href
-const auditUrl   = pathToFileURL(join(root, 'packages', 'hermes-link', 'services', 'audit.mjs')).href
-const memUrl     = pathToFileURL(join(root, 'packages', 'hermes-link', 'services', 'hermes-project-memory.mjs')).href
+const outboxUrl  = pathToFileURL(join(root, 'packages', 'dsh-hermes-link', 'services', 'outbox.mjs')).href
+const contUrl    = pathToFileURL(join(root, 'packages', 'dsh-hermes-link', 'services', 'continuations.mjs')).href
+const auditUrl   = pathToFileURL(join(root, 'packages', 'dsh-hermes-link', 'services', 'audit.mjs')).href
+const memUrl     = pathToFileURL(join(root, 'packages', 'dsh-hermes-link', 'services', 'hermes-project-memory.mjs')).href
 const { createOutbox } = await import(outboxUrl)
 const { openContinuations, waitForNextReply, validateAmendNonce } = await import(contUrl)
 const { appendAudit, readAuditLines, auditPath, stateDir } = await import(auditUrl)
@@ -27,7 +27,7 @@ function t(name, fn) {
 }
 
 function makeHome() {
-  const home = mkdtempSync(join(tmpdir(), 'hermes-link-svc-'))
+  const home = mkdtempSync(join(tmpdir(), 'dsh-hermes-link-svc-'))
   return { home, cleanup: () => { try { rmSync(home, { recursive: true, force: true }) } catch {} } }
 }
 
@@ -37,7 +37,7 @@ t('outbox D3: heartbeat writes latest.json with seq', () => {
   const { home, cleanup } = makeHome()
   try {
     const ob = createOutbox({ hermesHome: home })
-    const hb = ob.startHeartbeat(999999, { version: 'hermes-link/0.2' }) // no auto-fire
+    const hb = ob.startHeartbeat(999999, { version: 'dsh-hermes-link/0.2' }) // no auto-fire
     const latest = join(home, 'inbox', 'dsh', 'heartbeat', 'latest.json')
     assert.ok(existsSync(latest), 'latest.json exists after immediate beat')
     const rec = JSON.parse(readFileSync(latest, 'utf8'))
@@ -88,7 +88,7 @@ t('outbox V4: appendSessionEvent writes mirror JSONL (skips nothing here)', () =
 // -- continuations ------------------------------------------------------------
 
 t('continuations: register → get/getByTaskId/list → update → reopen persists', () => {
-  const state = mkdtempSync(join(tmpdir(), 'hermes-link-cont-'))
+  const state = mkdtempSync(join(tmpdir(), 'dsh-hermes-link-cont-'))
   try {
     const c1 = openContinuations(state)
     c1.register({
@@ -117,7 +117,7 @@ t('continuations: register → get/getByTaskId/list → update → reopen persis
 // -- audit --------------------------------------------------------------------
 
 t('audit: append + readAuditLines roundtrip', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'hermes-link-audit-'))
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-hermes-link-audit-'))
   const old = process.env.DSH_HOME
   process.env.DSH_HOME = dir
   try {
@@ -139,7 +139,7 @@ t('audit: append + readAuditLines roundtrip', () => {
 // -- continuations v0.2.2: amend_nonce round-trip ----------------------------
 
 t('continuations v0.2.2: register mints amend_nonce, persists across reopen, validates', () => {
-  const state = mkdtempSync(join(tmpdir(), 'hermes-link-cont-nonce-'))
+  const state = mkdtempSync(join(tmpdir(), 'dsh-hermes-link-cont-nonce-'))
   try {
     const c1 = openContinuations(state)
     const auto = c1.generateAmendNonce()
@@ -162,7 +162,7 @@ t('continuations v0.2.2: register mints amend_nonce, persists across reopen, val
 })
 
 t('continuations v0.2.2: caller-supplied amendNonce is honored (test/seam)', () => {
-  const state = mkdtempSync(join(tmpdir(), 'hermes-link-cont-supply-'))
+  const state = mkdtempSync(join(tmpdir(), 'dsh-hermes-link-cont-supply-'))
   try {
     const c = openContinuations(state)
     c.register({
@@ -178,7 +178,7 @@ t('continuations v0.2.2: caller-supplied amendNonce is honored (test/seam)', () 
 })
 
 t('continuations v0.2.2: pre-v0.2.2 DB schema is upgraded (ALTER ADD COLUMN)', async () => {
-  const state = mkdtempSync(join(tmpdir(), 'hermes-link-cont-upgrade-'))
+  const state = mkdtempSync(join(tmpdir(), 'dsh-hermes-link-cont-upgrade-'))
   try {
     const { DatabaseSync } = await import('node:sqlite')
     const db = new DatabaseSync(join(state, 'continuables.sqlite'))

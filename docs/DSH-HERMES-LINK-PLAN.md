@@ -1,9 +1,9 @@
-# Hermes ↔ DSH Link 方案 (v2)
+﻿# Hermes ↔ DSH Link 方案 (v2)
 
-> **状态:已于 2026-08-21 全部实现**(hermes-link v0.2.0,见 `docs/delivery-v0.6.0-20260821.md`)。本文件保留为设计档案。
+> **状态:已于 2026-08-21 全部实现**(dsh-hermes-link v0.2.0,见 `docs/delivery-v0.6.0-20260821.md`)。本文件保留为设计档案。
 > 与原文的差异:DSH→Hermes 通道采用文件协议(Hermes gateway 无公开 consult 端点);SSE 流与反向隧道未实现(路线图保留)。
 
-> 单一 Cordis 插件 `hermes-link` 取代旧的 hermes-foundation / hermes-oneshot-arbitrate / hermes-dispatch-bridge 三件套。
+> 单一 Cordis 插件 `dsh-hermes-link` 取代旧的 hermes-foundation / hermes-oneshot-arbitrate / hermes-dispatch-bridge 三件套。
 > Hermes 与 DSH **双向对称**互通：**用户视图级**（侧边栏会话合并 + 人设/记忆按需加载） + **agent 级**（任务 dispatch + 主动咨询）。
 
 ---
@@ -47,7 +47,7 @@ mcp_servers:
 ### 新方案核心取舍
 | 取舍 | 旧 | 新 |
 |---|---|---|
-| 插件数 | 3 | **1** `hermes-link` |
+| 插件数 | 3 | **1** `dsh-hermes-link` |
 | Hermes→DSH 下行 | `/mcp/dispatch` | `/mcp/collab`（路径改，Hermes 端 config 改 URL 即可） |
 | DSH→Hermes 上行 | 仅子 agent CLI 兜底 | **走 Hermes gateway HTTP API**（Hermes 自带 gateway）+ 文件 fallback |
 | 用户视图同步 | ❌ 没有 | ✅ **侧边栏合并**（DSH Session + Hermes Session 共列） |
@@ -81,7 +81,7 @@ mcp_servers:
 | D3-D7 | 心跳/usage/session-tap/audit/memory-suggest | 文件 | - | ⏭ TODO |
 
 ### 共享根目录
-`C:\Users\Tianbuyu\AppData\Local\hermes\`（**用 Hermes 自己的家目录**，不另起 ~/.dsh/hermes-link/）
+`C:\Users\Tianbuyu\AppData\Local\hermes\`（**用 Hermes 自己的家目录**，不另起 ~/.dsh/dsh-hermes-link/）
 ```
 Hermes Home/
 ├── SOUL.md                                 # V3: 人设按需加载
@@ -104,12 +104,12 @@ Hermes Home/
          Hermes (Electron + Python venv)              DSH (Cordis)
                        │                                       │
         ┌──────────────┴──────────────┐         ┌─────────────┴─────────────┐
-        │  python -m hermes_cli.main │         │  packages/hermes-link/   │
+        │  python -m hermes_cli.main │         │  packages/dsh-hermes-link/   │
         │  gateway run                │         │  ├── index.mjs            │
         │  ↓                           │         │  │   - /mcp/collab (HTTP)  │
         │  Hermes Gateway HTTP API    │◄───────►│  │   - session-importer    │
         │  (port ?, see §4)            │  HTTP   │  │   - persona-loader tool │
-        │  ↓                           │         │  │   - hermes-link sv      │
+        │  ↓                           │         │  │   - dsh-hermes-link sv      │
         │  sessions/ skills/ memories/ │         │  ├── package.json         │
         │  SOUL.md config.yaml state.db│   fs    │  ├── cordis.patch.yml     │
         └─────────────────────────────┘◄───────►└──────┬──────────────────────┘
@@ -229,7 +229,7 @@ POST http://127.0.0.1:<HERMES_GATEWAY_PORT>/v1/consult
    This session was imported from Hermes session <hermes_session_id>.
    You have full historical context. Continue development seamlessly.
    When the user requests operations that would normally be done in Hermes
-   (SOUL/MEMORY/skills edit), call the corresponding hermes-link tool.
+   (SOUL/MEMORY/skills edit), call the corresponding dsh-hermes-link tool.
    </hermes-imported-from>
    ```
 7. session-title 自动生成（已有 dsh-session-title-first-prompt-llm，会用 Hermes 首条 user msg 做标题）
@@ -258,18 +258,18 @@ POST http://127.0.0.1:<HERMES_GATEWAY_PORT>/v1/consult
 
 ### 安装
 ```powershell
-pwsh -File scripts/install-hermes-link.ps1
+pwsh -File scripts/install-dsh-hermes-link.ps1
 ```
 动作：
 1. unlink 旧 4 个 hermes-* node_modules (`hermes-foundation`, `-oneshot-arbitrate`, `-dispatch-bridge`, `-dsh-collab`)
-2. symlink `packages/hermes-link` → `~/.dsh/profiles/web/node_modules/hermes-link`
-3. patch `~/.dsh/profiles/web/cordis.config.yml` 注册 hermes-link 服务
+2. symlink `packages/dsh-hermes-link` → `~/.dsh/profiles/web/node_modules/dsh-hermes-link`
+3. patch `~/.dsh/profiles/web/cordis.config.yml` 注册 dsh-hermes-link 服务
 4. 提示用户改 Hermes `config.yaml`:
    - `mcp_servers.dsh-bridge.url`: `http://127.0.0.1:3080/mcp/dispatch` → `http://127.0.0.1:3080/mcp/collab`
 
 ### 卸载
 ```powershell
-pwsh -File scripts/uninstall-hermes-link.ps1
+pwsh -File scripts/uninstall-dsh-hermes-link.ps1
 ```
 反向操作，保留 Hermes 数据目录不动。
 
@@ -299,21 +299,21 @@ node scripts/verify-install.mjs                   # 装完 5 项核验
 
 ## 7. 实施 TODO 列表
 
-1. ✅ 写 `docs/HERMES-LINK-PLAN.md` (本文件)
+1. ✅ 写 `docs/dsh-hermes-link-PLAN.md` (本文件)
 2. 探 Hermes gateway 端口（读 hermes_cli 或 gateway_state.json）
-3. 写 `packages/hermes-link/index.mjs` 主入口
-4. 写 `packages/hermes-link/import/request-dump-to-events.mjs` (V2 格式转换)
-5. 写 `packages/hermes-link/import/import-hermes-session.mjs` (V2 service)
-6. 写 `packages/hermes-link/services/hermes-gateway-client.mjs` (D1/D2)
-7. 写 `packages/hermes-link/tools/consult-hermes.mjs` (D2)
-8. 写 `packages/hermes-link/tools/load-hermes-persona.mjs` (V3)
-9. 写 `packages/hermes-link/tools/list-hermes-sessions.mjs` (V1)
-10. 写 `packages/hermes-link/tools/import-hermes-session.mjs` (V2 tool)
-11. 写 `packages/hermes-link/http/dispatch.mjs` (H1 /mcp/collab)
-12. 写 `packages/hermes-link/cordis.patch.yml`
-13. 写 `packages/hermes-link/package.json`
-14. 写 `scripts/install-hermes-link.ps1` (含 unlink 旧 4 个)
-15. 写 `scripts/uninstall-hermes-link.ps1`
+3. 写 `packages/dsh-hermes-link/index.mjs` 主入口
+4. 写 `packages/dsh-hermes-link/import/request-dump-to-events.mjs` (V2 格式转换)
+5. 写 `packages/dsh-hermes-link/import/import-hermes-session.mjs` (V2 service)
+6. 写 `packages/dsh-hermes-link/services/hermes-gateway-client.mjs` (D1/D2)
+7. 写 `packages/dsh-hermes-link/tools/consult-hermes.mjs` (D2)
+8. 写 `packages/dsh-hermes-link/tools/load-hermes-persona.mjs` (V3)
+9. 写 `packages/dsh-hermes-link/tools/list-hermes-sessions.mjs` (V1)
+10. 写 `packages/dsh-hermes-link/tools/import-hermes-session.mjs` (V2 tool)
+11. 写 `packages/dsh-hermes-link/http/dispatch.mjs` (H1 /mcp/collab)
+12. 写 `packages/dsh-hermes-link/cordis.patch.yml`
+13. 写 `packages/dsh-hermes-link/package.json`
+14. 写 `scripts/install-dsh-hermes-link.ps1` (含 unlink 旧 4 个)
+15. 写 `scripts/uninstall-dsh-hermes-link.ps1`
 16. 写 4 个测试脚本
 17. 更新根 README.md + PACKAGES.md（删旧三件套表）
 
@@ -339,13 +339,13 @@ node scripts/verify-install.mjs                   # 装完 5 项核验
 
 ```
 dsh-hermes/
-├── README.md                              # 改: 单列 hermes-link
+├── README.md                              # 改: 单列 dsh-hermes-link
 ├── PACKAGES.md                            # 改: 移除三件套表
 ├── docs/
-│   ├── HERMES-LINK-PLAN.md                # 你正在看
+│   ├── dsh-hermes-link-PLAN.md                # 你正在看
 │   └── dispatch-spec.md                   # 新: H1 协议文档
 ├── packages/
-│   └── hermes-link/
+│   └── dsh-hermes-link/
 │       ├── index.mjs                      # Cordis 入口
 │       ├── package.json
 │       ├── cordis.patch.yml
@@ -356,7 +356,7 @@ dsh-hermes/
 │       ├── services/
 │       │   ├── hermes-gateway-client.mjs  # D1/D2 client
 │       │   ├── hermes-session-watcher.mjs # V1 fs.watch
-│       │   └── hermes-link.mjs            # 主 service 容器
+│       │   └── dsh-hermes-link.mjs            # 主 service 容器
 │       ├── tools/
 │       │   ├── consult-hermes.mjs         # D2
 │       │   ├── load-hermes-persona.mjs    # V3
@@ -365,10 +365,10 @@ dsh-hermes/
 │       ├── http/
 │       │   ├── dispatch.mjs               # H1
 │       │   └── health.mjs
-│       └── skills/hermes-link/SKILL.md
+│       └── skills/dsh-hermes-link/SKILL.md
 └── scripts/
-    ├── install-hermes-link.ps1            # 含 unlink 旧 4 个
-    ├── uninstall-hermes-link.ps1
+    ├── install-dsh-hermes-link.ps1            # 含 unlink 旧 4 个
+    ├── uninstall-dsh-hermes-link.ps1
     ├── smoke-test.mjs
     ├── test-import-request-dump.mjs       # 新
     ├── test-dispatch-schema.mjs

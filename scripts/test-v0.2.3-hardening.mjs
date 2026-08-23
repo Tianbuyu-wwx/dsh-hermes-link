@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 // scripts/test-v0.2.3-hardening.mjs
 // Unit tests for the v0.2.3 hotfix (K.1–K.5).
 //
@@ -25,9 +25,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createHash } from 'node:crypto'
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
-const personaUrl = pathToFileURL(join(root, 'packages', 'hermes-link', 'services', 'persona-loader.mjs')).href
-const outboxUrl  = pathToFileURL(join(root, 'packages', 'hermes-link', 'services', 'outbox.mjs')).href
-const mirrorUrl  = pathToFileURL(join(root, 'packages', 'hermes-link', 'tools', 'mirror-session-to-hermes.mjs')).href
+const personaUrl = pathToFileURL(join(root, 'packages', 'dsh-hermes-link', 'services', 'persona-loader.mjs')).href
+const outboxUrl  = pathToFileURL(join(root, 'packages', 'dsh-hermes-link', 'services', 'outbox.mjs')).href
+const mirrorUrl  = pathToFileURL(join(root, 'packages', 'dsh-hermes-link', 'tools', 'mirror-session-to-hermes.mjs')).href
 const { loadPersona } = await import(personaUrl)
 const { createOutbox } = await import(outboxUrl)
 const { redactEvent } = await import(mirrorUrl)
@@ -39,7 +39,7 @@ function t(name, fn) {
 }
 
 function makeHome() {
-  const home = mkdtempSync(join(tmpdir(), 'hermes-link-v023-'))
+  const home = mkdtempSync(join(tmpdir(), 'dsh-hermes-link-v023-'))
   return { home, cleanup: () => { try { rmSync(home, { recursive: true, force: true }) } catch {} } }
 }
 
@@ -114,7 +114,7 @@ t('K.1: when SOUL.md is missing, scope=all returns only config (no error)', () =
 // module and inspecting its exports.
 
 t('K.2: module still exports the surface (smoke that K.2 refactor is reachable)', async () => {
-  const mod = await import(pathToFileURL(join(root, 'packages', 'hermes-link', 'import', 'import-hermes-session.mjs')).href)
+  const mod = await import(pathToFileURL(join(root, 'packages', 'dsh-hermes-link', 'import', 'import-hermes-session.mjs')).href)
   assert.equal(typeof mod.createImporter, 'function', 'createImporter exported')
 })
 
@@ -175,7 +175,7 @@ t('K.2: legitimate user workspace paths are accepted', () => {
     'c:/Users/Bob/dev/myapp',
     '/home/carol/work/agent',
     '/Users/dave/code',
-    'D:\\projects\\.hermes-link',
+    'D:\\projects\\.dsh-hermes-link',
     '/srv/data',                  // /srv is NOT in forbidden list
   ]
   for (const p of good) {

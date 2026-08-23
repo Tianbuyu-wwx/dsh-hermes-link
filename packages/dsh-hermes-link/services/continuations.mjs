@@ -1,4 +1,4 @@
-// services/continuations.mjs
+﻿// services/continuations.mjs
 //
 // Durable registry for continuable dispatch children (P2-10). SQLite-backed
 // (survives dsh restart), same shape as the retired hermes-dispatch-bridge
@@ -12,7 +12,7 @@ import { randomBytes } from 'node:crypto'
 
 /**
  * Open (create if needed) the continuations state DB.
- * @param {string} stateDir directory (~/.dsh/hermes-link)
+ * @param {string} stateDir directory (~/.dsh/dsh-hermes-link)
  * @returns {object} { db, register, update, get, list, count, waitForNextReply }
  */
 export function openContinuations(stateDir) {

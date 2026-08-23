@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 // scripts/test-amend-security.mjs
 // Unit tests for the v0.2.2 amend filename + nonce protocol.
 // Covers:
@@ -15,8 +15,8 @@ import { join, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
-const amendWatcherUrl = pathToFileURL(join(root, 'packages', 'hermes-link', 'services', 'amend-watcher.mjs')).href
-const continuationsUrl = pathToFileURL(join(root, 'packages', 'hermes-link', 'services', 'continuations.mjs')).href
+const amendWatcherUrl = pathToFileURL(join(root, 'packages', 'dsh-hermes-link', 'services', 'amend-watcher.mjs')).href
+const continuationsUrl = pathToFileURL(join(root, 'packages', 'dsh-hermes-link', 'services', 'continuations.mjs')).href
 const { createAmendWatcher } = await import(amendWatcherUrl)
 const { openContinuations } = await import(continuationsUrl)
 
@@ -27,7 +27,7 @@ function t(name, fn) {
 }
 
 function makeHome() {
-  const home = mkdtempSync(join(tmpdir(), 'hermes-link-amend-'))
+  const home = mkdtempSync(join(tmpdir(), 'dsh-hermes-link-amend-'))
   return { home, cleanup: () => { try { rmSync(home, { recursive: true, force: true }) } catch {} } }
 }
 

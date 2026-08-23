@@ -1,6 +1,6 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 // scripts/import-check.mjs
-// Full module-load check for every hermes-link source file (imports resolve,
+// Full module-load check for every dsh-hermes-link source file (imports resolve,
 // top-level code runs). Requires the repo-local node_modules/@deepseek-ai
 // junction (points at the DSH harness checkout) for dsh package imports.
 // No DSH runtime required — only module loading, no ctx wiring.
@@ -9,25 +9,25 @@ const root = new URL('..', import.meta.url).pathname.replace(/\\/g, '/')
 const url = (p) => new URL('../' + p, import.meta.url).href
 
 const modules = [
-  'packages/hermes-link/index.mjs',
-  'packages/hermes-link/import/request-dump-to-events.mjs',
-  'packages/hermes-link/import/import-hermes-session.mjs',
-  'packages/hermes-link/services/hermes-session-watcher.mjs',
-  'packages/hermes-link/services/persona-loader.mjs',
-  'packages/hermes-link/services/consult-hermes.mjs',
-  'packages/hermes-link/services/hermes-inbox.mjs',
-  'packages/hermes-link/services/outbox.mjs',
-  'packages/hermes-link/services/continuations.mjs',
-  'packages/hermes-link/services/amend-watcher.mjs',
-  'packages/hermes-link/services/audit.mjs',
-  'packages/hermes-link/services/hermes-project-memory.mjs',
-  'packages/hermes-link/http/dispatch.mjs',
-  'packages/hermes-link/tools/list-hermes-sessions.mjs',
-  'packages/hermes-link/tools/import-hermes-session.mjs',
-  'packages/hermes-link/tools/load-hermes-persona.mjs',
-  'packages/hermes-link/tools/consult-hermes.mjs',
-  'packages/hermes-link/tools/mirror-session-to-hermes.mjs',
-  'packages/hermes-link/tools/load-hermes-project-memory.mjs',
+  'packages/dsh-hermes-link/index.mjs',
+  'packages/dsh-hermes-link/import/request-dump-to-events.mjs',
+  'packages/dsh-hermes-link/import/import-hermes-session.mjs',
+  'packages/dsh-hermes-link/services/hermes-session-watcher.mjs',
+  'packages/dsh-hermes-link/services/persona-loader.mjs',
+  'packages/dsh-hermes-link/services/consult-hermes.mjs',
+  'packages/dsh-hermes-link/services/hermes-inbox.mjs',
+  'packages/dsh-hermes-link/services/outbox.mjs',
+  'packages/dsh-hermes-link/services/continuations.mjs',
+  'packages/dsh-hermes-link/services/amend-watcher.mjs',
+  'packages/dsh-hermes-link/services/audit.mjs',
+  'packages/dsh-hermes-link/services/hermes-project-memory.mjs',
+  'packages/dsh-hermes-link/http/dispatch.mjs',
+  'packages/dsh-hermes-link/tools/list-hermes-sessions.mjs',
+  'packages/dsh-hermes-link/tools/import-hermes-session.mjs',
+  'packages/dsh-hermes-link/tools/load-hermes-persona.mjs',
+  'packages/dsh-hermes-link/tools/consult-hermes.mjs',
+  'packages/dsh-hermes-link/tools/mirror-session-to-hermes.mjs',
+  'packages/dsh-hermes-link/tools/load-hermes-project-memory.mjs',
 ]
 
 let failed = 0

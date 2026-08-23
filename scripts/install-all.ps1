@@ -13,14 +13,14 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$installer = Join-Path $scriptDir 'install-hermes-link.ps1'
+$installer = Join-Path $scriptDir 'install-dsh-hermes-link.ps1'
 
 if (-not (Test-Path $installer)) {
-  throw "install-hermes-link.ps1 not found next to install-all.ps1"
+  throw "install-dsh-hermes-link.ps1 not found next to install-all.ps1"
 }
 
-Write-Host '[install-all] legacy entry point — delegating to install-hermes-link.ps1' -ForegroundColor Cyan
-Write-Host '[install-all] (hermes-foundation / -oneshot-arbitrate / -dispatch-bridge were consolidated into hermes-link)' -ForegroundColor DarkGray
+Write-Host '[install-all] legacy entry point — delegating to install-dsh-hermes-link.ps1' -ForegroundColor Cyan
+Write-Host '[install-all] (hermes-foundation / -oneshot-arbitrate / -dispatch-bridge were consolidated into dsh-hermes-link)' -ForegroundColor DarkGray
 
 if ($Profile -ne 'web') {
   $dshHome = if ($env:DSH_HOME) { $env:DSH_HOME } else { Join-Path $env:USERPROFILE '.dsh' }

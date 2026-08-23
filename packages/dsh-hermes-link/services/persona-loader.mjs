@@ -1,4 +1,4 @@
-// services/persona-loader.mjs
+﻿// services/persona-loader.mjs
 //
 // V3: read Hermes persona (SOUL.md) + relevant config.yaml slices, return
 // as a single human-readable text blob the model can prepend to its working
@@ -70,14 +70,14 @@ export function loadPersona(hermesHome, { scope = 'all' } = {}) {
   // v0.2.3 — legacy scope='memory' no longer reads MEMORY.md; emit a one-line
   // migration hint so callers that still pass it see the right pointer.
   if (scope === 'memory') {
-    parts.push('<!-- hermes-link: scope="memory" is retired in v0.2.3; use load_hermes_project_memory for cwd-scoped Hermes memory. -->')
+    parts.push('<!-- dsh-hermes-link: scope="memory" is retired in v0.2.3; use load_hermes_project_memory for cwd-scoped Hermes memory. -->')
     used.push({ name: 'MEMORY.md', bytes: 0, present: false, note: 'removed in v0.2.3 — use load_hermes_project_memory' })
   }
 
   let text = parts.join('\n\n')
   if (text.length > MAX_BYTES_TOTAL) {
     text = text.slice(0, MAX_BYTES_TOTAL) +
-      `\n<!-- hermes-link: truncated at ${MAX_BYTES_TOTAL} bytes; fetch individual files for more -->`
+      `\n<!-- dsh-hermes-link: truncated at ${MAX_BYTES_TOTAL} bytes; fetch individual files for more -->`
   }
   return { text, parts: used }
 }

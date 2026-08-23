@@ -1,4 +1,4 @@
-// services/hermes-project-memory.mjs
+﻿// services/hermes-project-memory.mjs
 //
 // v0.2.2 — cwd-scoped Hermes memory slice.
 //
@@ -107,7 +107,7 @@ export async function buildProjectMemorySlice(hermesHome, dshCwd) {
   const collected = hit.map((idx) => lines[idx]).join('\n')
   let out = `<!-- Hermes project-memory (cwd=${dshCwd}; matched ${matchedCount} state.db session(s)) -->\n` + collected
   if (out.length > MAX_BYTES) {
-    out = out.slice(0, MAX_BYTES) + `\n<!-- hermes-link: truncated at ${MAX_BYTES} bytes; full MEMORY.md at ${memPath} -->`
+    out = out.slice(0, MAX_BYTES) + `\n<!-- dsh-hermes-link: truncated at ${MAX_BYTES} bytes; full MEMORY.md at ${memPath} -->`
   }
   return out
 }

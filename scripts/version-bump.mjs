@@ -1,10 +1,10 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 // scripts/version-bump.mjs
 // Local emergency version bump (bypass changesets when needed):
 //   node scripts/version-bump.mjs 0.2.5
 //
 // Updates VERSION constants in index.mjs + http/dispatch.mjs and
-// packages/hermes-link/package.json. Run from repo root.
+// packages/dsh-hermes-link/package.json. Run from repo root.
 //
 // Normal workflow: use changesets (`pnpm changeset`), then
 // `pnpm changeset version` before publishing. This script exists for
@@ -22,9 +22,9 @@ if (!next || !/^\d+\.\d+\.\d+(?:[-+].*)?$/.test(next)) {
 }
 
 const root = resolve(import.meta.dirname, '..');
-const pkgPath = resolve(root, 'packages/hermes-link/package.json');
-const indexPath = resolve(root, 'packages/hermes-link/index.mjs');
-const dispatchPath = resolve(root, 'packages/hermes-link/http/dispatch.mjs');
+const pkgPath = resolve(root, 'packages/dsh-hermes-link/package.json');
+const indexPath = resolve(root, 'packages/dsh-hermes-link/index.mjs');
+const dispatchPath = resolve(root, 'packages/dsh-hermes-link/http/dispatch.mjs');
 
 function bumpFile(p, replacer) {
   const before = readFileSync(p, 'utf8');

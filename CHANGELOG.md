@@ -1,11 +1,41 @@
 # Changelog
 
-All notable changes to **hermes-link** will be documented in this file.
+All notable changes to **dsh-hermes-link** will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-> Note: Pre-v0.2 versions lived in the `dsh-hermes` monorepo (`packages/hermes-link/`) alongside the deprecated `hermes-foundation / -oneshot-arbitrate / -dispatch-bridge` triad. The history below is mirrored from that repository's `docs/delivery-v0.6.0-20260821.md`.
+> Note: Pre-v0.2 versions lived in the `dsh-hermes` monorepo (`packages/dsh-hermes-link/`) alongside the deprecated `hermes-foundation / -oneshot-arbitrate / -dispatch-bridge` triad. The history below is mirrored from that repository's `docs/delivery-v0.6.0-20260821.md`.
+
+---
+
+## [0.2.5] — 2026-08-23
+
+### Changed (BREAKING)
+- **Plugin id rename: `hermes-link` → `dsh-hermes-link`** — Cordis bundle id, install/uninstall script names, npm package, GitHub repo, local paths, all log prefixes (`[dsh-hermes-link]`), HTTP header names (`x-dsh-hermes-link-*`), cordis provider name, dispatch `serverInfo.name`, imported-history `provider` field, label prefixes, doc titles, and internal id references are all renamed. The functional surface (tools, routes, file protocols) is unchanged.
+- **npm package**: `@tianbuyu-wwx/dsh-hermes-link` v0.2.5 (was `@tianbuyu-wwx/dsh-hermes-link` v0.2.4 in the same scope — note the npm scope `@tianbuyu-wwx` is unchanged; only the package-name segment after the slash moved from `dsh-hermes-link` to `dsh-hermes-link`).
+- **GitHub repo**: `github.com/Tianbuyu-wwx/dsh-hermes-link` (was `…/dsh-hermes-link`).
+- **Local install path**: `node_modules/dsh-hermes-link` (was `node_modules/dsh-hermes-link`).
+- **Skills folder**: `skills/dsh-hermes-link/SKILL.md` (was `skills/dsh-hermes-link/SKILL.md`); users who relied on `@skill dsh-hermes-link` must switch to `@skill dsh-hermes-link`.
+- **Audit + continuation state**: `~/.dsh/dsh-hermes-link/{audit.jsonl,continuables.sqlite}` (was `~/.dsh/dsh-hermes-link/…`); install script auto-renames the legacy directory on first run.
+- **Install / uninstall scripts**: `scripts/install-dsh-hermes-link.ps1` + `scripts/uninstall-dsh-hermes-link.ps1` (was `install-dsh-hermes-link.ps1` + `uninstall-dsh-hermes-link.ps1`).
+- **Backup filename for Hermes `config.yaml`**: `.bak.dsh-hermes-link.<ts>` (was `.bak.dsh-hermes-link.<ts>`).
+
+### Migration from v0.2.4 (hermes-link)
+1. Pull v0.2.5 from npm: `npm install -g @tianbuyu-wwx/dsh-hermes-link` (or use the install script in the new repo).
+2. Run the new install script — it:
+   - auto-renames `~/.dsh/dsh-hermes-link/` → `~/.dsh/dsh-hermes-link/` (audit + continuables are preserved),
+   - unlinks the legacy `node_modules/dsh-hermes-link` junction,
+   - disables the legacy `- id: dsh-hermes-link` row in profile `cordis.patch.yml` (with a comment pointing at the new id; harmless while disabled),
+   - adds the enabled `- id: dsh-hermes-link` row,
+   - writes the new symlink + adds `dsh-hermes-link` to `dependencies` + `bundles` in profile `package.json`.
+3. Restart DSH web. Old tooling (`@skill dsh-hermes-link`) will no longer match the skill id — use `@skill dsh-hermes-link` instead.
+4. Existing Hermes-side scripts (those that read/write `Hermes Home/inbox/dsh/…`) do not change; only the human-readable log prefixes and the optional `version` string in the file envelope are renamed (`hermes-link/X.Y.Z` → `dsh-hermes-link/X.Y.Z`).
+
+### Notes
+- Functional behavior, all 161 unit / smoke / import-check tests, and the Hermes-side wire protocol (dispatch, consult, amend) are unchanged.
+- Legacy id `dsh-hermes-link` is kept **disabled** in `cordis.patch.yml` after migration so DSH still boots cleanly; remove it manually if you want a fully clean patch file.
+- `hermes-foundation / -oneshot-arbitrate / -dispatch-bridge / -dsh-collab` plugin rows remain disabled as before; this rename only affects the active `dsh-hermes-link` id.
 
 ---
 
@@ -20,7 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `dispatch_probe` MCP tool — zero-cost tool-name validation against `ctx.tools.view().restrictableNames`. Prevents Hermes from burning an LLM turn on a typo'd `skill`.
 - UTF-8 chunk-safe `readAllStream` (chunk-boundary multi-byte mojibake fix) and `content-type: application/json; charset=utf-8` in `sendJson`.
 - Persona envelope `encoding rules` block (CJK mojibake: don't guess-reconstruct; sentinel strings verbatim).
-- Public release: split from `dsh-hermes` monorepo to `github.com/Tianbuyu-wwx/hermes-link`, MIT-licensed, npm-scoped `@Tianbuyu-wwx/hermes-link`, dshmarket-ready.
+- Public release: split from `dsh-hermes` monorepo to `github.com/Tianbuyu-wwx/dsh-hermes-link`, MIT-licensed, npm-scoped `@Tianbuyu-wwx/dsh-hermes-link`, dshmarket-ready.
 
 ---
 
@@ -57,7 +87,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Disabled main-session auto-injection of Hermes turns (v0.2.0 leaked cross-project dialogues via `~/.dsh/hermes-inbox/session.jsonl`). The historical `injectHermesTurns` function is retained for future opt-in/cwd-scoped variants.
 
 ### Added
-- `hermes_clear_injected` audit tool — counts how many turns were auto-injected by an older hermes-foundation/hermes-link version; points at "open a new session" (DSH `Session.events` is append-only / deep-frozen).
+- `hermes_clear_injected` audit tool — counts how many turns were auto-injected by an older hermes-foundation/dsh-hermes-link version; points at "open a new session" (DSH `Session.events` is append-only / deep-frozen).
 
 ---
 

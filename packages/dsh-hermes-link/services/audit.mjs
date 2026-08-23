@@ -1,7 +1,7 @@
-// services/audit.mjs
+﻿// services/audit.mjs
 //
-// D4 (audit): append-only JSONL audit log for hermes-link dispatch activity.
-// Location: ~/.dsh/hermes-link/audit.jsonl (hermes-view-dsh.mjs reads it).
+// D4 (audit): append-only JSONL audit log for dsh-hermes-link dispatch activity.
+// Location: ~/.dsh/dsh-hermes-link/audit.jsonl (hermes-view-dsh.mjs reads it).
 
 import { existsSync, mkdirSync, appendFileSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -12,7 +12,7 @@ export function dshHome() {
 }
 
 export function stateDir() {
-  return join(dshHome(), 'hermes-link')
+  return join(dshHome(), 'dsh-hermes-link')
 }
 
 export function auditPath() {
@@ -25,7 +25,7 @@ export function appendAudit(rec) {
     mkdirSync(stateDir(), { recursive: true })
     appendFileSync(auditPath(), JSON.stringify(rec) + '\n', 'utf8')
   } catch (e) {
-    console.error('[hermes-link] audit append failed:', e && e.message || e)
+    console.error('[dsh-hermes-link] audit append failed:', e && e.message || e)
   }
 }
 

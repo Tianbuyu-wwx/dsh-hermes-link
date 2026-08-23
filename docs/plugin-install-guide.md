@@ -1,12 +1,12 @@
-# Plugin Install Guide — three ways to install hermes-link
+﻿# Plugin Install Guide — three ways to install dsh-hermes-link
 
-Pick the path that matches your workflow. All three end up with `hermes-link` running inside your DSH web profile.
+Pick the path that matches your workflow. All three end up with `dsh-hermes-link` running inside your DSH web profile.
 
 ---
 
 ## Path 1 — From dsh-market (recommended for most users)
 
-`dsh-market` is a community-curated registry hosted at `awesome-dsh-plugin.com`. Once `hermes-link` is listed there, users install it with a few clicks.
+`dsh-market` is a community-curated registry hosted at `awesome-dsh-plugin.com`. Once `dsh-hermes-link` is listed there, users install it with a few clicks.
 
 ### Prerequisites
 
@@ -17,8 +17,8 @@ Pick the path that matches your workflow. All three end up with `hermes-link` ru
 
 1. Open DSH web (e.g. `dsh --profile web`, defaults to `127.0.0.1:3080`).
 2. Settings → **Plugin Market**.
-3. Search `hermes-link`.
-4. Click the card → confirm install source (npm: `@Tianbuyu-wwx/hermes-link`).
+3. Search `dsh-hermes-link`.
+4. Click the card → confirm install source (npm: `@Tianbuyu-wwx/dsh-hermes-link`).
 5. Watch live progress; the plugin goes live after a page refresh.
 
 ### Verify
@@ -58,7 +58,7 @@ All three are handled by `dsh-market`'s Plugin tab:
 If you don't use `dsh-market`, install via the official `dsh plugin` command, which delegates to pnpm:
 
 ```sh
-dsh plugin --profile web add @Tianbuyu-wwx/hermes-link
+dsh plugin --profile web add @Tianbuyu-wwx/dsh-hermes-link
 ```
 
 Then restart `dsh web`. Verify as in Path 1.
@@ -66,8 +66,8 @@ Then restart `dsh web`. Verify as in Path 1.
 ### Update / uninstall
 
 ```sh
-dsh plugin --profile web update hermes-link    # or: update @Tianbuyu-wwx/hermes-link
-dsh plugin --profile web remove @Tianbuyu-wwx/hermes-link
+dsh plugin --profile web update dsh-hermes-link    # or: update @Tianbuyu-wwx/dsh-hermes-link
+dsh plugin --profile web remove @Tianbuyu-wwx/dsh-hermes-link
 ```
 
 ### Disable (without uninstalling)
@@ -75,7 +75,7 @@ dsh plugin --profile web remove @Tianbuyu-wwx/hermes-link
 Edit `~/.dsh/profiles/web/cordis.patch.yml` and set:
 
 ```yaml
-- id: hermes-link
+- id: dsh-hermes-link
   disabled: true
 ```
 
@@ -85,21 +85,21 @@ Or via `dsh-market`'s hot-disable button.
 
 ## Path 3 — From a local checkout (developer loop)
 
-If you're hacking on `hermes-link` itself (or want to pin to a specific commit):
+If you're hacking on `dsh-hermes-link` itself (or want to pin to a specific commit):
 
 ```sh
-git clone https://github.com/Tianbuyu-wwx/hermes-link.git
-cd hermes-link
-dsh plugin --profile web add ./packages/hermes-link
+git clone https://github.com/Tianbuyu-wwx/dsh-hermes-link.git
+cd dsh-hermes-link
+dsh plugin --profile web add ./packages/dsh-hermes-link
 ```
 
-DSH creates a `node_modules/hermes-link` junction pointing at `packages/hermes-link` in your checkout. Edits to the checkout take effect depending on how hermes-link loads each module:
+DSH creates a `node_modules/dsh-hermes-link` junction pointing at `packages/dsh-hermes-link` in your checkout. Edits to the checkout take effect depending on how dsh-hermes-link loads each module:
 
-- **`packages/hermes-link/import/request-dump-to-events.mjs`** is loaded via cache-busting (`?v=${Date.now()}`) on every `importer.importSession()` call — edits are picked up immediately.
+- **`packages/dsh-hermes-link/import/request-dump-to-events.mjs`** is loaded via cache-busting (`?v=${Date.now()}`) on every `importer.importSession()` call — edits are picked up immediately.
 - **Other modules** (`index.mjs`, `tools/*.mjs`, `import/import-hermes-session.mjs`) are statically imported by `index.mjs`. Changes take effect on the **next DSH restart**, or after a hot reload via `dsh-super-injector`:
 
   ```sh
-  dev_reload_package hermes-link  # if dsh-super-injector is mounted
+  dev_reload_package dsh-hermes-link  # if dsh-super-injector is mounted
   ```
 
 ### Iterate
@@ -117,7 +117,7 @@ npm run test:e2e      # node scripts/smoke-e2e.mjs — needs a running dsh web
 
 This is the shared Hermes/DSH conversation record. Hermes writes turns via `hermes-push.mjs`; DSH reads via the `hermes_inbox` tool. The format spec is in [`sharing-conventions.md`](sharing-conventions.md).
 
-### `~/.dsh/hermes-link/audit.jsonl`
+### `~/.dsh/dsh-hermes-link/audit.jsonl`
 
 Hermes-side ops may want to tail this for visibility. See [plugin-developer-guide.md § 10](plugin-developer-guide.md).
 
@@ -131,7 +131,7 @@ Hermes-side ops may want to tail this for visibility. See [plugin-developer-guid
 
 ### Hermes Home auto-detect
 
-DSH-side `hermes-link` auto-detects Hermes Home in this order:
+DSH-side `dsh-hermes-link` auto-detects Hermes Home in this order:
 
 1. `$HERMES_HOME` env var (if it exists on disk)
 2. Windows: `%LOCALAPPDATA%\hermes\`
@@ -189,7 +189,7 @@ If `HERMES_LINK_TOKEN` on the DSH side is unset, no token is required — the br
 
 ### Auto-sync / watcher not picking up new Hermes sessions
 
-`hermes-link` watches `<Hermes Home>/sessions/request_dump_*.json` with a 60s poll. The watcher triggers an importer sync on any new file. Confirm `<Hermes Home>` is correctly detected (see Hermes Home auto-detect above) and that the user running DSH has read permission.
+`dsh-hermes-link` watches `<Hermes Home>/sessions/request_dump_*.json` with a 60s poll. The watcher triggers an importer sync on any new file. Confirm `<Hermes Home>` is correctly detected (see Hermes Home auto-detect above) and that the user running DSH has read permission.
 
 To trigger an immediate sync:
 
@@ -206,10 +206,10 @@ import_hermes_session { hermesSessionId: "..." }
 
 ### "Why is my install pointing at the wrong path?"
 
-`packages/hermes-link/cordis.patch.yml` is the dshmarket-loadable patch file. If your local checkout has a stale one, re-copy from the source:
+`packages/dsh-hermes-link/cordis.patch.yml` is the dshmarket-loadable patch file. If your local checkout has a stale one, re-copy from the source:
 
 ```sh
-git checkout -- packages/hermes-link/cordis.patch.yml
+git checkout -- packages/dsh-hermes-link/cordis.patch.yml
 ```
 
 ---
@@ -217,12 +217,12 @@ git checkout -- packages/hermes-link/cordis.patch.yml
 ## Uninstall
 
 ```sh
-dsh plugin --profile web remove @Tianbuyu-wwx/hermes-link
+dsh plugin --profile web remove @Tianbuyu-wwx/dsh-hermes-link
 ```
 
 Or via `dsh-market`. Both clean up:
 
-- `~/.dsh/profiles/web/node_modules/@Tianbuyu-wwx/hermes-link` (junction)
+- `~/.dsh/profiles/web/node_modules/@Tianbuyu-wwx/dsh-hermes-link` (junction)
 - `cordis.patch.yml` row
 - `audit.jsonl` / `continuables.sqlite` left in place (operator archives separately)
 

@@ -1,7 +1,7 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
 scripts/hermes-gateway-demo.py — Hermes-side gateway reference implementation
-for the hermes-link v0.2.2 file protocols.
+for the dsh-hermes-link v0.2.2 file protocols.
 
 This is a *demonstration* of what the Hermes-side gateway/poller needs to do to
 speak the v0.2.2 protocols. It is not a production gateway — Hermes-agent's
@@ -229,7 +229,7 @@ def process_consult_once(hermes_home: Path) -> int:
             "answer": answer,
             "ts": int(time.time() * 1000),
             "source": "hermes-gateway-demo",
-            "version": "hermes-link/0.2.2",
+            "version": "dsh-hermes-link/0.2.5",
         })
         # === archive the consult request ===
         move_to_done(entry, done_dir)
@@ -277,7 +277,7 @@ def write_amend_file(
         "content": body_content,
         "note": note or "",
         "source": "hermes-gateway-demo",
-        "version": "hermes-link/0.2.2",
+        "version": "dsh-hermes-link/0.2.5",
     })
     print(f"  [amend] wrote {path}")
     return path
@@ -308,7 +308,7 @@ def demo_amend(hermes_home: Path) -> None:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Hermes-side gateway reference for hermes-link v0.2.2")
+    ap = argparse.ArgumentParser(description="Hermes-side gateway reference for dsh-hermes-link v0.2.2")
     ap.add_argument("hermes_home", help="Hermes Home directory (e.g. C:\\Users\\<you>\\AppData\\Local\\hermes)")
     ap.add_argument("--watch", action="store_true", help="Loop forever (poll every 2s) instead of one-shot")
     ap.add_argument("--demo-amend", action="store_true", help="Drop one synthetic amend file before polling")

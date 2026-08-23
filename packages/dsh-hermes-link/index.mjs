@@ -1,9 +1,9 @@
-// hermes-link — DSH plugin entry (v0.2).
+﻿// dsh-hermes-link — DSH plugin entry (v0.2).
 //
 // What this plugin wires:
 //
-//   1. Skill provider so `skills/hermes-link/SKILL.md` is discoverable
-//      (user can @skill hermes-link to read what it does).
+//   1. Skill provider so `skills/dsh-hermes-link/SKILL.md` is discoverable
+//      (user can @skill dsh-hermes-link to read what it does).
 //   2. Hermes Home auto-detect (HERMES_HOME env, then LOCALAPPDATA/hermes on Windows).
 //   3. Sub-services:
 //        - createImporter()           — request-dump → DSH SessionEvent[] + ctx.sessions.create
@@ -58,9 +58,9 @@ import { createConsultHermesTool } from './tools/consult-hermes.mjs'
 import { createMirrorSessionToHermesTool } from './tools/mirror-session-to-hermes.mjs'
 import { createLoadHermesProjectMemoryTool } from './tools/load-hermes-project-memory.mjs'
 
-const skillDir = fileURLToPath(new URL('./skills/hermes-link', import.meta.url))
+const skillDir = fileURLToPath(new URL('./skills/dsh-hermes-link', import.meta.url))
 const MAX_FOUNDATION_SLICE_CHARS = 4096
-const VERSION = '0.2.4'
+const VERSION = '0.2.5'
 
 // -----------------------------------------------------------------------------
 // Hermes Home auto-detect
@@ -96,7 +96,7 @@ export function buildFoundationSlice(hermesHome) {
   let s = `<!-- Hermes SOUL.md (${soulPath}) -->\n` + soul
   if (s.length > MAX_FOUNDATION_SLICE_CHARS) {
     s = s.slice(0, MAX_FOUNDATION_SLICE_CHARS) +
-      `\n<!-- hermes-link: truncated at ${MAX_FOUNDATION_SLICE_CHARS} chars; source at ${soulPath} -->`
+      `\n<!-- dsh-hermes-link: truncated at ${MAX_FOUNDATION_SLICE_CHARS} chars; source at ${soulPath} -->`
   }
   return s
 }
@@ -105,23 +105,23 @@ export function buildFoundationSlice(hermesHome) {
 // Plugin shape
 // -----------------------------------------------------------------------------
 
-export const name = 'hermes-link'
+export const name = 'dsh-hermes-link'
 export const inject = ['skills', 'webServer', 'sessions', 'agents', 'subagents', 'tokenMeter', 'workspaceRegistry', 'sessionTitle', 'sessionPersistence', 'tools']
 
 export function apply(ctx) {
   const hermesHome = detectHermesHome()
-  console.log('[hermes-link v' + VERSION + '] applying; hermes_home=' + hermesHome)
+  console.log('[dsh-hermes-link v' + VERSION + '] applying; hermes_home=' + hermesHome)
 
-  // 1. skill provider — makes `@skill hermes-link` work
+  // 1. skill provider — makes `@skill dsh-hermes-link` work
   try {
     ctx.skills.registerProvider((control) =>
       new FileSystemSkillProvider(ctx, control, {
-        providerName: 'hermes-link',
+        providerName: 'dsh-hermes-link',
         customSkillDirs: [skillDir],
       }),
     )
   } catch (e) {
-    console.error('[hermes-link v' + VERSION + '] skill provider registration failed:', e && e.message || e)
+    console.error('[dsh-hermes-link v' + VERSION + '] skill provider registration failed:', e && e.message || e)
   }
 
   // 2. sub-services (factories — pure, hold no Cordis resources until used)
@@ -134,7 +134,7 @@ export function apply(ctx) {
   const continuations = openContinuations(auditStateDir())
 
   if (!ctx.sessions) {
-    console.warn('[hermes-link v' + VERSION + '] ctx.sessions not in inject graph; /mcp/collab/import will 503 until dsh-session is mounted')
+    console.warn('[dsh-hermes-link v' + VERSION + '] ctx.sessions not in inject graph; /mcp/collab/import will 503 until dsh-session is mounted')
   }
 
   // 3. fs watcher — emits 'change' for new stable request_dump files.
@@ -142,17 +142,17 @@ export function apply(ctx) {
   try {
     watcher = createWatcher(join(hermesHome, 'sessions'))
     watcher.on('change', async ({ sessionIds }) => {
-      console.log('[hermes-link] hermes-sessions changed: ' + sessionIds.join(', ') + ' → syncing')
+      console.log('[dsh-hermes-link] hermes-sessions changed: ' + sessionIds.join(', ') + ' → syncing')
       if (importer && typeof importer.sync === 'function') {
         const r = await importer.sync()
-        console.log('[hermes-link] auto-sync: imported=' + r.imported + ' skipped=' + r.skipped + ' failed=' + r.failed)
+        console.log('[dsh-hermes-link] auto-sync: imported=' + r.imported + ' skipped=' + r.skipped + ' failed=' + r.failed)
       }
     })
     watcher.on('error', (e) => {
-      console.warn('[hermes-link] watcher error: ' + (e && e.message || e))
+      console.warn('[dsh-hermes-link] watcher error: ' + (e && e.message || e))
     })
   } catch (e) {
-    console.warn('[hermes-link] watcher init failed:', e && e.message || e)
+    console.warn('[dsh-hermes-link] watcher init failed:', e && e.message || e)
   }
 
   // 4. shared conversation record (hermes-inbox, migrated from hermes-foundation):
@@ -162,12 +162,12 @@ export function apply(ctx) {
       registerInboxTools(ctx)
     }
   } catch (e) {
-    console.error('[hermes-link] inbox tools registration failed:', e && e.message || e)
+    console.error('[dsh-hermes-link] inbox tools registration failed:', e && e.message || e)
   }
 
   // v0.2.1 — AUTOMATIC INJECTION OF Hermes turns INTO THE MAIN SESSION IS DISABLED.
   //
-  // Earlier versions (hermes-foundation v0.7 → hermes-link v0.2.0) appended
+  // Earlier versions (hermes-foundation v0.7 → dsh-hermes-link v0.2.0) appended
   // recent Hermes turns from the global session.jsonl straight into the new
   // main session's events log on every session-start. That proved unsound:
   // session.jsonl is project-agnostic and Hermed-push writes into it without a
@@ -197,10 +197,10 @@ export function apply(ctx) {
       // it so the user knows. No automatic injection in this version.
       const session = ctx.sessions && ctx.sessions.get(agent.id)
       if (session && sessionHasHermesMarker(session)) {
-        console.log('[hermes-link v0.2.1] main session ' + agent.id + ' still carries the hermes-injection marker from an earlier version; call hermes_clear_injected for details')
+        console.log('[dsh-hermes-link v0.2.1] main session ' + agent.id + ' still carries the hermes-injection marker from an earlier version; call hermes_clear_injected for details')
       }
     } catch (e) {
-      console.error('[hermes-link] session-start hook failed:', e && e.message || e)
+      console.error('[dsh-hermes-link] session-start hook failed:', e && e.message || e)
     }
   })
 
@@ -214,7 +214,7 @@ export function apply(ctx) {
   //    opt-in tool to call.
 
   // 6. D3 heartbeat (60s), H4 amend watcher (2s poll).
-  const heartbeat = outbox.startHeartbeat(60_000, { version: 'hermes-link/' + VERSION })
+  const heartbeat = outbox.startHeartbeat(60_000, { version: 'dsh-hermes-link/' + VERSION })
   let amendWatcher = null
   try {
     amendWatcher = createAmendWatcher({
@@ -224,7 +224,7 @@ export function apply(ctx) {
       pickParentAgent,
     })
   } catch (e) {
-    console.warn('[hermes-link] amend watcher init failed:', e && e.message || e)
+    console.warn('[dsh-hermes-link] amend watcher init failed:', e && e.message || e)
   }
 
   // 7. Cordis tools (DSH-side columns of the link).
@@ -236,10 +236,10 @@ export function apply(ctx) {
       ctx.tools.register(createConsultHermesTool({ consultClient }))
       ctx.tools.register(createMirrorSessionToHermesTool({ outbox }))
       ctx.tools.register(createLoadHermesProjectMemoryTool({ hermesHome }))
-      console.log('[hermes-link v' + VERSION + '] tools registered: list_hermes_sessions, import_hermes_session, load_hermes_persona, consult_hermes, mirror_session_to_hermes, load_hermes_project_memory')
+      console.log('[dsh-hermes-link v' + VERSION + '] tools registered: list_hermes_sessions, import_hermes_session, load_hermes_persona, consult_hermes, mirror_session_to_hermes, load_hermes_project_memory')
     }
   } catch (e) {
-    console.error('[hermes-link v' + VERSION + '] tool registration failed:', e && e.message || e)
+    console.error('[dsh-hermes-link v' + VERSION + '] tool registration failed:', e && e.message || e)
   }
 
   // 8. HTTP routes — single register call delegates all routes.
@@ -254,7 +254,7 @@ export function apply(ctx) {
       outbox,
     })
   } catch (e) {
-    console.error('[hermes-link] HTTP route registration failed:', e && e.message || e)
+    console.error('[dsh-hermes-link] HTTP route registration failed:', e && e.message || e)
   }
 
   // 8b. hermes-push.mjs --status compatibility: GET /mcp/hermes-inbox/health
@@ -271,7 +271,7 @@ export function apply(ctx) {
       })
     }
   } catch (e) {
-    console.warn('[hermes-link] hermes-inbox health route failed:', e && e.message || e)
+    console.warn('[dsh-hermes-link] hermes-inbox health route failed:', e && e.message || e)
   }
 
   // 9. startup auto-sync — import all Hermes sessions shortly after startup.
@@ -279,15 +279,15 @@ export function apply(ctx) {
     setTimeout(async () => {
       try {
         const r = await importer.sync()
-        console.log('[hermes-link] startup auto-sync: imported=' + r.imported + ' skipped=' + r.skipped + ' failed=' + r.failed)
+        console.log('[dsh-hermes-link] startup auto-sync: imported=' + r.imported + ' skipped=' + r.skipped + ' failed=' + r.failed)
       } catch (e) {
-        console.warn('[hermes-link] startup auto-sync failed:', e && e.message || e)
+        console.warn('[dsh-hermes-link] startup auto-sync failed:', e && e.message || e)
       }
     }, 8000)
   }
 
   // 10. console confirmation banner
-  console.log('[hermes-link v' + VERSION + '] loaded; hermes_home=' + hermesHome +
+  console.log('[dsh-hermes-link v' + VERSION + '] loaded; hermes_home=' + hermesHome +
     '  foundation=' + foundationSlice.length + 'chars' +
     (importer ? '  importer=on' : '  importer=off (no ctx.sessions)') +
     '  consult=on  watcher=' + (watcher ? 'on' : 'off') +

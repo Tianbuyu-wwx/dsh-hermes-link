@@ -1,6 +1,6 @@
----
+﻿---
 name: ✨ Feature Request
-about: Suggest a new feature for hermes-link
+about: Suggest a new feature for dsh-hermes-link
 title: "[feature] "
 labels: ["enhancement"]
 assignees: []
@@ -12,7 +12,7 @@ assignees: []
 
 ## Proposed solution
 
-<!-- How should hermes-link behave? -->
+<!-- How should dsh-hermes-link behave? -->
 
 ## Alternatives considered
 

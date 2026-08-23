@@ -1,4 +1,4 @@
-// request-dump-to-events.mjs
+﻿// request-dump-to-events.mjs
 //
 // Hermes session archive → DSH SessionEvent[] converter.
 //
@@ -40,7 +40,7 @@ import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 
 // Inline DSH message factories. We don't import from @deepseek-ai/dsh-llm because
-// the hermes-link package has no node_modules of its own and the host's copy
+// the dsh-hermes-link package has no node_modules of its own and the host's copy
 // isn't reachable from this workspace. The factories mirror the runtime behavior
 // of dsh-llm's createUserMessage / createAssistantMessage / createToolResultMessage
 // (MessageId brand is runtime-identity, deep-freeze is recursive Object.freeze).
@@ -107,9 +107,9 @@ function createToolResultMessage(input) {
 export function requestDumpToEvents(dump, baseTime = Date.now()) {
   const body     = dump && dump.request && dump.request.body
   const model    = (body && body.model) || 'unknown'
-  // provider is always 'hermes-link' for imported history (the originating model is
+  // provider is always 'dsh-hermes-link' for imported history (the originating model is
   // captured in `model`; provider just names who produced the events in DSH terms).
-  const provider = 'hermes-link'
+  const provider = 'dsh-hermes-link'
   const sys      = (body && body.system)
   const tools    = (body && body.tools) || []
   const messages = Array.isArray(body && body.messages) ? body.messages : []

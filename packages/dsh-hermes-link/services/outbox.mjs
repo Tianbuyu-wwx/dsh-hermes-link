@@ -1,7 +1,7 @@
-// services/outbox.mjs
+﻿// services/outbox.mjs
 //
 // DSH → Hermes file outbox inside Hermes Home (D3/D5/D6/D7 + V4), as planned
-// in docs/HERMES-LINK-PLAN.md §2:
+// in docs/dsh-hermes-link-PLAN.md §2:
 //
 //   Hermes Home/inbox/dsh/
 //     heartbeat/{ts}.json + latest.json     (D3 heartbeat)
@@ -39,7 +39,7 @@ export function createOutbox({ hermesHome }) {
         iso: new Date(ts).toISOString(),
         source: 'dsh',
         kind: 'heartbeat',
-        version: meta.version || 'hermes-link/0.2',
+        version: meta.version || 'dsh-hermes-link/0.2',
         pid: process.pid,
         uptime_ms: process.uptime() * 1000,
       }
@@ -68,7 +68,7 @@ export function createOutbox({ hermesHome }) {
       appendFileSync(usagePath, JSON.stringify(line) + '\n', 'utf8')
       return true
     } catch (e) {
-      console.error('[hermes-link] usage append failed:', e && e.message || e)
+      console.error('[dsh-hermes-link] usage append failed:', e && e.message || e)
       return false
     }
   }
@@ -87,7 +87,7 @@ export function createOutbox({ hermesHome }) {
       atomicWriteJson(join(suggestDir, `${ts}.json`), payload)
       return { ok: true, ts }
     } catch (e) {
-      console.error('[hermes-link] memory-suggest write failed:', e && e.message || e)
+      console.error('[dsh-hermes-link] memory-suggest write failed:', e && e.message || e)
       return { ok: false, error: String(e && e.message || e) }
     }
   }
@@ -111,7 +111,7 @@ export function createOutbox({ hermesHome }) {
       // log once per direction — mirror is best-effort
       if (!mirrorErrors.has(String(sessionId))) {
         mirrorErrors.add(String(sessionId))
-        console.error('[hermes-link] session-mirror append failed for', sessionId, ':', e && e.message || e)
+        console.error('[dsh-hermes-link] session-mirror append failed for', sessionId, ':', e && e.message || e)
       }
       return false
     }
@@ -140,6 +140,6 @@ function atomicWriteJson(path, obj) {
       try { unlinkSync(tmp) } catch {}
     }
   } catch (e) {
-    console.error('[hermes-link] outbox write failed:', path, e && e.message || e)
+    console.error('[dsh-hermes-link] outbox write failed:', path, e && e.message || e)
   }
 }

@@ -1,11 +1,11 @@
-# Hermes 端升级到 hermes-link v0.2.2 协议
+﻿# Hermes 端升级到 dsh-hermes-link v0.2.2 协议
 
 > 适用对象:Hermes Agent 仓库中负责"读 DSH inbox、写 reply/amend 文件"的任何 gateway/poller/worker。
 > 配套代码:`scripts/hermes-gateway-demo.py`(本仓库,独立可运行的 Python 参考实现)。
 
 ## 为什么必须升级
 
-`hermes-link` v0.2.2(2026-08-21)在**两个文件通道**加了不可降级的鉴权:
+`dsh-hermes-link` v0.2.2(2026-08-21)在**两个文件通道**加了不可降级的鉴权:
 
 | 通道 | 旧(v0.2.0 / v0.2.1) | 新(v0.2.2) |
 |---|---|---|
@@ -43,7 +43,7 @@ INBOX/dsh/consult-reply/<ticket>-<secret>.json
   "answer": "...",
   "ts": ...,
   "source": "hermes",
-  "version": "hermes-link/0.2.2"
+  "version": "dsh-hermes-link/0.2.2"
 }
 ```
 
@@ -58,14 +58,14 @@ INBOX/dsh/consult/<ts>-<ticket>.json   # 由 DSH 写入
   "prompt": "...",
   "context": { ... },
   "reply_secret": "<32-hex>",     # ← Hermes 必须读这个字段
-  "version": "hermes-link/0.2.2"
+  "version": "dsh-hermes-link/0.2.2"
 }
 ```
 
 #### A.3 Hermes 端要做的改动
 1. **读 inbox payload** 时多读一个字段 `reply_secret`(若不存在则该文件来自老 Hermes,应跳过并归档到 `consult/done/legacy-*`)。
 2. **写 reply 文件名** 用 `<ticket>-<secret>.json`,**不再用** `<ticket>.json`。
-3. (可选)回写 `version` 字段为 `"hermes-link/0.2.2"` 方便审计。
+3. (可选)回写 `version` 字段为 `"dsh-hermes-link/0.2.2"` 方便审计。
 
 #### A.4 参考 Python 实现
 见 `scripts/hermes-gateway-demo.py#process_consult_once` —— 包含 `parse_consult_filename`、`read_consult_payload`、`atomic_write_json`、legacy fallback 等所有要点。
@@ -90,7 +90,7 @@ INBOX/dsh/amend/<ts>-<task_id>-<nonce>.json
   "ts": ...,
   "content": [ContentBlock],
   "source": "hermes",
-  "version": "hermes-link/0.2.2"
+  "version": "dsh-hermes-link/0.2.2"
 }
 ```
 
@@ -118,7 +118,7 @@ Use filename pattern: <ts>-t-001-<32-hex>.json when writing the amend file (v0.2
 #### B.3 Hermes 端要做的改动
 1. **保存 nonce**:收到 `dispatch_task mode=continuable` 的 metadata 后,把 `amend_nonce` 与 `task_id` / `child_id` 一起存到 Hermes 自己的任务表里(就像现在存 task_id 一样)。
 2. **构造文件名**:当用户/编排器决定 amend,文件名 = `<ts_ms>-<task_id>-<amend_nonce>.json`。可以直接套响应里的 `amend_filename_pattern` 字段(把 `<ts>` 替换为新时间戳)。
-3. (可选)写文件时带 `source: "hermes"` 与 `version: "hermes-link/0.2.2"`,便于 DSH 端审计。
+3. (可选)写文件时带 `source: "hermes"` 与 `version: "dsh-hermes-link/0.2.2"`,便于 DSH 端审计。
 
 #### B.4 没有 nonce 时怎么办
 - **永远不要**写 `<ts>-<task_id>.json` 老格式——DSH 会直接拒绝(移入 `done/legacy-*`)。
@@ -169,7 +169,7 @@ python scripts/hermes-gateway-demo.py "$LOCALAPPDATA/hermes"
 | 增强 | 说明 |
 |---|---|
 | **`amend_filename_pattern`** 直接用 | 响应里已经给出 `<ts>-<task_id>-<nonce>.json`,把 `<ts>` 替成新时间戳就是 amend 文件名 |
-| `version` 字段 | 写文件时带 `version: "hermes-link/0.2.2"` 让 DSH 审计区分 |
+| `version` 字段 | 写文件时带 `version: "dsh-hermes-link/0.2.2"` 让 DSH 审计区分 |
 | `source` 字段 | 写文件时带 `source: "hermes"`(Hermes 侧)或 `source: "hermes-gateway-demo"`(开发) |
 | atomic rename | 用 tmp 文件 + rename 避免 DSH 读到 half-write reply/amend |
 
@@ -181,7 +181,7 @@ python scripts/hermes-gateway-demo.py "$LOCALAPPDATA/hermes"
 | amend 文件出现在 `done/legacy-*` | 文件名两段(旧)或三段但 nonce 错 | 升级 dispatch_task 链路读取 `metadata.amend_nonce`,写三段文件名 |
 | amend 文件出现在 `done/bad-nonce-*` | nonce 与注册表不匹配 | Hermes 端用错 nonce / 用错 task_id / 重启后 SQLite 重置;以 `hermes-view-dsh children` 看 `amend_nonce` 验证 |
 | amend 文件出现在 `done/retry_unknown_task-*` | task_id 暂时没注册(还在 spawn) | 正常,DSH 60s 内会重试 |
-| 写 reply 文件报"reply_secret 字段缺失" | inbox 文件来自老 DSH(<v0.2.2) | 升级 DSH 端 hermes-link;或开 `HERMES_LINK_TRUST_LEGACY=1` |
+| 写 reply 文件报"reply_secret 字段缺失" | inbox 文件来自老 DSH(<v0.2.2) | 升级 DSH 端 dsh-hermes-link;或开 `HERMES_LINK_TRUST_LEGACY=1` |
 
 ## 旧文件兼容矩阵
 

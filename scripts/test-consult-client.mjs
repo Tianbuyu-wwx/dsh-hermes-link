@@ -1,6 +1,6 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 // scripts/test-consult-client.mjs
-// Unit tests for packages/hermes-link/services/consult-hermes.mjs.
+// Unit tests for packages/dsh-hermes-link/services/consult-hermes.mjs.
 // No DSH runtime required — pure file protocol in temp dirs.
 //
 // Regression coverage for the v0.2 fix: the per-call `timeout_ms` override
@@ -14,7 +14,7 @@ import { join, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
-const consultPath = join(root, 'packages', 'hermes-link', 'services', 'consult-hermes.mjs')
+const consultPath = join(root, 'packages', 'dsh-hermes-link', 'services', 'consult-hermes.mjs')
 const { createConsultClient } = await import(pathToFileURL(consultPath).href)
 
 let passed = 0, failed = 0
@@ -24,7 +24,7 @@ function t(name, fn) {
 }
 
 function makeHome() {
-  const home = mkdtempSync(join(tmpdir(), 'hermes-link-consult-'))
+  const home = mkdtempSync(join(tmpdir(), 'dsh-hermes-link-consult-'))
   return { home, cleanup: () => { try { rmSync(home, { recursive: true, force: true }) } catch {} } }
 }
 

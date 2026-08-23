@@ -1,6 +1,6 @@
-# hermes-link
+﻿# dsh-hermes-link
 
-[![npm 版本](https://img.shields.io/npm/v/@Tianbuyu-wwx/hermes-link)](https://www.npmjs.com/package/@Tianbuyu-wwx/hermes-link)
+[![npm 版本](https://img.shields.io/npm/v/@Tianbuyu-wwx/dsh-hermes-link)](https://www.npmjs.com/package/@Tianbuyu-wwx/dsh-hermes-link)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Node >=20](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](package.json)
 [![dsh-plugin](https://img.shields.io/badge/dsh--plugin-blue)](https://github.com/dsh-market/awesome-dsh-plugin)
@@ -13,7 +13,7 @@
 
 ## 目录
 
-- [为什么需要 hermes-link](#为什么需要-hermes-link)
+- [为什么需要 dsh-hermes-link](#为什么需要-dsh-hermes-link)
 - [核心特性](#核心特性)
 - [快速开始](#快速开始)
 - [架构](#架构)
@@ -26,11 +26,11 @@
 
 ---
 
-## 为什么需要 hermes-link
+## 为什么需要 dsh-hermes-link
 
 Hermes 是任务编排器 —— 规划工作、选择 skill、加载知识切片。DSH 是编码运行时 —— 启动子 agent、改文件、跑 shell、调用 LLM。两端各自做得很好，问题是如何让它们**成为一个系统**，而不让任何一端的关注点污染另一端。
 
-早期我们用三个独立插件（`hermes-foundation`、`hermes-oneshot-arbitrate`、`hermes-dispatch-bridge`）实现这套互通。三个插件已归档在 `dsh-hermes` 仓库的 `archive/hermes-legacy-2026-08-22` 标签下 —— `hermes-link` 是取代它们的**单一**插件，本仓库就是它的家。
+早期我们用三个独立插件（`hermes-foundation`、`hermes-oneshot-arbitrate`、`hermes-dispatch-bridge`）实现这套互通。三个插件已归档在 `dsh-hermes` 仓库的 `archive/hermes-legacy-2026-08-22` 标签下 —— `dsh-hermes-link` 是取代它们的**单一**插件，本仓库就是它的家。
 
 ---
 
@@ -94,21 +94,21 @@ Hermes 是任务编排器 —— 规划工作、选择 skill、加载知识切�
 # 1. 确保你的 profile 已安装 dsh-market
 dsh plugin --profile web add dshmarket
 
-# 2. 重启 dsh web，打开 Settings → Plugin Market，搜索 "hermes-link"，一键安装
+# 2. 重启 dsh web，打开 Settings → Plugin Market，搜索 "dsh-hermes-link"，一键安装
 ```
 
 ### 直接从 npm 安装
 
 ```sh
-dsh plugin --profile web add @Tianbuyu-wwx/hermes-link
+dsh plugin --profile web add @Tianbuyu-wwx/dsh-hermes-link
 ```
 
 ### 从本地 checkout 安装（开发循环）
 
 ```sh
-git clone https://github.com/Tianbuyu-wwx/hermes-link.git
-cd hermes-link
-dsh plugin --profile web add ./packages/hermes-link
+git clone https://github.com/Tianbuyu-wwx/dsh-hermes-link.git
+cd dsh-hermes-link
+dsh plugin --profile web add ./packages/dsh-hermes-link
 ```
 
 然后重启 `dsh web`。打开 Hermes 的 config.yaml（Windows 上是 `%LOCALAPPDATA%\hermes\config.yaml`）：
@@ -146,7 +146,7 @@ node scripts/verify-install.mjs
         dispatch_task / followup / interrupt / list / get
         dispatch_probe / get_dispatch
                                           ┌──────────────────────────────────────┐
-                                          │ hermes-link（Cordis bundle）        │
+                                          │ dsh-hermes-link（Cordis bundle）        │
                                           │   ├─ HTTP 路由 /mcp/collab*        │
                                           │   ├─ services/                       │
                                           │   │   ├─ importer            request-dump → DSH SessionEvent[] │
@@ -202,7 +202,7 @@ node scripts/verify-install.mjs
 
 | | 项 | 状态 |
 |---|---|---|
-| ✅ | L1/L2/L3 三件套 → 单一 `hermes-link` | 2026-08-20 |
+| ✅ | L1/L2/L3 三件套 → 单一 `dsh-hermes-link` | 2026-08-20 |
 | ✅ | v0.1 → v0.2：双向完整 + 可持续 + amend nonce + mirror opt-in + foundation SOUL-only | 2026-08-21 |
 | ✅ | v0.2.1：关闭主 session 自动注入 + `hermes_clear_injected` 审计 | 2026-08-21 |
 | ✅ | v0.2.2：S1–S4 | 2026-08-21 |

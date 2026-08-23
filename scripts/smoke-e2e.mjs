@@ -1,6 +1,6 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 // scripts/smoke-e2e.mjs
-// End-to-end smoke against a RUNNING DSH instance with hermes-link v0.2
+// End-to-end smoke against a RUNNING DSH instance with dsh-hermes-link v0.2
 // loaded (run after `dsh` restart). Exercises every major surface:
 //   health / sessions / persona / import / dispatch one-shot /
 //   dispatch continuable + followup + get / consult (timeout honored) /
@@ -11,7 +11,7 @@
 
 const BASE = process.argv[2] || 'http://127.0.0.1:3080'
 const TASK_SKILL = process.argv[3] || 'pwsh'
-const TASK_TEXT = process.argv[4] || 'Run the pwsh tool with a trivial command that prints "hermes-link-e2e-ok" and return its output verbatim.'
+const TASK_TEXT = process.argv[4] || 'Run the pwsh tool with a trivial command that prints "dsh-hermes-link-e2e-ok" and return its output verbatim.'
 
 const TOKEN = process.env.HERMES_LINK_TOKEN || ''
 const authHeaders = TOKEN ? { Authorization: 'Bearer ' + TOKEN } : {}
@@ -53,7 +53,7 @@ const taskId1 = 'e2e-' + Date.now() + '-one'
 const taskId2 = 'e2e-' + Date.now() + '-cont'
 
 const started = Date.now()
-console.log('=== hermes-link v0.2 e2e smoke  base=' + BASE + ' ===\n')
+console.log('=== dsh-hermes-link v0.2 e2e smoke  base=' + BASE + ' ===\n')
 
 // 1. health
 try {
@@ -62,7 +62,7 @@ try {
     'version=' + (body && body.version) + ' continuable=' + (body && body.continuable_registry) + ' auth=' + (body && body.auth))
 } catch (e) { report('health', false, e.message) }
 if (failed > 0 && results[0].name === 'health') {
-  console.log('\n[ABORT] hermes-link v0.2 not live yet — restart dsh first.')
+  console.log('\n[ABORT] dsh-hermes-link v0.2 not live yet — restart dsh first.')
   process.exit(1)
 }
 

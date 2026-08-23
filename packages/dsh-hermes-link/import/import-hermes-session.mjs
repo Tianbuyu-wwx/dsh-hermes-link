@@ -1,4 +1,4 @@
-// import-hermes-session.mjs
+﻿// import-hermes-session.mjs
 //
 // V2 core service: take a Hermes session_id, find the latest request_dump for
 // it, convert it to DSH SessionEvent[], and seed a fresh DSH session in the
@@ -75,7 +75,7 @@ export function createImporter({ ctx, hermesHome, workspaceDir }) {
       }
       db.close()
     } catch (e) {
-      console.warn('[hermes-link] state.db read failed:', e && e.message || e)
+      console.warn('[dsh-hermes-link] state.db read failed:', e && e.message || e)
     }
     return metaCache
   }
@@ -196,7 +196,7 @@ export function createImporter({ ctx, hermesHome, workspaceDir }) {
    */
   async function importSession(hermesSessionId, opts = {}) {
     if (!ctx.sessionPersistence) {
-      throw new Error('hermes-link: ctx.sessionPersistence not available; is dsh-session-persistence mounted?')
+      throw new Error('dsh-hermes-link: ctx.sessionPersistence not available; is dsh-session-persistence mounted?')
     }
 
     const info = await findOne(hermesSessionId)
@@ -236,7 +236,7 @@ export function createImporter({ ctx, hermesHome, workspaceDir }) {
       if (!notFound) {
         // Log exists on disk but cannot be read/validated. Two causes:
         //   1. genuinely corrupt file (report read error, keep the artifact);
-        //   2. imported by an older hermes-link whose event stream was rejected
+        //   2. imported by an older dsh-hermes-link whose event stream was rejected
         //      by the current DSH session validator (e.g. turn/end with turn 0).
         // For case 2 the artifact is unrecoverable as-is: the validator will
         // reject it on every resume, so the session can never be continued.
@@ -249,7 +249,7 @@ export function createImporter({ ctx, hermesHome, workspaceDir }) {
             const bad = artifacts.find((a) => a.header && a.header.id === dshSessionId)
             if (bad && bad.path) {
               await rm(bad.path, { force: true })
-              console.log('[hermes-link] removed invalid persisted session ' + dshSessionId + ' (' + bad.path + '); rebuilding from dump')
+              console.log('[dsh-hermes-link] removed invalid persisted session ' + dshSessionId + ' (' + bad.path + '); rebuilding from dump')
             }
           } catch (rmErr) {
             return {
@@ -403,7 +403,7 @@ export function createImporter({ ctx, hermesHome, workspaceDir }) {
     if (r.failed > 0) {
       for (const res of r.results) {
         if (res.status !== 'created' && res.status !== 'already_imported') {
-          console.error('[hermes-link] sync failed for', res.hermesSessionId,
+          console.error('[dsh-hermes-link] sync failed for', res.hermesSessionId,
             '->', res.status, res.error || '', res.note || '')
         }
       }

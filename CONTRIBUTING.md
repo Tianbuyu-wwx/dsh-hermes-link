@@ -1,6 +1,6 @@
-# Contributing to hermes-link
+﻿# Contributing to dsh-hermes-link
 
-Thanks for your interest in `hermes-link`. This document covers the day-to-day development workflow. The **public API** (Hermes-side JSON-RPC + DSH-side Cordis tool surface) is treated as a hard contract — every change is gated by the test suites under `scripts/`.
+Thanks for your interest in `dsh-hermes-link`. This document covers the day-to-day development workflow. The **public API** (Hermes-side JSON-RPC + DSH-side Cordis tool surface) is treated as a hard contract — every change is gated by the test suites under `scripts/`.
 
 ## Code of Conduct
 
@@ -22,26 +22,26 @@ Use GitHub Issues with the templates under `.github/ISSUE_TEMPLATE/`. **Security
 ### Clone & link
 
 ```sh
-git clone https://github.com/Tianbuyu-wwx/hermes-link.git
-cd hermes-link
+git clone https://github.com/Tianbuyu-wwx/dsh-hermes-link.git
+cd dsh-hermes-link
 npm install          # or pnpm install
 ```
 
 ### Link into your DSH profile
 
 ```sh
-dsh plugin --profile web add ./packages/hermes-link
+dsh plugin --profile web add ./packages/dsh-hermes-link
 # restart dsh web
 ```
 
 Or — for fast iteration without restarting DSH — inject via `dsh-super-injector`:
 
 ```sh
-dev_inject_plugin ./packages/hermes-link
-dev_reload_package hermes-link  # if available; otherwise restart
+dev_inject_plugin ./packages/dsh-hermes-link
+dev_reload_package dsh-hermes-link  # if available; otherwise restart
 ```
 
-> The converter at `packages/hermes-link/import/request-dump-to-events.mjs` is **cache-busted** via `?v=${Date.now()}` on every load, so it picks up edits without reloading. Static-imported modules (`index.mjs`, `tools/*.mjs`, `import/import-hermes-session.mjs`) require either a DSH restart or an injector reload.
+> The converter at `packages/dsh-hermes-link/import/request-dump-to-events.mjs` is **cache-busted** via `?v=${Date.now()}` on every load, so it picks up edits without reloading. Static-imported modules (`index.mjs`, `tools/*.mjs`, `import/import-hermes-session.mjs`) require either a DSH restart or an injector reload.
 
 ## Running the test suite
 
@@ -115,7 +115,7 @@ Emergency bypass (don't use unless you know what you're doing):
 node scripts/version-bump.mjs 0.2.5   # bumps VERSION constants + package.json
 git add -A && git commit -m "v0.2.5 emergency bump"
 git tag v0.2.5 && git push --tags
-npm publish --workspace=packages/hermes-link --access public
+npm publish --workspace=packages/dsh-hermes-link --access public
 ```
 
 ## Branching & review
@@ -150,7 +150,7 @@ See `.github/PULL_REQUEST_TEMPLATE.md`. The template asks for:
 - `README.md` is canonical English. `README.zh.md` is a faithful mirror — keep them in lockstep when either changes.
 - `docs/*.md` is technical detail. Use Markdown headings, fenced code blocks (with language hints), and tables for structured comparisons.
 - Avoid future tense; write as if the feature is already shipping.
-- Reference source paths as `packages/hermes-link/services/foo.mjs` (clickable in Web-rendered READMEs).
+- Reference source paths as `packages/dsh-hermes-link/services/foo.mjs` (clickable in Web-rendered READMEs).
 
 ## Testing philosophy
 
