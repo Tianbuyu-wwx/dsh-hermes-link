@@ -22,7 +22,7 @@
 
 [CmdletBinding()]
 param(
-  [string]$DSHHome = (if ($env:DSH_HOME) { $env:DSH_HOME } else { Join-Path $env:USERPROFILE '.dsh' }),
+  [string]$DSHHome = $(if ($env:DSH_HOME) { $env:DSH_HOME } else { Join-Path $env:USERPROFILE '.dsh' }),
   [switch]$Force   # If both dirs exist, do the rename anyway (legacy is treated as canonical).
 )
 

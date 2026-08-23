@@ -75,7 +75,7 @@ Write-Host "  data dir    : $NewDataDir (legacy: $LegacyDataDir)"
 if (-not (Test-Path $DshHermesLinkSrc)) {
   throw "dsh-hermes-link source not found: $DshHermesLinkSrc"
 }
-if (-not (Test-Path $DshHermesLinkSrc 'cordis.patch.yml')) {
+if (-not (Test-Path (Join-Path $DshHermesLinkSrc 'cordis.patch.yml'))) {
   throw "missing cordis.patch.yml in $DshHermesLinkSrc"
 }
 if (-not (Test-Path $DSHProfile)) {
@@ -93,6 +93,15 @@ if (Test-Path $LegacyDataDir) {
       Write-Host "  + migrated: $LegacyDataDir -> $NewDataDir"
     } catch {
       Write-Warning "    failed to rename $LegacyDataDir : $($_.Exception.Message)"
+      Write-Host ""
+      Write-Host "    ! This usually means the DSH web process is currently running and holds open" -ForegroundColor Yellow
+      Write-Host "      $LegacyDataDir\audit.jsonl. The rename is deferred." -ForegroundColor Yellow
+      Write-Host "      Two safe options to finish the migration:" -ForegroundColor Yellow
+      Write-Host "        (a) close dsh web, re-run this script." -ForegroundColor Yellow
+      Write-Host "        (b) keep dsh web running, then later run:" -ForegroundColor Yellow
+      Write-Host "            pwsh -File scripts/migrate-hermes-link-data.ps1" -ForegroundColor Yellow
+      Write-Host "            (works without restart; deferred rename)." -ForegroundColor Yellow
+      Write-Host ""
     }
   }
 } else {
@@ -161,7 +170,7 @@ if (-not ($names -contains 'dsh-hermes-link')) {
 }
 
 # Bundles
-$bundles = $PkgJson.dsh.profile.bundles
+$bundles = [System.Collections.ArrayList]::new(@($PkgJson.dsh.profile.bundles))
 $removedBundles = @()
 for ($i = $bundles.Count - 1; $i -ge 0; $i--) {
   if ($LegacyPluginIds -contains $bundles[$i]) {
@@ -173,12 +182,14 @@ if ($removedBundles.Count -gt 0) {
   Write-Host "  - bundles: removed $($removedBundles -join ', ')"
 }
 if (-not ($bundles -contains 'dsh-hermes-link')) {
-  $bundles.Add('dsh-hermes-link')
+  [void]$bundles.Add('dsh-hermes-link')
   Write-Host "  + bundles: added dsh-hermes-link"
 }
+$PkgJson.dsh.profile.bundles = $bundles.ToArray([string])
 
 $PkgJsonRaw = $PkgJson | ConvertTo-Json -Depth 16
-Set-Content -Path $PkgJsonPath -Value $PkgJsonRaw -Encoding UTF8
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText($PkgJsonPath, $PkgJsonRaw, $utf8NoBom)
 Write-Host "  written: $PkgJsonPath"
 
 # ----- 5. Edit cordis.patch.yml ------------------------------------------------
@@ -219,7 +230,8 @@ if ($cpRaw -notmatch '^- id: dsh-hermes-link\s*$') {
   Write-Host "  ~ cordis.patch.yml: enabled dsh-hermes-link"
 }
 
-Set-Content -Path $CordisPatch -Value $cpRaw -Encoding UTF8
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText($CordisPatch, $cpRaw, $utf8NoBom)
 Write-Host "  written: $CordisPatch"
 
 # ----- 6. Edit Hermes config.yaml ---------------------------------------------
@@ -234,7 +246,8 @@ if (-not $SkipHermesConfig) {
       $bak = "$HermesConfig.bak.dsh-hermes-link.$(Get-Date -Format 'yyyyMMdd-HHmmss')"
       Copy-Item -Path $HermesConfig -Destination $bak
       $hcNew = $hcRaw -replace [regex]::Escape($oldUrl), $newUrl
-      Set-Content -Path $HermesConfig -Value $hcNew -Encoding UTF8
+      $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText($HermesConfig, $hcNew, $utf8NoBom)
       Write-Host "  + Hermes config.yaml: $oldUrl -> $newUrl"
       Write-Host "    backup: $bak"
     } elseif ($hcRaw.Contains($newUrl)) {
@@ -256,7 +269,7 @@ $PresetSrcStandard = Join-Path $DSHProfile 'node_modules\@deepseek-ai\dsh\config
 if (-not (Test-Path $PresetSrcStandard)) {
   $npxRoot = Join-Path $env:LOCALAPPDATA 'npm-cache\_npx'
   if (Test-Path $npxRoot) {
-    $found = Get-ChildItem $npxRoot -Recurse -Depth 4 -Directory -Filter 'standard' -ErrorAction SilentlyContinue |
+    $found = Get-ChildItem $npxRoot -Recurse -Depth 8 -Directory -Filter 'standard' -ErrorAction SilentlyContinue |
              Where-Object { Test-Path (Join-Path $_.FullName 'agent.cordis.yml') } |
              Select-Object -First 1
     if ($found) { $PresetSrcStandard = $found.FullName }

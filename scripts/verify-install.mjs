@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env node
+#!/usr/bin/env node
 // scripts/verify-install.mjs
 // Post-install structural verification. Checks DSH profile + Hermes config.
 // Idempotent — run anytime to confirm the install is intact.
@@ -48,7 +48,13 @@ for (const pkg of old) {
 const pkgJsonPath = join(dshProfile, 'package.json')
 if (existsSync(pkgJsonPath)) {
   let pkgJson
-  try { pkgJson = JSON.parse(readFileSync(pkgJsonPath, 'utf8')) } catch (e) {
+  try {
+    // Strip UTF-8 BOM (PowerShell 5.1 Set-Content -Encoding UTF8 writes one by default;
+    // JSON.parse rejects it). Tolerate either form here so the check is robust.
+    let raw = readFileSync(pkgJsonPath, 'utf8')
+    if (raw.charCodeAt(0) === 0xFEFF) raw = raw.slice(1)
+    pkgJson = JSON.parse(raw)
+  } catch (e) {
     check('package.json parses', false, e.message)
   }
   if (pkgJson) {
