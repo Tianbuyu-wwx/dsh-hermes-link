@@ -1,0 +1,19 @@
+{
+  "jsonrpc": "2.0",
+  "id": 20,
+  "method": "tools/call",
+  "params": {
+    "name": "dispatch_task",
+    "arguments": {
+      "version": "0.3",
+      "task_id": "v03-cont-001",
+      "mode": "continuable",
+      "skill": "obsidian_list",
+      "task": "List the first 5 notes and acknowledge. Be very brief.",
+      "args": { "limit": 5 },
+      "model_tier": "flash",
+      "max_tokens": 400,
+      "deadline_ms": 30000
+    }
+  }
+}

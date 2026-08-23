@@ -1,0 +1,15 @@
+{
+  "jsonrpc": "2.0",
+  "id": 41,
+  "method": "tools/call",
+  "params": {
+    "name": "dispatch_followup",
+    "arguments": {
+      "child_id": "e883e89d-1a33-4c18-a55b-37996e23d7fd",
+      "content": [
+        { "type": "text", "text": "Now use obsidian_search to find all notes tagged with 'ppt' or mentioning 'PPT' in their filename. Be brief." }
+      ],
+      "deadline_ms": 30000
+    }
+  }
+}

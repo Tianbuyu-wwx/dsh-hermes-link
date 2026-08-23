@@ -1,0 +1,15 @@
+{
+  "name": "hermes-link",
+  "owner": "Tianbuyu-wwx",
+  "url": "https://github.com/Tianbuyu-wwx/hermes-link",
+  "category": "integration",
+  "description": {
+    "en": "Bidirectional bridge between Hermes Agent and DeepSeek Harness. Hermes dispatches focused tasks via JSON-RPC (one-shot or continuable, nonce-bound amend, secret-bound consult reply); DSH spawns sub-agents and lets you continue any Hermes session as a native DSH session in the sidebar.",
+    "zh": "Hermes Agent 与 DeepSeek Harness 的双向桥接：Hermes 通过 JSON-RPC 派任务（一次性或可持续），DSH 启动子 agent 执行，并允许用户把 Hermes 会话作为原生 DSH 会话在侧边栏继续对话。"
+  },
+  "npm": "@Tianbuyu-wwx/hermes-link",
+  "stars": null,
+  "downloads": null,
+  "install": "npm:@Tianbuyu-wwx/hermes-link",
+  "added": "2026-08-22"
+}

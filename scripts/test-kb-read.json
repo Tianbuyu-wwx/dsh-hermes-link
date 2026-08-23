@@ -1,0 +1,19 @@
+{
+  "jsonrpc": "2.0",
+  "id": 12,
+  "method": "tools/call",
+  "params": {
+    "name": "dispatch_task",
+    "arguments": {
+      "version": "0.2",
+      "task_id": "kb-read-001",
+      "skill": "obsidian_read",
+      "task": "Read the note at '00-meta/python-environments.md' and report: 1) the in-vault path, 2) high-level topic of the note (one sentence), 3) any Python venv / package list mentioned. Be concise.",
+      "knowledge_subset": [],
+      "args": { "path": "00-meta/python-environments.md" },
+      "model_tier": "flash",
+      "max_tokens": 600,
+      "deadline_ms": 30000
+    }
+  }
+}

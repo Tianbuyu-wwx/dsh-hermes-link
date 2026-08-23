@@ -1,0 +1,23 @@
+{
+  "jsonrpc": "2.0",
+  "id": 10,
+  "method": "tools/call",
+  "params": {
+    "name": "dispatch_task",
+    "arguments": {
+      "version": "0.2",
+      "task_id": "kb-search-v0-2-001",
+      "skill": "obsidian_search",
+      "task": "Search the user's Obsidian vault for content related to 'v0.2' plugin development, sub-agent dispatch, or token savings. Use the obsidian_search tool to find matches. Then summarize the top 3 most relevant pieces of context (cite file path + line). Be concise, ~5 lines.",
+      "knowledge_subset": [],
+      "args": {
+        "query": "v0.2",
+        "limit": 8,
+        "context": 1
+      },
+      "model_tier": "flash",
+      "max_tokens": 600,
+      "deadline_ms": 45000
+    }
+  }
+}

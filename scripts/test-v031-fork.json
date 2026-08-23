@@ -1,0 +1,20 @@
+{
+  "jsonrpc": "2.0",
+  "id": 50,
+  "method": "tools/call",
+  "params": {
+    "name": "dispatch_task",
+    "arguments": {
+      "version": "0.3",
+      "task_id": "v031-fork-001",
+      "mode": "continuable",
+      "provider": "fork",
+      "skill": "obsidian_list",
+      "task": "You have access to my earlier conversation with the dsh session as session history. Read it and tell me: 1) what is the user's python venv architecture summary, 2) what Hermes APIs we built. Then list 3 notes from the vault. Be concise.",
+      "args": { "limit": 3 },
+      "model_tier": "flash",
+      "max_tokens": 600,
+      "deadline_ms": 30000
+    }
+  }
+}

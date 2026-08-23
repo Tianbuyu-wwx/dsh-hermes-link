@@ -1,0 +1,8 @@
+# hermes-link — DSH bundle profile patch.
+# Activates this plugin via:
+#   dsh plugin --profile <profile> add ./packages/hermes-link
+# OR (simpler, recommended):
+#   pwsh -File scripts/install-hermes-link.ps1
+- insert:
+    - id: hermes-link
+      name: 'hermes-link'

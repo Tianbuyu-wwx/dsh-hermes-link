@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "hermes-link://dispatch-spec.schema.json",
+  "title": "Hermes → DSH dispatch spec (hermes-link v0.2.2)",
+  "description": "JSON-RPC 2.0 /tools/call dispatch_task arguments. Slim field surface; no audit-only fields at the protocol level (audit is server-side).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["task_id", "skill", "task"],
+  "properties": {
+    "task_id":           { "type": "string", "minLength": 1, "maxLength": 128, "description": "Hermes-minted unique id; idempotency key." },
+    "skill":             { "type": "string", "minLength": 1, "maxLength": 64,  "description": "Tool name to allow in the spawned sub-agent's toolFilter." },
+    "task":              { "type": "string", "minLength": 1, "maxLength": 8000, "description": "Free-text task description." },
+    "args":              { "type": "object", "description": "Skill-specific structured arguments." },
+    "knowledge_subset":  { "type": "array",  "maxItems": 16, "description": "Hermes-picked knowledge fragments, ≤2KB total.",
+                            "items": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "properties": {
+                                "source":  { "type": "string" },
+                                "scope":   { "type": "string" },
+                                "excerpt": { "type": "string" },
+                                "why":     { "type": "string" }
+                              }
+                            }
+                          },
+    "model_tier":        { "type": "string", "enum": ["flash", "pro", "vision"], "default": "flash" },
+    "max_tokens":        { "type": "integer", "minimum": 256, "maximum": 32000, "default": 4000 },
+    "deadline_ms":       { "type": "integer", "minimum": 1000, "maximum": 600000, "default": 60000 },
+    "mode":              { "type": "string", "enum": ["one-shot", "continuable"], "default": "one-shot", "description": "one-shot = full result in the dispatch reply; continuable = returns child_id, then Hermes drives followups via dispatch_followup / dispatch_interrupt." },
+    "provider":          { "type": "string", "enum": ["spawn", "fork"], "description": "spawn: isolated child. fork: child inherits parent session history. Default: fork for continuable, spawn for one-shot." },
+    "shared_history_n":  { "type": "integer", "minimum": 0, "maximum": 200, "description": "When provider=spawn, include this many recent parent turns as context. n=0 means none." },
+    "include_project_memory": { "type": "boolean", "default": false, "description": "v0.2.2: opt-in per-task inclusion of Hermes MEMORY.md entries that match the DSH session's cwd (state.db sessions where cwd == parent cwd). Off by default to avoid unrelated-project memory leaking into the sub-agent." }
+  }
+}

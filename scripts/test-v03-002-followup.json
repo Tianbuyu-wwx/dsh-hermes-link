@@ -1,0 +1,15 @@
+{
+  "jsonrpc": "2.0",
+  "id": 23,
+  "method": "tools/call",
+  "params": {
+    "name": "dispatch_followup",
+    "arguments": {
+      "child_id": "2068cafd-3e30-4a4f-ad4d-152fc35d41b9",
+      "content": [
+        { "type": "text", "text": "Now please list 5 more notes — skip the 5 you already showed. Be brief." }
+      ],
+      "deadline_ms": 30000
+    }
+  }
+}

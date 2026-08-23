@@ -1,0 +1,14 @@
+# Default owner for everything in this repo.
+*                          @Tianbuyu-wwx
+
+# Security-sensitive paths get a second reviewer.
+# (Replace @Tianbuyu-wwx with the second handle once a co-maintainer exists.)
+/SECURITY.md              @Tianbuyu-wwx
+/.github/workflows/       @Tianbuyu-wwx
+/cordis.patch.yml         @Tianbuyu-wwx
+/packages/hermes-link/services/audit/      @Tianbuyu-wwx
+/packages/hermes-link/services/hermes-inbox/ @Tianbuyu-wwx
+/packages/hermes-link/tools/import-hermes-session.mjs @Tianbuyu-wwx
+/packages/hermes-link/import/import-hermes-session.mjs @Tianbuyu-wwx
+/packages/hermes-link/import/request-dump-to-events.mjs @Tianbuyu-wwx
+/packages/hermes-link/services/consult-hermes.mjs @Tianbuyu-wwx

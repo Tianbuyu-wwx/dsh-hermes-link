@@ -1,0 +1,20 @@
+{
+  "jsonrpc": "2.0",
+  "id": 60,
+  "method": "tools/call",
+  "params": {
+    "name": "dispatch_task",
+    "arguments": {
+      "version": "0.3",
+      "task_id": "v031-isolation-001",
+      "mode": "continuable",
+      "provider": "spawn",
+      "skill": "obsidian_list",
+      "task": "I am a sub-agent spawned by Hermes. I have access to exactly ONE tool: obsidian_list. Without using any tool, just tell me: do you see any content from Hermes's recent conversation in your system prompt? Yes or no. Be concise.",
+      "args": { "limit": 3 },
+      "model_tier": "flash",
+      "max_tokens": 300,
+      "deadline_ms": 30000
+    }
+  }
+}

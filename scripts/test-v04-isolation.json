@@ -1,0 +1,20 @@
+{
+  "jsonrpc": "2.0",
+  "id": 70,
+  "method": "tools/call",
+  "params": {
+    "name": "dispatch_task",
+    "arguments": {
+      "version": "0.3",
+      "task_id": "v04-isolation-001",
+      "mode": "continuable",
+      "provider": "spawn",
+      "skill": "obsidian_list",
+      "task": "I am a sub-agent. I have only ONE tool: obsidian_list. Without making any tool call, just answer these two questions: 1) Do you see any Hermes-inbox content from the user's recent conversation in your system prompt? 2) Do you see anything about 'v0.4 final test' or 'no HTTP, no polling'? Just say yes/no briefly.",
+      "args": { "limit": 3 },
+      "model_tier": "flash",
+      "max_tokens": 600,
+      "deadline_ms": 30000
+    }
+  }
+}

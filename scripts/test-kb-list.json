@@ -1,0 +1,19 @@
+{
+  "jsonrpc": "2.0",
+  "id": 11,
+  "method": "tools/call",
+  "params": {
+    "name": "dispatch_task",
+    "arguments": {
+      "version": "0.2",
+      "task_id": "kb-list-001",
+      "skill": "obsidian_list",
+      "task": "List the first 10 notes in the vault and report the paths and titles. If the vault is empty, report the vault path the tool sees.",
+      "knowledge_subset": [],
+      "args": { "limit": 10 },
+      "model_tier": "flash",
+      "max_tokens": 800,
+      "deadline_ms": 30000
+    }
+  }
+}

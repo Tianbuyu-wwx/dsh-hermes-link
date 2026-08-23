@@ -1,0 +1,66 @@
+name: release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Only one release at a time.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write   # for npm provenance (OIDC)
+
+jobs:
+  publish:
+    name: publish @Tianbuyu-wwx/hermes-link
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org/'
+
+      - name: Install
+        run: npm install --no-audit --no-fund
+
+      - name: Create release PR (changesets)
+        uses: changesets/action@v1
+        with:
+          publish: npm run release:ci
+          version: npm run version:ci
+          commit: "chore(release): version packages"
+          title: "chore(release): version packages"
+          createGithubReleases: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish to npm (only when changesets reported changes)
+        if: steps.changesets.outputs.published == 'true'
+        run: npm publish --workspace=packages/hermes-link --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Manual fallback note
+        if: failure()
+        run: |
+          cat <<'EOF'
+          ⚠️ Release workflow failed.
+          Manual fallback (no secrets / OIDC):
+            # locally:
+            npm install
+            npx changeset version
+            npm publish --workspace=packages/hermes-link --access public
+            git push --follow-tags
+          EOF

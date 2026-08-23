@@ -1,0 +1,15 @@
+{
+  "jsonrpc": "2.0",
+  "id": 62,
+  "method": "tools/call",
+  "params": {
+    "name": "dispatch_followup",
+    "arguments": {
+      "child_id": "6afb9374-50b5-4a67-8403-13c4de26df71",
+      "content": [
+        { "type": "text", "text": "Use obsidian_list to list 3 notes. Then WITHOUT using any tool, answer: do you have any Hermes-related content in your system prompt beyond the task envelope and SOUL/USER/MEMORY foundation? Just say 'yes' or 'no'." }
+      ],
+      "deadline_ms": 30000
+    }
+  }
+}

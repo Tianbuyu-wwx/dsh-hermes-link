@@ -1,0 +1,19 @@
+{
+  "jsonrpc": "2.0",
+  "id": 40,
+  "method": "tools/call",
+  "params": {
+    "name": "dispatch_task",
+    "arguments": {
+      "version": "0.3",
+      "task_id": "v03-final-001",
+      "mode": "continuable",
+      "skill": "obsidian_list",
+      "task": "List the first 3 notes in the vault. Be brief.",
+      "args": { "limit": 3 },
+      "model_tier": "flash",
+      "max_tokens": 300,
+      "deadline_ms": 25000
+    }
+  }
+}

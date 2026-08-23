@@ -1,0 +1,79 @@
+{
+  "name": "@Tianbuyu-wwx/hermes-link",
+  "version": "0.2.4",
+  "description": "Bidirectional bridge between Hermes Agent and DeepSeek Harness. Hermes dispatches focused tasks via JSON-RPC over POST /mcp/collab (one-shot or continuable, nonce-bound amend, secret-bound consult reply); DSH lets you continue Hermes sessions as native DSH sessions in the sidebar.",
+  "type": "module",
+  "main": "./index.mjs",
+  "exports": {
+    ".": "./index.mjs",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json",
+    "./dispatch-spec.schema.json": "./dispatch-spec.schema.json"
+  },
+  "files": [
+    "index.mjs",
+    "cordis.patch.yml",
+    "skills",
+    "import",
+    "services",
+    "tools",
+    "http",
+    "dispatch-spec.schema.json"
+  ],
+  "license": "MIT",
+  "keywords": [
+    "dsh",
+    "cordis",
+    "hermes",
+    "deepseek-harness",
+    "session-sync",
+    "dsh-plugin",
+    "dsh-bundle",
+    "hermes-link"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "os": [
+    "win32",
+    "darwin",
+    "linux"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "author": {
+    "name": "Tianbuyu-wwx",
+    "url": "https://github.com/Tianbuyu-wwx"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Tianbuyu-wwx/hermes-link.git"
+  },
+  "homepage": "https://github.com/Tianbuyu-wwx/hermes-link#readme",
+  "bugs": {
+    "url": "https://github.com/Tianbuyu-wwx/hermes-link/issues"
+  },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
+  "scripts": {
+    "test": "node scripts/test-request-dump.mjs && node scripts/test-dispatch-schema.mjs && node scripts/test-services.mjs && node scripts/test-amend-security.mjs && node scripts/test-consult-security.mjs && node scripts/test-foundation-policy.mjs && node scripts/test-mirror-opt-in.mjs && node scripts/test-v0.2.3-hardening.mjs && node scripts/test-consult-client.mjs && node scripts/smoke-test.mjs && node scripts/import-check.mjs && node scripts/verify-install.mjs",
+    "test:smoke": "node scripts/smoke-test.mjs",
+    "test:converter": "node scripts/test-request-dump.mjs",
+    "test:dispatch": "node scripts/test-dispatch-schema.mjs",
+    "test:services": "node scripts/test-services.mjs",
+    "test:security": "node scripts/test-amend-security.mjs && node scripts/test-consult-security.mjs && node scripts/test-foundation-policy.mjs && node scripts/test-mirror-opt-in.mjs",
+    "test:hardening": "node scripts/test-v0.2.3-hardening.mjs",
+    "test:consult": "node scripts/test-consult-client.mjs",
+    "test:install": "node scripts/verify-install.mjs",
+    "test:imports": "node scripts/import-check.mjs"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

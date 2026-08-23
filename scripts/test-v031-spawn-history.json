@@ -1,0 +1,21 @@
+{
+  "jsonrpc": "2.0",
+  "id": 51,
+  "method": "tools/call",
+  "params": {
+    "name": "dispatch_task",
+    "arguments": {
+      "version": "0.3",
+      "task_id": "v031-spawn-hist-001",
+      "mode": "continuable",
+      "provider": "spawn",
+      "shared_history_n": 5,
+      "skill": "obsidian_list",
+      "task": "Tell me what the user just asked you to do (re-state the task). Then list 3 notes. Be brief.",
+      "args": { "limit": 3 },
+      "model_tier": "flash",
+      "max_tokens": 500,
+      "deadline_ms": 30000
+    }
+  }
+}
