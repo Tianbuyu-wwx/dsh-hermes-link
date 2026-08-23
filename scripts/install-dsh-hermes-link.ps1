@@ -198,15 +198,23 @@ $CordisPatch = Join-Path $DSHProfile 'cordis.patch.yml'
 $cpRaw = Get-Content -Path $CordisPatch -Raw -Encoding UTF8
 
 # Disable legacy "hermes-link" id with a comment so DSH still boots cleanly
-# (this preserves it for audit/reference; DSH skips disabled rows)
+# (this preserves it for audit/reference; DSH skips disabled rows).
+# IMPORTANT: use a strict pattern that pins disabled:true to the LINE IMMEDIATELY
+# FOLLOWING `- id: hermes-link`. The naive `(?ms)^\- id: hermes-link\b.*?disabled:\s*true`
+# cross-row-scans to the NEXT `disabled: true` (often several rows down under a
+# different id) and false-positives as "already disabled".
 $legacyHermesLinkRow = '- id: hermes-link'
-if ($cpRaw -match '(?ms)^\- id: hermes-link\b.*?(?=^\- id:|\Z)') {
-  if ($cpRaw -notmatch '(?ms)^\- id: hermes-link\b.*?disabled:\s*true') {
-    $cpRaw = [regex]::Replace($cpRaw, '(?ms)(^\- id: hermes-link\b.*?)(disabled:\s*\w+)', ('$1disabled: true  # legacy v0.2.4 id, superseded by dsh-hermes-link'), 1)
-    Write-Host "  ~ cordis.patch.yml: marked legacy hermes-link disabled"
-  } else {
-    Write-Host "  - cordis.patch.yml: legacy hermes-link already disabled; skip"
-  }
+if ($cpRaw -match '(?ms)^\- id: hermes-link\s*\n\s*disabled:\s*true\s*(#.*)?$') {
+  Write-Host "  - cordis.patch.yml: legacy hermes-link already disabled; skip"
+} else {
+  # Anchor the rewrite to the hermes-link block specifically, not the first
+  # generic `disabled:` token that may belong to a different row.
+  $cpRaw = [regex]::Replace(
+    $cpRaw,
+    '(?ms)(^\- id: hermes-link\s*\n\s*disabled:\s*)\w+',
+    ('${1}true  # legacy v0.2.4 id, superseded by dsh-hermes-link'),
+    1)
+  Write-Host "  ~ cordis.patch.yml: marked legacy hermes-link disabled"
 }
 
 # Ensure other legacy rows are still disabled (idempotent — leave as-is if already correct)
@@ -222,11 +230,18 @@ foreach ($pkg in @('hermes-foundation','hermes-oneshot-arbitrate','hermes-dispat
 }
 
 # Add dsh-hermes-link row (enabled)
-if ($cpRaw -notmatch '^- id: dsh-hermes-link\s*$') {
+# IMPORTANT: PowerShell's -notmatch defaults to SINGLE-LINE semantics for ^ and $,
+# so without (?m) the `^` anchor never matches a row in the middle of the file
+# and we'd add a fresh row on every run. Pin to (?ms).
+if ($cpRaw -notmatch '(?ms)^\- id: dsh-hermes-link\s*$') {
   $cpRaw = $cpRaw.TrimEnd() + "`n- id: dsh-hermes-link`n  disabled: false`n"
   Write-Host "  + cordis.patch.yml: added enabled row for dsh-hermes-link"
-} elseif ($cpRaw -notmatch "(?ms)- id: dsh-hermes-link.*?disabled:\s*false") {
-  $cpRaw = $cpRaw -replace '(?ms)(- id: dsh-hermes-link.*?)disabled:\s*\w+', '$1disabled: false'
+} elseif ($cpRaw -notmatch '(?ms)^\- id: dsh-hermes-link\s*\n\s*disabled:\s*false\s*$') {
+  $cpRaw = [regex]::Replace(
+    $cpRaw,
+    '(?ms)(^\- id: dsh-hermes-link\s*\n\s*disabled:\s*)\w+',
+    '${1}false',
+    1)
   Write-Host "  ~ cordis.patch.yml: enabled dsh-hermes-link"
 }
 
