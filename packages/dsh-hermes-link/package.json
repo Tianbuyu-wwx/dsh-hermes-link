@@ -1,5 +1,5 @@
 {
-  "name": "@Tianbuyu-wwx/hermes-link",
+  "name": "@tianbuyu-wwx/dsh-hermes-link",
   "version": "0.2.4",
   "description": "Bidirectional bridge between Hermes Agent and DeepSeek Harness. Hermes dispatches focused tasks via JSON-RPC over POST /mcp/collab (one-shot or continuable, nonce-bound amend, secret-bound consult reply); DSH lets you continue Hermes sessions as native DSH sessions in the sidebar.",
   "type": "module",
@@ -49,11 +49,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Tianbuyu-wwx/hermes-link.git"
+    "url": "git+https://github.com/Tianbuyu-wwx/dsh-hermes-link.git"
   },
-  "homepage": "https://github.com/Tianbuyu-wwx/hermes-link#readme",
+  "homepage": "https://github.com/Tianbuyu-wwx/dsh-hermes-link#readme",
   "bugs": {
-    "url": "https://github.com/Tianbuyu-wwx/hermes-link/issues"
+    "url": "https://github.com/Tianbuyu-wwx/dsh-hermes-link/issues"
   },
   "publishConfig": {
     "registry": "https://registry.npmjs.org/",
