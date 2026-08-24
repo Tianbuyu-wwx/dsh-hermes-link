@@ -147,6 +147,7 @@ export function requestDumpToEvents(dump, baseTime = Date.now()) {
   // Walk messages; assistant with tool_use becomes 1 tool/call event per use + 1 assistant/message.
   // user with tool_result blocks becomes 1 tool/result event per block.
   // user with text becomes 1 user/message event.
+  // OpenAI-compatible dumps (assistant.content string + assistant.tool_calls[] + role:'tool' results) are normalized too.
   let firstUserSnippet = ''
   let stepAssistantCount = 0
   for (let m = 0; m < messages.length; m++) {
@@ -197,17 +198,40 @@ export function requestDumpToEvents(dump, baseTime = Date.now()) {
         }
       }
     } else if (msg.role === 'assistant') {
-      const content = Array.isArray(msg.content) ? msg.content : []
+      const content = msg.content
       const textBlocks = []
       const toolUses = []
-      for (const block of content) {
-        if (!block) continue
-        if (block.type === 'text' && typeof block.text === 'string') {
-          textBlocks.push(block)
-        } else if (block.type === 'tool_use') {
-          toolUses.push(block)
-        } else if (block.type === 'reasoning' && typeof block.text === 'string') {
-          textBlocks.push(block)
+
+      // Anthropic-style content blocks (text / tool_use / reasoning)
+      if (Array.isArray(content)) {
+        for (const block of content) {
+          if (!block) continue
+          if (block.type === 'text' && typeof block.text === 'string') {
+            textBlocks.push(block)
+          } else if (block.type === 'tool_use') {
+            toolUses.push({
+              id: block.id,
+              name: block.name,
+              input: block.input,
+            })
+          } else if (block.type === 'reasoning' && typeof block.text === 'string') {
+            textBlocks.push(block)
+          }
+        }
+      } else if (typeof content === 'string' && content.length > 0) {
+        // OpenAI-compatible dumps carry assistant text as a plain string.
+        textBlocks.push({ type: 'text', text: content })
+      }
+
+      // OpenAI-compatible tool calls (assistant.tool_calls[]).
+      if (Array.isArray(msg.tool_calls)) {
+        for (const tu of msg.tool_calls) {
+          const fn = tu && tu.function
+          toolUses.push({
+            id: tu && tu.id,
+            name: fn && fn.name,
+            input: fn && fn.arguments,
+          })
         }
       }
       // emit tool/call first (log-only), then assistant/message (surface)
@@ -235,6 +259,19 @@ export function requestDumpToEvents(dump, baseTime = Date.now()) {
         message,
       }, seq++, mkTime()))
       stepAssistantCount++
+    } else if (msg.role === 'tool' || msg.role === 'function') {
+      // OpenAI-compatible tool result message.
+      const stripped = stripUntrustedWrapper(msg.content)
+      const message = createToolResultMessage({
+        callId: msg.tool_call_id || msg.name || `call_${seq}`,
+        content: [{ type: 'text', text: typeof stripped === 'string' ? stripped : safeStringify(stripped) }],
+        isError: false,
+      })
+      events.push(makeSurfaceEvent('tool/result', {
+        turn: 1,
+        step: stepAssistantCount,
+        message,
+      }, seq++, mkTime(), [0]))
     }
   }
 

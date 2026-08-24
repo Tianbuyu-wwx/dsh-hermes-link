@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- **Hermes → DSH import now preserves Hermes AI replies and tool activity.** `requestDumpToEvents()` previously only parsed Anthropic-style `content` blocks; real Hermes request dumps can be OpenAI-compatible (`assistant.content` as a string, `assistant.tool_calls[]`, and separate `role: 'tool'` tool-result messages). The converter now normalizes both formats, emitting `assistant/message`, `tool/call`, and `tool/result` events instead of dropping them or leaving blank assistant placeholders.
+
+---
+
 ## [0.2.5] — 2026-08-23
 
 ### Changed (BREAKING)

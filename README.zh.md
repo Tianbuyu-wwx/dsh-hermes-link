@@ -65,6 +65,7 @@ Hermes 是任务编排器 —— 规划工作、选择 skill、加载知识切�
 
 - **启动 auto-sync** 把所有 Hermes 会话导入 DSH
 - **fs-watcher** 轮询 `Hermes Home/sessions/`，新 dump 自动 sync
+- **导入格式兼容**：转换器同时支持 Anthropic 风格 content block 和 OpenAI 兼容 request dump（`assistant.content` 字符串 + `assistant.tool_calls[]` + `role: 'tool'` 结果），导入 DSH 时会保留 Hermes 的 AI 回复与工具调用记录
 - **heartbeat**（60s）、**usage**（每任务）、**memory-suggest** 持续写入
 - **amend watcher**（H4 nonce-bound）把 Hermes 的中途 amend 投递给运行中的可持续子 agent
 - **Hermes Home 自动探测**：`HERMES_HOME` env → Windows `%LOCALAPPDATA%\hermes` → POSIX `~/.local/share/hermes`
@@ -224,6 +225,8 @@ node scripts/verify-install.mjs
 
 **Q：`import_hermes_session` 在 v0.2.4 之前报 "invalid output"。**
 同一问题的另一面 —— v0.2.4 在工具 output schema 里补了 `firstUserSnippet` / `model` / `attach` 声明并归一化可空字段。升到 v0.2.4。
+**Q：我导入的 Hermes 会话里只有我发的消息，Hermes 的 AI 回复和 tool call 都没同步。**
+这是导入转换器对 OpenAI 兼容 Hermes dump（`assistant.content` 字符串 + `assistant.tool_calls[]` + `role: 'tool'` 结果）的支持缺陷，已在当前工作树修复。需要先删除已持久化的 `hermes-*` DSH 会话，再重新执行 `import_hermes_session` 或 auto-sync，即可恢复 `assistant/message`、`tool/call`、`tool/result` 事件。
 
 **Q：`consult_hermes` 和 Hermes 自己的 consult 区别？**
 两端都到 Hermes。`consult_hermes` 是 DSH 工具，DSH 用户在 session 里调用；`dispatch_task` 是 Hermes 主动发起的 agent RPC。共享文件通道协议但走不同路由（`POST /mcp/collab/consult` vs `POST /mcp/collab`）。

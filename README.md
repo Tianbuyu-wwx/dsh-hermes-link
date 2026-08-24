@@ -64,6 +64,7 @@ Earlier we ran this as three separate plugins (`hermes-foundation`, `hermes-ones
 
 - **Startup auto-sync** imports every Hermes session into DSH.
 - **fs-watcher** polls `Hermes Home/sessions/` and re-syncs on new dumps.
+- **Import format compatibility**: the converter accepts both Anthropic-style content blocks and OpenAI-compatible request dumps (`assistant.content` string + `assistant.tool_calls[]` + `role: 'tool'` results), so Hermes AI replies and tool calls are preserved in imported DSH sessions.
 - **heartbeat** (60s), **usage** (per-task), **memory-suggest** all run in the background.
 - **amend watcher** (H4 nonce-bound) delivers mid-task amendments from Hermes to running continuable children.
 - **Hermes Home auto-detect**: `HERMES_HOME` env → `%LOCALAPPDATA%\hermes` on Windows → `~/.local/share/hermes` on POSIX.
@@ -235,6 +236,8 @@ That's the v0.2.4 bug (turn:0 envelope failing DSH persistence validator) — fi
 
 **Q: My `import_hermes_session` returns "invalid output" before v0.2.4.**
 Same issue — fixed by declaring `firstUserSnippet` / `model` / `attach` in the tool output schema and normalizing nullable fields. Update to v0.2.4.
+**Q: I imported a Hermes session, but only my messages appear — Hermes AI replies and tool calls are missing.**
+That was an import-converter bug for OpenAI-compatible Hermes dumps (`assistant.content` as string + `assistant.tool_calls[]` + `role: 'tool'` results). It is fixed in the current working tree: re-import the session (delete the persisted `hermes-*` DSH session first, then run `import_hermes_session` / auto-sync) to get `assistant/message`, `tool/call`, and `tool/result` events back.
 
 **Q: What's the difference between `consult_hermes` and Hermes' own consult?**
 Both end up at Hermes. `consult_hermes` is a DSH tool that any user can call inside their session; `dispatch_task` is the agent-comm RPC that Hermes initiates. They share the file-based reply protocol but live on different routes (`POST /mcp/collab/consult` vs `POST /mcp/collab`).

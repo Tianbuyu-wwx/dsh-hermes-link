@@ -276,6 +276,69 @@ t('case 10: DSH persistence turn contract holds for errored dumps too', () => {
   assert.equal(turnEnd.data.turn, 1)
   assert.equal(turnEnd.data.reason.kind, 'error')
 })
+t('case 11: OpenAI-style assistant tool_calls + tool role -> assistant text + tool/call + tool/result', () => {
+  const dump = mkDump({
+    session_id: 's11',
+    body: mkBaseBody({ messages: [
+      { role: 'user', content: 'go search' },
+      {
+        role: 'assistant',
+        content: 'searching...',
+        tool_calls: [
+          { id: 'call_abc', type: 'function', function: { name: 'browser_navigate', arguments: '{"url":"https://x"}' } },
+        ],
+      },
+      { role: 'tool', tool_call_id: 'call_abc', content: '{"ok":true}' },
+      { role: 'assistant', content: 'done' },
+    ] }),
+  })
+  const { events } = requestDumpToEvents(dump, 11000)
+  const types = events.map((e) => e.type)
+  const expected = [
+    'request/header','turn/start','step/start',
+    'user/message',
+    'tool/call','assistant/message',
+    'tool/result',
+    'assistant/message',
+    'step/end','turn/end','session/end-seed',
+  ]
+  assert.deepEqual(types, expected)
+  const tc = events.find((e) => e.type === 'tool/call')
+  assert.equal(tc.data.callId, 'call_abc')
+  assert.equal(tc.data.name, 'browser_navigate')
+  assert.equal(tc.data.arguments, '{"url":"https://x"}')
+  const asst = events.filter((e) => e.type === 'assistant/message')
+  assert.equal(asst.length, 2)
+  assert.equal(asst[0].data.message.content[0].text, 'searching...')
+  assert.equal(asst[1].data.message.content[0].text, 'done')
+  const tr = events.find((e) => e.type === 'tool/result')
+  assert.equal(tr.data.message.source.kind, 'tool')
+  assert.equal(tr.data.message.source.callId, 'call_abc')
+  assert.equal(tr.data.message.content[0].content[0].text, '{"ok":true}')
+  // turn contract also holds for OpenAI-style messages
+  for (const e of events) {
+    if (e.type === 'request/header' || e.type === 'session/end-seed') continue
+    if (typeof e.data === 'object' && e.data !== null && Object.hasOwn(e.data, 'turn')) {
+      assert.equal(e.data.turn, 1, `${e.type}@${e.seq} must carry turn 1, got ${e.data.turn}`)
+    }
+  }
+})
+
+t('case 12: OpenAI-style assistant plain string content -> assistant/message text', () => {
+  const dump = mkDump({
+    session_id: 's12',
+    body: mkBaseBody({ messages: [
+      { role: 'user', content: 'q' },
+      { role: 'assistant', content: 'a' },
+    ] }),
+  })
+  const { events } = requestDumpToEvents(dump, 12000)
+  const asst = events.find((e) => e.type === 'assistant/message')
+  assert.equal(asst.data.message.role, 'assistant')
+  assert.equal(asst.data.message.content[0].type, 'text')
+  assert.equal(asst.data.message.content[0].text, 'a')
+  assert.equal(asst.data.message.source.kind, 'model')
+})
 
 // ----------------------------------------------------------------------------
 
