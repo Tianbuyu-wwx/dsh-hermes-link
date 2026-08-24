@@ -32,10 +32,9 @@ Thumbs.db
 coverage/
 .nyc_output/
 
-# changesets
-.changeset/
-# but keep the README.md inside:
-!.changeset/README.md
+# changesets: config IS tracked; only transient state inside is ignored
+.changeset/*
+!.changeset/config.json
 
 # misc
 *.tgz

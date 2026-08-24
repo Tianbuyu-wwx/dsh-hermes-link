@@ -8,7 +8,7 @@
     "packages/*"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=22.13.0"
   },
   "scripts": {
     "test": "node scripts/test-request-dump.mjs && node scripts/test-dispatch-schema.mjs && node scripts/test-services.mjs && node scripts/test-amend-security.mjs && node scripts/test-consult-security.mjs && node scripts/test-foundation-policy.mjs && node scripts/test-mirror-opt-in.mjs && node scripts/test-v0.2.3-hardening.mjs && node scripts/test-consult-client.mjs && node scripts/smoke-test.mjs && node scripts/import-check.mjs && node scripts/verify-install.mjs",

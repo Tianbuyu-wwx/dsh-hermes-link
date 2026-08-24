@@ -18,7 +18,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        node: ['20', '22']
+        node: ['22', '24']
     steps:
       - uses: actions/checkout@v4
 
@@ -59,7 +59,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: npm
       - name: Set up DSH host checkout
         shell: bash
@@ -67,6 +67,7 @@ jobs:
           mkdir -p /tmp/dsh
           cd /tmp/dsh
           npx --yes dsh@latest --help || true
+
       - name: Install (host-checkout symlink, run-all-tests)
         shell: bash
         run: |

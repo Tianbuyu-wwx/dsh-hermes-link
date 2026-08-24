@@ -33,7 +33,7 @@
     "hermes-link"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=22.13.0"
   },
   "os": [
     "win32",
