@@ -10,9 +10,6 @@
   "engines": {
     "node": ">=20"
   },
-  "devDependencies": {
-    "@changesets/cli": "^2.29.0"
-  },
   "scripts": {
     "test": "node scripts/test-request-dump.mjs && node scripts/test-dispatch-schema.mjs && node scripts/test-services.mjs && node scripts/test-amend-security.mjs && node scripts/test-consult-security.mjs && node scripts/test-foundation-policy.mjs && node scripts/test-mirror-opt-in.mjs && node scripts/test-v0.2.3-hardening.mjs && node scripts/test-consult-client.mjs && node scripts/smoke-test.mjs && node scripts/import-check.mjs && node scripts/verify-install.mjs",
     "test:smoke": "node scripts/smoke-test.mjs",
@@ -24,7 +21,7 @@
     "test:consult": "node scripts/test-consult-client.mjs",
     "test:install": "node scripts/verify-install.mjs",
     "test:imports": "node scripts/import-check.mjs",
-    "version:ci": "changeset version",
-    "release:ci": "changeset publish"
+    "version:ci": "npx --yes @changesets/cli@latest version",
+    "release:ci": "npx --yes @changesets/cli@latest publish"
   }
 }
