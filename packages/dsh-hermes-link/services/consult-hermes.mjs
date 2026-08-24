@@ -1,4 +1,4 @@
-﻿// services/consult-hermes.mjs
+// services/consult-hermes.mjs
 //
 // D2: write a consult request to Hermes Home/inbox/dsh/consult/<ts>.json,
 // then poll Hermes Home/inbox/dsh/consult-reply/<ticket>-<secret>.json.

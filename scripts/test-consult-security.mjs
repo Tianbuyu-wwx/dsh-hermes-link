@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env node
+#!/usr/bin/env node
 // scripts/test-consult-security.mjs
 // Unit tests for the v0.2.2 consult reply_secret protocol.
 // Covers:

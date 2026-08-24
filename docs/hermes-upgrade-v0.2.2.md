@@ -1,4 +1,4 @@
-﻿# Hermes 端升级到 dsh-hermes-link v0.2.2 协议
+# Hermes 端升级到 dsh-hermes-link v0.2.2 协议
 
 > 适用对象:Hermes Agent 仓库中负责"读 DSH inbox、写 reply/amend 文件"的任何 gateway/poller/worker。
 > 配套代码:`scripts/hermes-gateway-demo.py`(本仓库,独立可运行的 Python 参考实现)。

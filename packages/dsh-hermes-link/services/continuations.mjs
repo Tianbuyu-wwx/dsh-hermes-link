@@ -1,4 +1,4 @@
-﻿// services/continuations.mjs
+// services/continuations.mjs
 //
 // Durable registry for continuable dispatch children (P2-10). SQLite-backed
 // (survives dsh restart), same shape as the retired hermes-dispatch-bridge

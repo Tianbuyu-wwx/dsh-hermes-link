@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env node
+#!/usr/bin/env node
 // 探 ~/.hermes/ 实际结构, 列出会话文件位置 / 人设文件名 / settings 格式
 // 输出 JSON 到 stdout, 写到 ~/.dsh/dsh-hermes-link/probe.json (如目录不存在则建)
 

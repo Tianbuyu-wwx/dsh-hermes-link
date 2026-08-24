@@ -1,4 +1,4 @@
-﻿// services/hermes-project-memory.mjs
+// services/hermes-project-memory.mjs
 //
 // v0.2.2 — cwd-scoped Hermes memory slice.
 //

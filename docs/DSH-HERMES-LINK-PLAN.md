@@ -1,4 +1,4 @@
-﻿# Hermes ↔ DSH Link 方案 (v2)
+# Hermes ↔ DSH Link 方案 (v2)
 
 > **状态:已于 2026-08-21 全部实现**(dsh-hermes-link v0.2.0,见 `docs/delivery-v0.6.0-20260821.md`)。本文件保留为设计档案。
 > 与原文的差异:DSH→Hermes 通道采用文件协议(Hermes gateway 无公开 consult 端点);SSE 流与反向隧道未实现(路线图保留)。

@@ -1,4 +1,4 @@
-﻿// services/outbox.mjs
+// services/outbox.mjs
 //
 // DSH → Hermes file outbox inside Hermes Home (D3/D5/D6/D7 + V4), as planned
 // in docs/dsh-hermes-link-PLAN.md §2:

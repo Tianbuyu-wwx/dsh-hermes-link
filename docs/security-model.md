@@ -1,4 +1,4 @@
-﻿# Security Model
+# Security Model
 
 `dsh-hermes-link` is a Cordis bundle that lives inside a DeepSeek Harness (DSH) web process and bridges two trust boundaries: a **Hermes Agent** process (the orchestrator) and the **DSH process** (the runtime). The bridge is exposed on `127.0.0.1:3080/mcp/collab*` by default.
 

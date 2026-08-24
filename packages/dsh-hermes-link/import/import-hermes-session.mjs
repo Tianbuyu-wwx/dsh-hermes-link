@@ -1,4 +1,4 @@
-﻿// import-hermes-session.mjs
+// import-hermes-session.mjs
 //
 // V2 core service: take a Hermes session_id, find the latest request_dump for
 // it, convert it to DSH SessionEvent[], and seed a fresh DSH session in the

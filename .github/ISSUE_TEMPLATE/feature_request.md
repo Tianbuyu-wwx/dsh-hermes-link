@@ -1,4 +1,4 @@
-﻿---
+---
 name: ✨ Feature Request
 about: Suggest a new feature for dsh-hermes-link
 title: "[feature] "

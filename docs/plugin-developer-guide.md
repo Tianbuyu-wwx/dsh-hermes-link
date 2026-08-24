@@ -1,4 +1,4 @@
-﻿# Plugin Developer Guide — for Hermes-side gateway developers
+# Plugin Developer Guide — for Hermes-side gateway developers
 
 This guide is for the developer implementing the **Hermes side** of the bridge. If you're implementing a Hermes-side gateway that calls `dsh-hermes-link` over `POST /mcp/collab`, or one that reads from / writes to `Hermes Home/inbox/dsh/`, this document tells you exactly what shape to produce.
 

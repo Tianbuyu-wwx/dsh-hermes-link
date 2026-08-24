@@ -1,4 +1,4 @@
-﻿// scripts/hermes-view-dsh.mjs — Hermes-side view of dsh's records.
+// scripts/hermes-view-dsh.mjs — Hermes-side view of dsh's records.
 // Default cross-end sync: Hermes calls this to see what dsh has been
 // doing (audit log, continuable-child registry, recent dispatch results).
 

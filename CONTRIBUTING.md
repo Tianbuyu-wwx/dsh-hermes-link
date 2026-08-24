@@ -1,4 +1,4 @@
-﻿# Contributing to dsh-hermes-link
+# Contributing to dsh-hermes-link
 
 Thanks for your interest in `dsh-hermes-link`. This document covers the day-to-day development workflow. The **public API** (Hermes-side JSON-RPC + DSH-side Cordis tool surface) is treated as a hard contract — every change is gated by the test suites under `scripts/`.
 

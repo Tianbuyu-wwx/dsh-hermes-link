@@ -1,4 +1,4 @@
-﻿# dsh-hermes-link Documentation Index
+# dsh-hermes-link Documentation Index
 
 This index points at every document in this repository. If you're new here, read [README.md](../README.md) first, then come back here for depth.
 

@@ -1,4 +1,4 @@
-﻿// services/persona-loader.mjs
+// services/persona-loader.mjs
 //
 // V3: read Hermes persona (SOUL.md) + relevant config.yaml slices, return
 // as a single human-readable text blob the model can prepend to its working

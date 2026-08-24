@@ -1,4 +1,4 @@
-﻿---
+---
 name: 🐛 Bug Report
 about: Report incorrect behavior in dsh-hermes-link
 title: "[bug] "

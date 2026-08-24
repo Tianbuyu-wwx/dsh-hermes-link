@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env node
+#!/usr/bin/env node
 // scripts/test-amend-security.mjs
 // Unit tests for the v0.2.2 amend filename + nonce protocol.
 // Covers:

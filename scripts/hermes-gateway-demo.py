@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 scripts/hermes-gateway-demo.py — Hermes-side gateway reference implementation
 for the dsh-hermes-link v0.2.2 file protocols.

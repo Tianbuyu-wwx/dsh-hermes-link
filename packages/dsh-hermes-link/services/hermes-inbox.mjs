@@ -1,4 +1,4 @@
-﻿// services/hermes-inbox.mjs
+// services/hermes-inbox.mjs
 //
 // Shared conversation record between Hermes and DSH, migrated from the
 // retired hermes-foundation plugin (v0.6/v0.7 behavior) into dsh-hermes-link.

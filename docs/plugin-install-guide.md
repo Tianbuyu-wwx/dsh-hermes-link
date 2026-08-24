@@ -1,4 +1,4 @@
-﻿# Plugin Install Guide — three ways to install dsh-hermes-link
+# Plugin Install Guide — three ways to install dsh-hermes-link
 
 Pick the path that matches your workflow. All three end up with `dsh-hermes-link` running inside your DSH web profile.
 

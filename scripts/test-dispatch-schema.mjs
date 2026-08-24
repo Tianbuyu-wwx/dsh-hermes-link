@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env node
+#!/usr/bin/env node
 // scripts/test-dispatch-schema.mjs
 // Unit tests for http/dispatch.mjs validateSpec + clampInt + formatPersona.
 // No DSH runtime required (dispatch.mjs only imports the JSON schema).

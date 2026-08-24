@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env node
+#!/usr/bin/env node
 // scripts/version-bump.mjs
 // Local emergency version bump (bypass changesets when needed):
 //   node scripts/version-bump.mjs 0.2.5

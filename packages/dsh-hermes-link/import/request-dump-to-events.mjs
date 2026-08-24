@@ -1,4 +1,4 @@
-﻿// request-dump-to-events.mjs
+// request-dump-to-events.mjs
 //
 // Hermes session archive → DSH SessionEvent[] converter.
 //

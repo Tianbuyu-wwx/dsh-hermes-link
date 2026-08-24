@@ -1,4 +1,4 @@
-﻿# install-all.ps1 鈥?install hermes-mirror + hermes-bridge-oneshot into the
+# install-all.ps1 鈥?install hermes-mirror + hermes-bridge-oneshot into the
 # active DSH profile. Default profile is "web"; pass -Profile to override.
 #
 # Mechanism:

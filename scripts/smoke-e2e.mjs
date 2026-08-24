@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env node
+#!/usr/bin/env node
 // scripts/smoke-e2e.mjs
 // End-to-end smoke against a RUNNING DSH instance with dsh-hermes-link v0.2
 // loaded (run after `dsh` restart). Exercises every major surface:

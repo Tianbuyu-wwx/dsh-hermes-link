@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env node
+#!/usr/bin/env node
 // scripts/test-consult-client.mjs
 // Unit tests for packages/dsh-hermes-link/services/consult-hermes.mjs.
 // No DSH runtime required — pure file protocol in temp dirs.

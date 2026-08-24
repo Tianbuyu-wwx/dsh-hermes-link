@@ -1,4 +1,4 @@
-﻿# dsh-hermes-link 开源工程 + dshmarket 适配 — Design Spec
+# dsh-hermes-link 开源工程 + dshmarket 适配 — Design Spec
 
 > **Date**: 2026-08-22
 > **Path**: architectural (brainstorming)

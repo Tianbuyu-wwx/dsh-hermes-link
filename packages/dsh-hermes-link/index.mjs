@@ -1,4 +1,4 @@
-﻿// dsh-hermes-link — DSH plugin entry (v0.2).
+// dsh-hermes-link — DSH plugin entry (v0.2).
 //
 // What this plugin wires:
 //

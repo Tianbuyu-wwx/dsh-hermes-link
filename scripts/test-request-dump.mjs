@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env node
+#!/usr/bin/env node
 // scripts/test-request-dump.mjs
 // Unit tests for import/request-dump-to-events.mjs — the V2 core converter.
 // No DSH runtime required. Pure JSON in, events out.

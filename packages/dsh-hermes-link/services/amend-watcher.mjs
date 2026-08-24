@@ -1,4 +1,4 @@
-﻿// services/amend-watcher.mjs
+// services/amend-watcher.mjs
 //
 // H4: Hermes amends a running continuable sub-agent mid-task.
 //

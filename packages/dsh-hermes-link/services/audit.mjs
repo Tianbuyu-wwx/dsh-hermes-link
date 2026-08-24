@@ -1,4 +1,4 @@
-﻿// services/audit.mjs
+// services/audit.mjs
 //
 // D4 (audit): append-only JSONL audit log for dsh-hermes-link dispatch activity.
 // Location: ~/.dsh/dsh-hermes-link/audit.jsonl (hermes-view-dsh.mjs reads it).

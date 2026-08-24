@@ -1,4 +1,4 @@
-﻿// tools/load-hermes-persona.mjs
+// tools/load-hermes-persona.mjs
 //
 // V3 tool: load Hermes persona (SOUL.md + relevant config.yaml slices) into the
 // current session's working context. Returns text; the model decides how to use it.

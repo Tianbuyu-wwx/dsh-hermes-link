@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env node
+#!/usr/bin/env node
 // scripts/test-services.mjs
 // Unit tests for dsh-hermes-link services/outbox.mjs (D3/D6/D7/V4),
 // services/continuations.mjs (P2-10 registry) and services/audit.mjs (D4).

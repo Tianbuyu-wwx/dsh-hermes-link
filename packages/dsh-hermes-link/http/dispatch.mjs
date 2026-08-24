@@ -1,4 +1,4 @@
-﻿// http/dispatch.mjs
+// http/dispatch.mjs
 //
 // All HTTP routes for dsh-hermes-link (v0.2). Single file: one webServer.register
 // call (one route block) instead of five. Routing is method+path dispatch.
