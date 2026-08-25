@@ -1,0 +1,22 @@
+chore(release): bump to v0.3.2 + CHANGELOG entry
+
+v0.3.2 = Prometheus /mcp/collab/metrics endpoint (F6). No wire-protocol
+changes for the existing JSON-RPC routes - purely additive. The
+metrics endpoint follows the Prometheus text exposition format
+(version=0.0.4) with 16 counters + 8 gauges.
+
+Sync points (7 files):
+  packages/dsh-hermes-link/package.json          0.3.1 -> 0.3.2
+  http/dispatch.mjs (VERSION)                   0.3.1 -> 0.3.2
+  index.mjs (VERSION)                           0.3.1 -> 0.3.2
+  dispatch-spec.schema.json (title)             v0.3.1 -> v0.3.2
+  skills/dsh-hermes-link/SKILL.md               v0.3.1 -> v0.3.2
+  README.zh.md                                  v0.3.1 -> v0.3.2
+
+CHANGELOG: full v0.3.2 entry listing the 16 counters + 8 gauges.
+SKILL.md: documents the new /mcp/collab/metrics HTTP route.
+README.md: Roadmap line for v0.3.2.
+.changeset/patch-f6-metrics.md: patch changeset entry per repo convention.
+
+Verified: scripts/check-version-sync (6/6) + scripts/check-docs-fresh
+(19/19) both green; npm test 330/330.

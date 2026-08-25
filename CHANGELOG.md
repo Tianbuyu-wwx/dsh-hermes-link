@@ -9,6 +9,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.2] — 2026-08-27
+
+### Added
+- **Prometheus `/mcp/collab/metrics` endpoint (F6)** — returns `text/plain; version=0.0.4` with 16 counters + 8 gauges. Bearer auth same as `/mcp/collab`. New `services/metrics.mjs` registry is wired into:
+  - `index.mjs` (per-process singleton, periodic 5s collector pulls gauges from outbox / continuations / sseBroker / dispatcherCount)
+  - `http/jsonrpc-handlers.mjs` (per-tool-call counter increments for dispatch_task / followup / interrupt / get_dispatch / dispatch_status / dispatch_tail)
+  - `services/audit.mjs` + `services/outbox.mjs` + `services/amend-watcher.mjs` (per-write counter increments via `setMetricsSink` hooks)
+
+### Counters
+- `hermes_link_dispatch_total{mode,status}` / `_followup_total{status}` / `_interrupt_total{status}` / `_consult_total{status}` / `_import_total{status}`
+- `hermes_link_amend_total{result}` + `_amend_rejected_legacy_total`
+- `hermes_link_outbox_flush_runs_total` / `_dropped_queue_full_total` / `_dropped_retries_total` / `_session_mirror_errors_total` / `_memory_suggest_total` / `_usage_total` / `_session_events_total`
+- `hermes_link_audit_appends_total` / `_continuables_registered_total`
+
+### Gauges
+- `hermes_link_continuable_children{status}` / `_outbox_queue_depth` / `_outbox_items_queued` / `_active_dispatchers`
+- `hermes_link_sse_clients` / `_sse_channels` / `_uptime_seconds` / `_build_info{version}`
+
+### Changed
+- `services/audit.mjs` + `services/outbox.mjs` + `services/amend-watcher.mjs` now export `setMetricsSink(metrics)` hooks; behavior unchanged when no sink is set.
+- `index.mjs` teardown now also stops the metric collector interval timer on plugin dispose.
+
+### Tests
+- `scripts/test-metrics.mjs` — 20 cases (registry primitives: counter/gauge semantics, label encoding, text format).
+- `scripts/test-metrics-integration.mjs` — 10 cases (shape completeness, realistic increment patterns, format compliance).
+- All existing tests pass unchanged (counter increments are best-effort and never break the writer).
+- Total: 330 passing (300 baseline + 20 metrics + 10 integration).
+
+---
+
 ## [0.3.1] — 2026-08-26
 
 ### Added
