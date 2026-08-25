@@ -60,6 +60,7 @@ import { createConsultHermesTool } from './tools/consult-hermes.mjs'
 import { createMirrorSessionToHermesTool } from './tools/mirror-session-to-hermes.mjs'
 import { createLoadHermesProjectMemoryTool } from './tools/load-hermes-project-memory.mjs'
 import { createRotateOutboxNowTool } from './tools/rotate-outbox-now.mjs'
+import { createDispatchStatusTool } from './tools/dispatch-status.mjs'
 
 const skillDir = fileURLToPath(new URL('./skills/dsh-hermes-link', import.meta.url))
 const MAX_FOUNDATION_SLICE_CHARS = 4096
@@ -260,7 +261,8 @@ export function apply(ctx) {
       ctx.tools.register(createMirrorSessionToHermesTool({ outbox }))
       ctx.tools.register(createLoadHermesProjectMemoryTool({ hermesHome }))
       ctx.tools.register(createRotateOutboxNowTool({ outboxRotation }))
-      console.log('[dsh-hermes-link v' + VERSION + '] tools registered: list_hermes_sessions, import_hermes_session, load_hermes_persona, consult_hermes, mirror_session_to_hermes, load_hermes_project_memory, rotate_outbox_now')
+      ctx.tools.register(createDispatchStatusTool({ continuations, ctx }))
+      console.log('[dsh-hermes-link v' + VERSION + '] tools registered: list_hermes_sessions, import_hermes_session, load_hermes_persona, consult_hermes, mirror_session_to_hermes, load_hermes_project_memory, rotate_outbox_now, dispatch_status')
     }
   } catch (e) {
     console.error('[dsh-hermes-link v' + VERSION + '] tool registration failed:', e && e.message || e)

@@ -14,6 +14,7 @@ when_to_use: |
     - hermes_inbox_append          — append a turn to the shared record (DSH → Hermes)
     - hermes_clear_injected        — audit-only: report how many turns were auto-injected into THIS session by an older version; suggests "open a new session"
     - rotate_outbox_now            — v0.3.1 F2: force an immediate outbox file rotation pass (size + age archive + purge); Hermes cron can call this hourly
+    - dispatch_status             — v0.3.1 F4: list live continuable dispatch children with status / tokens / recent audit entries; filterable by task_id
   On the inbound side, dsh-hermes-link runs an HTTP listener at POST /mcp/collab (the same path
   Hermes' config.yaml mcp_servers.dsh-bridge.url should point to). Hermes dispatches tasks
   there (JSON-RPC 2.0: dispatch_task one-shot or continuable, dispatch_followup,

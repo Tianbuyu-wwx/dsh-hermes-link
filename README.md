@@ -62,6 +62,7 @@ Earlier we ran this as three separate plugins (`hermes-foundation`, `hermes-ones
 | `hermes_inbox` / `hermes_inbox_append` | read / append to the shared conversation record (`~/.dsh/hermes-inbox/session.jsonl`) |
 | `hermes_clear_injected` | audit-only: count turns auto-injected by an older hermes-foundation/dsh-hermes-link version, point at "open a new session" |
 | `rotate_outbox_now` | v0.3.1 F2: force an immediate outbox file rotation pass (size-based usage.jsonl / session-mirror rotation + age-based heartbeat / memory-suggest archive + purge) |
+| `dispatch_status` | v0.3.1 F4: snapshot of live continuable dispatch children (task_id, child_id, status, tokens, recent audit) — useful for inspecting what Hermes-dispatched tasks are running |
 
 ### Auto-loop
 

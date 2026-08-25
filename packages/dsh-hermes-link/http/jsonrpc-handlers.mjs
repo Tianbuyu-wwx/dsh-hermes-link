@@ -8,7 +8,8 @@
 //   - tools/call fan-out to handleDispatchTask / handleDispatchFollowup / etc.
 
 import schema from '../dispatch-spec.schema.json' with { type: 'json' }
-import { readAuditLines } from '../services/audit.mjs'
+import { readAuditLines, auditPath as _auditPath } from '../services/audit.mjs'
+import { buildDispatchStatus, readChildSessionTail, filterAuditRecords, readAuditRecords } from '../services/dispatch-status.mjs'
 import { mcpError, mcpResult } from './_util.mjs'
 import { handleDispatchTask } from './dispatch-task.mjs'
 import {
@@ -82,9 +83,57 @@ export async function handleRpc(ctx, body, deps) {
       return mcpResult(id, out)
     }
     if (name === 'get_dispatch') {
+      // v0.3.1 F4: enhanced with task_id/kind/since_ts/until_ts filters +
+      // continuable_children enrichment when available.
       const limit = Number(args.limit) || 20
-      const lines = readAuditLines(limit)
-      return mcpResult(id, { content: [{ type: 'text', text: lines.length ? lines.join('\n') : '(empty)' }] })
+      const taskIdFilter = typeof args.task_id === 'string' ? args.task_id : null
+      const kindFilter  = typeof args.kind === 'string' ? args.kind : null
+      const sinceTs = Number.isInteger(args.since_ts) ? args.since_ts : null
+      const untilTs = Number.isInteger(args.until_ts) ? args.until_ts : null
+      // Parse audit lines (no API change - readAuditLines returns raw strings)
+      // For enrichment we parse records.
+      const rawLines = readAuditLines(2000)
+      const records = []
+      for (const line of rawLines) {
+        try { records.push(JSON.parse(line)) } catch (_e) {}
+      }
+      let filtered = records
+      if (taskIdFilter || kindFilter || sinceTs || untilTs) {
+        filtered = filterAuditRecords(records, { task_id: taskIdFilter, kind: kindFilter, since_ts: sinceTs, until_ts: untilTs })
+      }
+      filtered = filtered.slice(-limit)
+      // Enrich with live continuable metadata when available
+      const cont = deps.continuations
+      const liveSet = new Set()
+      if (cont && typeof cont.list === 'function') {
+        for (const c of cont.list({ limit: 200 })) liveSet.add(c.task_id)
+      }
+      for (const r of filtered) {
+        if (r.task_id && liveSet.has(r.task_id)) r.live_continuable = true
+      }
+      return mcpResult(id, { content: [{ type: 'text', text: filtered.length ? JSON.stringify(filtered, null, 2) : '(empty)' }] })
+    }
+    if (name === 'dispatch_status') {
+      // v0.3.1 F4: live continuable children snapshot + audit_recent + token snapshot
+      const taskIdFilter = typeof args.task_id === 'string' ? args.task_id : null
+      const includeAudit = Number.isInteger(args.include_audit_recent) ? args.include_audit_recent : 5
+      const status = buildDispatchStatus({
+        continuations: deps.continuations,
+        ctx,
+        auditPath: _auditPath ? _auditPath() : undefined,
+      }, { task_id: taskIdFilter, include_audit_recent: includeAudit })
+      return mcpResult(id, status)
+    }
+    if (name === 'dispatch_tail') {
+      // v0.3.1 F4: last N session events from a live child agent
+      const childId = typeof args.child_id === 'string' ? args.child_id : ''
+      if (!childId) return mcpError(id, 'E_INVALID_SPEC', 'child_id required')
+      const tail = readChildSessionTail(ctx, childId, {
+        since: Number.isInteger(args.since) ? args.since : 0,
+        limit: Number.isInteger(args.limit) ? args.limit : 200,
+      })
+      if (!tail.ok) return mcpError(id, tail.error_code, tail.hint || '')
+      return mcpResult(id, tail)
     }
     if (name === 'dispatch_subscribe') {
       // v0.3.0 F1: discovery helper - returns the SSE URL the caller should GET.
@@ -176,11 +225,43 @@ function buildToolsList() {
     },
     {
       name: 'get_dispatch',
-      description: 'Read the dsh-hermes-link audit log (last N entries, default 20).',
+      description: 'v0.3.1 F4: read the dsh-hermes-link audit log with optional filters (task_id, kind, since_ts, until_ts); each entry is enriched with live_continuable when matching a registered child. Default limit 20 (max 500).',
       inputSchema: {
         type: 'object',
         additionalProperties: false,
-        properties: { limit: { type: 'integer', default: 20, minimum: 1, maximum: 500 } },
+        properties: {
+          limit:     { type: 'integer', default: 20, minimum: 1, maximum: 500 },
+          task_id:   { type: 'string', minLength: 1, maxLength: 128 },
+          kind:      { type: 'string', enum: ['dispatch', 'import', 'consult', 'memory-suggest', 'import-all', 'continuable_started', 'continuable_completed', 'followup_completed', 'interrupted'] },
+          since_ts:  { type: 'integer', minimum: 0, description: 'Unix ms; only entries with ts >= since_ts' },
+          until_ts:  { type: 'integer', minimum: 0, description: 'Unix ms; only entries with ts <= until_ts' },
+        },
+      },
+    },
+    {
+      name: 'dispatch_status',
+      description: 'v0.3.1 F4: live continuable children snapshot. Returns task_id/child_id/status/tokens + optional recent audit entries. Filterable by task_id.',
+      inputSchema: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          task_id:              { type: 'string', minLength: 1, maxLength: 128 },
+          include_audit_recent: { type: 'integer', default: 5, minimum: 0, maximum: 50 },
+        },
+      },
+    },
+    {
+      name: 'dispatch_tail',
+      description: 'v0.3.1 F4: last N session events from a live continuable child agent (in-process only). Same shape as dispatch_get but accessible via JSON-RPC.',
+      inputSchema: {
+        type: 'object',
+        required: ['child_id'],
+        additionalProperties: false,
+        properties: {
+          child_id: { type: 'string', minLength: 1, maxLength: 128 },
+          since:    { type: 'integer', minimum: 0, default: 0 },
+          limit:    { type: 'integer', minimum: 1, maximum: 1000, default: 200 },
+        },
       },
     },
     {
