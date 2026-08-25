@@ -54,6 +54,7 @@ t('outbox D6: appendUsage appends JSONL lines', () => {
     const ob = createOutbox({ hermesHome: home })
     ob.appendUsage({ kind: 'dispatch', task_id: 'a', tokens_used: 1 })
     ob.appendUsage({ kind: 'dispatch', task_id: 'b', tokens_used: 2 })
+    ob.flushNow() // v0.3.1 E2: write-behind queue requires explicit flush
     const lines = readFileSync(join(home, 'inbox', 'dsh', 'usage.jsonl'), 'utf8').trim().split('\n')
     assert.equal(lines.length, 2)
     assert.equal(JSON.parse(lines[1]).task_id, 'b')
@@ -66,6 +67,7 @@ t('outbox D7: writeMemorySuggestion writes file with payload', () => {
     const ob = createOutbox({ hermesHome: home })
     const r = ob.writeMemorySuggestion({ text: 'remember X', tags: ['dsh'] })
     assert.equal(r.ok, true)
+    ob.flushNow()
     const files = readdirSync(join(home, 'inbox', 'dsh', 'memory-suggest')).filter((f) => f.endsWith('.json'))
     assert.equal(files.length, 1)
     const rec = JSON.parse(readFileSync(join(home, 'inbox', 'dsh', 'memory-suggest', files[0]), 'utf8'))
@@ -79,6 +81,7 @@ t('outbox V4: appendSessionEvent writes mirror JSONL (skips nothing here)', () =
     const ob = createOutbox({ hermesHome: home })
     ob.appendSessionEvent('sess-1', { type: 'user/message', seq: 0 })
     ob.appendSessionEvent('sess-1', { type: 'assistant/message', seq: 1 })
+    ob.flushNow() // v0.3.1 E2: write-behind queue requires explicit flush
     const lines = readFileSync(join(home, 'inbox', 'dsh', 'session-mirror', 'sess-1.jsonl'), 'utf8').trim().split('\n')
     assert.equal(lines.length, 2)
     assert.equal(JSON.parse(lines[0]).event.type, 'user/message')

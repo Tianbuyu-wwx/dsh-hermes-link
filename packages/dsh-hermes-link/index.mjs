@@ -335,6 +335,7 @@ export function apply(ctx) {
     if (amendWatcher && amendWatcher.dispose) try { amendWatcher.dispose() } catch {}
     if (heartbeat && heartbeat.stop) try { heartbeat.stop() } catch {}
     if (outboxRotation && outboxRotation.stop) try { outboxRotation.stop() } catch {}
+    if (outbox && outbox.stop) try { outbox.stop() } catch {}
     if (continuations && continuations.close) try { continuations.close() } catch {}
   })
 

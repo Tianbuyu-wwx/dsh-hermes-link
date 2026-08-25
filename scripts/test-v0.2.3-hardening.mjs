@@ -218,6 +218,7 @@ t('K.3: short sessionId: file written with sanitized basename (no truncation)', 
   try {
     const ob = createOutbox({ hermesHome: home })
     assert.equal(ob.appendSessionEvent('short-id', { type: 'user/message', seq: 0 }), true)
+    ob.flushNow() // v0.3.1 E2: write-behind queue
     const files = readdirSync(join(home, 'inbox', 'dsh', 'session-mirror'))
     assert.equal(files.length, 1)
     assert.ok(files[0] === 'short-id.jsonl', 'short ids unchanged')
@@ -231,6 +232,7 @@ t('K.3: super-long sessionId: filename bounded to ~200 chars, content preserved'
     const long = 'a'.repeat(500) + ':' + 'b'.repeat(500) + ':' + 'c'.repeat(500)
     assert.ok(long.length > 1500, 'sessionId is genuinely long')
     assert.equal(ob.appendSessionEvent(long, { type: 'user/message', seq: 7 }), true)
+    ob.flushNow() // v0.3.1 E2: write-behind queue
     const files = readdirSync(join(home, 'inbox', 'dsh', 'session-mirror'))
     assert.equal(files.length, 1, 'one file written')
     const fname = files[0]
@@ -253,6 +255,7 @@ t('K.3: two distinct super-long ids produce two distinct bounded filenames', () 
     const b = 'B'.repeat(800) + 'X'  // differs in last char
     ob.appendSessionEvent(a, { type: 'x' })
     ob.appendSessionEvent(b, { type: 'x' })
+    ob.flushNow() // v0.3.1 E2: write-behind queue
     const files = readdirSync(join(home, 'inbox', 'dsh', 'session-mirror'))
     assert.equal(files.length, 2)
     assert.notEqual(files[0], files[1])
