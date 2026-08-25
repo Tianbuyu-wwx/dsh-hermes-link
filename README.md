@@ -40,7 +40,9 @@ Earlier we ran this as three separate plugins (`hermes-foundation`, `hermes-ones
   - `dispatch_task` with `mode: one-shot | continuable`. Continuable children are durable across DSH restarts (SQLite-backed).
   - `dispatch_followup` / `dispatch_interrupt` / `dispatch_list` / `dispatch_get` / `get_dispatch`.
   - `dispatch_probe` — zero-cost tool-name validation against `ctx.tools.view().restrictableNames` so Hermes doesn't burn an LLM turn on a typo.
+  - `dispatch_subscribe` (v0.3.0) — discovery helper that returns the SSE URL.
   - **`get_dispatch`** — read `audit.jsonl` for the most recent entries.
+- **`GET /mcp/collab/stream` (v0.3.0 F1)** — `text/event-stream` of real-time events for a continuable task (lifecycle / step / token / amend / followup / interrupt). Bearer-auth, `?task_id=...&since_seq=N&timeout_ms=N`.
 - **Bearer auth** via `HERMES_LINK_TOKEN` env (open by default).
 - **H4 amend nonce** (v0.2.2+): amend files must be named `<ts>-<task_id>-<nonce>.json`; nonce returned in `dispatch_task` metadata.
 - **Consult reply_secret** (v0.2.2+): reply files must be named `<ticket>-<secret>.json`; secret returned in the consult payload.
@@ -220,6 +222,7 @@ Report vulnerabilities privately via **GitHub Security Advisories** on this repo
 | ✅ | v0.2.2: S1–S4 (mirror opt-in / amend nonce / consult secret / project memory opt-in) | shipped 2026-08-21 |
 | ✅ | v0.2.3: K.1–K.5 (persona SOUL-only / cwd whitelist / mirror filename cap / redact cookie+session_id) | shipped 2026-08-22 |
 | ✅ | v0.2.4: turn envelope fix + corrupt-artifact auto-rebuild + tool output schema normalization + open-source | shipped 2026-08-22 |
+| ✅ | v0.3.0: SSE realtime stream (F1) + error codes registry (E9) + HTTP layer split into 4 files (E1) | shipped 2026-08-25 |
 | ⏭ | Reverse tunnel (cross-machine / firewall traversal) | reserved |
 | ⏭ | SSE real-time stream | reserved |
 | ⏭ | File rotation for `session.jsonl` / mirror / usage | suggested (Hermes-side cron) |

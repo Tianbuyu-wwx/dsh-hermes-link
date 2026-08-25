@@ -152,14 +152,27 @@ If unsafe, `resolveCwd()` substitutes the hermes-workspace fallback (`~/.dsh/her
 
 **Threat it defends**: Pre-v0.2.4 every `import_hermes_session` invocation returned `tool returned invalid output` because the importer's raw response shape didn't match the schema. The session was actually imported on disk — the error was purely on the tool-result validation path.
 
+## Layer 12 (v0.3.0 F1) — SSE auth
+
+**Code**: [`packages/dsh-hermes-link/http/dispatch.mjs`](../packages/dsh-hermes-link/http/dispatch.mjs), `/mcp/collab/stream` route handler.
+
+**What it does**: `GET /mcp/collab/stream?task_id=…&since_seq=N&timeout_ms=N` emits a `text/event-stream` of real-time events for a continuable task. Bearer auth is shared with the main routes via `checkAuth()`; no token configured → open (same exemption as `/health`).
+
+**Threat it defends**: Without auth, anyone who can reach the DSH webserver port can subscribe to live event streams of running continuable sub-agents — leaking task IDs, child IDs, parent agent IDs, and the contents of mid-task amend deliveries. Layer 12 forces the same bearer auth as the JSON-RPC envelope.
+
+**What it allows (without auth)**: The route still functions; it's the same "open" policy as `/health` (presence-as-feature, no information disclosure beyond `ok: true`).
+
+**Output filter**: events carry `data.task_id`, `data.child_id`, `data.parent_agent_id` from the registry. No filesystem paths, no source code, no model parameters — just status transitions and token/step deltas.
+
 ## Cumulative properties
 
-After all 11 layers, the bridge satisfies:
+After all 12 layers, the bridge satisfies:
 
 - **All cross-project channels are explicit opt-in.** No automatic injection, no automatic MEMORY broadcast, no automatic session-mirror.
-- **All cross-process channels are authenticated.** Amend = nonce, consult reply = secret, HTTP = optional bearer.
+- **All cross-process channels are authenticated.** Amend = nonce, consult reply = secret, HTTP = optional bearer, SSE = optional bearer.
 - **No silent failures on filesystem boundaries.** Filename truncation, listArtifacts-based artifact removal, validation-failed artifact rebuild.
 - **Token measurements are real, not `null`.** Dispatched sub-agent's `ctx.tokenMeter.measure(run.localAgent)` populates `tokens_used`.
+- **Observability is opt-in + rate-limited.** SSE events go through a bounded ring buffer (1000/channel) and slow consumers are dropped (backpressure → close), preventing resource exhaustion from malicious slow readers.
 
 ## What we do NOT defend against (out of scope)
 

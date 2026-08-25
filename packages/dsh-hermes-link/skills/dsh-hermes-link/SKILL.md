@@ -1,6 +1,6 @@
 ---
 name: dsh-hermes-link
-description: Hermes ↔ DSH bidirectional link. Use when the user wants to import a Hermes session into DSH, load Hermes persona (SOUL + config), load Hermes memory scoped to the current working directory, dispatch a task to a DSH sub-agent (one-shot or continuable), amend a running sub-agent, push a result to / consult Hermes from DSH, or see Hermes's conversation record in DSH. The plugin does NOT auto-inject Hermes turns into the current session (v0.2.1), does NOT auto-mirror DSH sessions to Hermes (v0.2.2), and does NOT auto-load Hermes MEMORY.md (v0.2.3); all cross-project channels are explicit opt-in only.
+description: Hermes ↔ DSH bidirectional link. Use when the user wants to import a Hermes session into DSH, load Hermes persona (SOUL + config), load Hermes memory scoped to the current working directory, dispatch a task to a DSH sub-agent (one-shot or continuable), amend a running sub-agent, push a result to / consult Hermes from DSH, or see Hermes's conversation record in DSH. The plugin does NOT auto-inject Hermes turns into the current session (v0.3.0), does NOT auto-mirror DSH sessions to Hermes (v0.2.2), and does NOT auto-load Hermes MEMORY.md (v0.2.3); all cross-project channels are explicit opt-in only.
 when_to_use: |
   The dsh-hermes-link plugin connects DSH to a Hermes Agent installation. DSH-side
   tools (callable from this session):
@@ -57,11 +57,15 @@ DSH-side plugin that makes Hermes Agent and DeepSeek Harness a single, bidirecti
 7. **Shared conversation record** — Hermes writes `~/.dsh/hermes-inbox/session.jsonl`
    (one turn per line); DSH reads it via `hermes_inbox`, writes via `hermes_inbox_append`.
    **The main DSH session does NOT auto-inject these turns on session-start
-   (since v0.2.1)** — they are available on demand only.
+   (since v0.3.0)** — they are available on demand only.
 8. **Opt-in V4 session mirror + heartbeat + usage + memory-suggest** — DSH writes
    `Hermes Home/inbox/dsh/heartbeat/{ts}.json`, `usage.jsonl`,
    `memory-suggest/<ts>.json` automatically. The **session-mirror** is opt-in via
    the `mirror_session_to_hermes` tool (with secret-pattern redaction).
+9. **Real-time SSE event stream (v0.3.0 F1)** — `GET /mcp/collab/stream?task_id=…`
+   emits a `text/event-stream` of lifecycle / step / token / amend / followup /
+   interrupt events for a continuable task. Use `since_seq=N` to replay buffered
+   events (ring buffer 1000/channel, 5s terminal hold + GC, 15s heartbeat).
 
 ## Locations
 
@@ -100,6 +104,10 @@ DSH-side plugin that makes Hermes Agent and DeepSeek Harness a single, bidirecti
 - `GET  /mcp/collab/health` — liveness (never auth-gated).
 - `GET  /mcp/collab/sessions`, `POST /mcp/collab/import`, `GET /mcp/collab/persona`,
   `POST /mcp/collab/consult`, `POST /mcp/collab/memory-suggest`.
+- `GET  /mcp/collab/stream` (v0.3.0 F1) — `text/event-stream` of real-time events
+  for a continuable task. Query params: `task_id` (required), `since_seq`
+  (default 0), `timeout_ms` (default 0 = no auto-close). Bearer auth same as main routes.
+- `dispatch_subscribe` JSON-RPC tool — discovery helper that returns the SSE URL.
 - Auth: when env `HERMES_LINK_TOKEN` is set, all `/mcp/collab*` routes except
   `/health` require `Authorization: Bearer <token>`.
 

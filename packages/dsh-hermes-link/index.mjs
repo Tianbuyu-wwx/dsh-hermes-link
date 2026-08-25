@@ -61,7 +61,7 @@ import { createLoadHermesProjectMemoryTool } from './tools/load-hermes-project-m
 
 const skillDir = fileURLToPath(new URL('./skills/dsh-hermes-link', import.meta.url))
 const MAX_FOUNDATION_SLICE_CHARS = 4096
-const VERSION = '0.2.5'
+const VERSION = '0.3.0'
 
 // -----------------------------------------------------------------------------
 // Hermes Home auto-detect

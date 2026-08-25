@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.0] — 2026-08-25
+
+### Added
+- **SSE real-time event stream (F1)** — `GET /mcp/collab/stream?task_id=…&since_seq=N&timeout_ms=N` (Bearer auth same as main routes). Output is `text/event-stream`. Event kinds: `lifecycle`, `step`, `token`, `amend`, `followup`, `interrupt`, `overflow` (replay miss), `not_found` (unknown task). Supports `since_seq` replay; bounded ring buffer (1000 events/channel) with 5s terminal hold + GC. Heartbeat 15s. New `services/sse-broker.mjs` (pub-sub + bounded ring + slow-consumer drop). New `dispatch_subscribe` JSON-RPC tool as a discovery helper that returns the SSE URL.
+- `services/error-codes.mjs` (E9) — centralized error code registry (`E_AUTH_REQUIRED`, `E_DUPLICATE_TASK_ID`, `E_NO_LIVE_AGENT`, `E_SPAWN_FAILED`, `E_DISPATCH_FAILED`, `E_UNKNOWN_CHILD`, `E_TOOL_CATALOG_UNAVAILABLE`, `E_UNKNOWN_METHOD`, `E_UNKNOWN_TOOL`, `E_INVALID_SPEC`, `E_INTERNAL`, `E_INVALID_REQUEST`, `E_PARSE_ERROR`). All error responses carry `data.error_code` (symbolic name) and `data.hint` (one-line remediation).
+- `scripts/check-version-sync.mjs` — cross-file version consistency check (8 canonical locations, CI-friendly).
+- `scripts/check-docs-fresh.mjs` — README / SKILL.md tool table vs `tools/*.mjs` actual content + CHANGELOG section check.
+
+### Changed (refactor)
+- **HTTP layer split (E1)** — `http/dispatch.mjs` slimmed from 1147 lines to ~290; new files `http/jsonrpc-handlers.mjs` (JSON-RPC envelope + tools/list + dispatch_probe), `http/dispatch-task.mjs` (dispatch_task + validateSpec + formatPersona + helpers), `http/dispatch-control.mjs` (followup / interrupt / list / get), `http/_util.mjs` (mcpError / mcpResult / clampInt / sendJson). Public API fully preserved via re-export from `dispatch.mjs`; existing tests pass unchanged.
+- All `mcpError(null, -32xxx, ...)` literal numeric calls replaced with `mcpError(null, 'E_*', ...)`. JSON-RPC wire codes preserved (backward compatible with existing Hermes clients).
+
+### Tests
+- `scripts/test-error-codes.mjs` — 12 cases (envelope, hint merge, unknown guard, code invariants, field completeness, reachability, re-export shim).
+- `scripts/test-sse-broker.mjs` — 16 cases (pub/sub, SSE headers, since_seq replay, overflow, multi-subscriber, detach, backpressure, heartbeat, stats, close, re-attach, isAttached, timeout, manual close).
+- All existing tests pass unchanged: 202 baseline + 12 error-codes + 16 sse-broker = **230 total**.
+
+### Security
+- New Layer 12 — SSE auth (Bearer auth required, same token as main routes; no token → open, same as `/health` exemption). All cross-process channels remain authenticated (amend nonce + consult secret + bearer).
+
+---
+
 ## [0.2.6] — 2026-08-24
 
 ### Fixed
