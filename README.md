@@ -61,6 +61,7 @@ Earlier we ran this as three separate plugins (`hermes-foundation`, `hermes-ones
 | `mirror_session_to_hermes` | opt-in V4 mirror with secret-pattern redaction (v0.2.2; cookies / JWTs / API keys / set-cookie / session_id redacted) |
 | `hermes_inbox` / `hermes_inbox_append` | read / append to the shared conversation record (`~/.dsh/hermes-inbox/session.jsonl`) |
 | `hermes_clear_injected` | audit-only: count turns auto-injected by an older hermes-foundation/dsh-hermes-link version, point at "open a new session" |
+| `rotate_outbox_now` | v0.3.1 F2: force an immediate outbox file rotation pass (size-based usage.jsonl / session-mirror rotation + age-based heartbeat / memory-suggest archive + purge) |
 
 ### Auto-loop
 

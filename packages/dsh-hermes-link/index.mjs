@@ -1,4 +1,4 @@
-// dsh-hermes-link 闁?DSH plugin entry (v0.2).
+// dsh-hermes-link 闂?DSH plugin entry (v0.2).
 //
 // What this plugin wires:
 //
@@ -6,19 +6,19 @@
 //      (user can @skill dsh-hermes-link to read what it does).
 //   2. Hermes Home auto-detect (HERMES_HOME env, then LOCALAPPDATA/hermes on Windows).
 //   3. Sub-services:
-//        - createImporter()           闁?request-dump 闁?DSH SessionEvent[] + ctx.sessions.create
-//        - createWatcher()            闁?fs-poll Hermes Home/sessions/ for new dumps
-//        - loadPersona()              闁?read SOUL/MEMORY/config slices
-//        - createConsultClient()      闁?file-based Hermes consult + dispatch-result writer
-//        - hermes-inbox               闁?shared conversation record (session.jsonl): tools
+//        - createImporter()           闂?request-dump 闂?DSH SessionEvent[] + ctx.sessions.create
+//        - createWatcher()            闂?fs-poll Hermes Home/sessions/ for new dumps
+//        - loadPersona()              闂?read SOUL/MEMORY/config slices
+//        - createConsultClient()      闂?file-based Hermes consult + dispatch-result writer
+//        - hermes-inbox               闂?shared conversation record (session.jsonl): tools
 //                                       hermes_inbox / hermes_inbox_append + v0.7-style
 //                                       session-start injection into the MAIN dsh session
-//        - outbox()                   闁?D3 heartbeat / D6 usage / D7 memory-suggest / V4 mirror
-//        - openContinuations()        闁?SQLite registry for continuable dispatch children
-//        - createAmendWatcher()       闁?H4: deliver Hermes amendments to continuable children
+//        - outbox()                   闂?D3 heartbeat / D6 usage / D7 memory-suggest / V4 mirror
+//        - openContinuations()        闂?SQLite registry for continuable dispatch children
+//        - createAmendWatcher()       闂?H4: deliver Hermes amendments to continuable children
 //   4. Cordis tools (DSH-side): list_hermes_sessions, import_hermes_session,
 //      load_hermes_persona, consult_hermes, hermes_inbox, hermes_inbox_append.
-//   5. Foundation slice builder (闁?KB; auto-truncates) used for dispatch_task sub-agents.
+//   5. Foundation slice builder (闂?KB; auto-truncates) used for dispatch_task sub-agents.
 //   6. HTTP routes on the DSH webserver:
 //        POST /mcp/collab                 H1 JSON-RPC (dispatch_task, followup, interrupt,
 //                                         list, get, get_dispatch)
@@ -31,7 +31,7 @@
 //        GET  /mcp/hermes-inbox/health    hermes-push.mjs --status compatibility
 //
 // Hermes-side wiring:
-//   config.yaml: mcp_servers.dsh-bridge.url 闁?http://127.0.0.1:3080/mcp/collab
+//   config.yaml: mcp_servers.dsh-bridge.url 闂?http://127.0.0.1:3080/mcp/collab
 //   (the install script edits this for the user.)
 
 import { fileURLToPath } from 'node:url'
@@ -47,6 +47,7 @@ import { loadPersona } from './services/persona-loader.mjs'
 import { createConsultClient } from './services/consult-hermes.mjs'
 import { registerInboxTools, inboxHealthPayload, sessionHasHermesMarker } from './services/hermes-inbox.mjs'
 import { createOutbox } from './services/outbox.mjs'
+import { createOutboxRotation } from './services/outbox-rotation.mjs'
 import { openContinuations, TERMINAL_STATUSES } from './services/continuations.mjs'
 import { createSseBroker } from './services/sse-broker.mjs'
 import { createAmendWatcher } from './services/amend-watcher.mjs'
@@ -58,6 +59,7 @@ import { createLoadHermesPersonaTool } from './tools/load-hermes-persona.mjs'
 import { createConsultHermesTool } from './tools/consult-hermes.mjs'
 import { createMirrorSessionToHermesTool } from './tools/mirror-session-to-hermes.mjs'
 import { createLoadHermesProjectMemoryTool } from './tools/load-hermes-project-memory.mjs'
+import { createRotateOutboxNowTool } from './tools/rotate-outbox-now.mjs'
 
 const skillDir = fileURLToPath(new URL('./skills/dsh-hermes-link', import.meta.url))
 const MAX_FOUNDATION_SLICE_CHARS = 4096
@@ -86,7 +88,7 @@ function readText(p) {
 }
 
 export function buildFoundationSlice(hermesHome) {
-  // v0.2.2 闁?foundation is SOUL only. MEMORY.md is no longer broadcast to
+  // v0.2.2 闂?foundation is SOUL only. MEMORY.md is no longer broadcast to
   // every dispatched sub-agent because it aggregates notes across many
   // projects and routinely contaminated unrelated sub-agents. Use the
   // load_hermes_project_memory tool (cwd-scoped) instead, or set
@@ -113,7 +115,7 @@ export function apply(ctx) {
   const hermesHome = detectHermesHome()
   console.log('[dsh-hermes-link v' + VERSION + '] applying; hermes_home=' + hermesHome)
 
-  // 1. skill provider 闁?makes `@skill dsh-hermes-link` work
+  // 1. skill provider 闂?makes `@skill dsh-hermes-link` work
   try {
     ctx.skills.registerProvider((control) =>
       new FileSystemSkillProvider(ctx, control, {
@@ -125,13 +127,15 @@ export function apply(ctx) {
     console.error('[dsh-hermes-link v' + VERSION + '] skill provider registration failed:', e && e.message || e)
   }
 
-  // 2. sub-services (factories 闁?pure, hold no Cordis resources until used)
+  // 2. sub-services (factories 闂?pure, hold no Cordis resources until used)
   const foundationSlice = buildFoundationSlice(hermesHome)
   const hermesWorkspaceDir = (process.env.DSH_HOME || join(homedir(), '.dsh')) + '/hermes-workspace'
   const importer = ctx.sessions ? createImporter({ ctx, hermesHome, workspaceDir: hermesWorkspaceDir }) : null
   const personaLoader = { loadPersona: (h, opts) => loadPersona(h || hermesHome, opts) }
   const consultClient = createConsultClient({ hermesHome })
   const outbox = createOutbox({ hermesHome })
+  // v0.3.1 F2 - file rotation for the outbox (heartbeat/usage/memory-suggest/session-mirror).
+  const outboxRotation = createOutboxRotation({ hermesHome })
   // v0.3.0 F1 - SSE broker (per-process singleton, also stashed on globalThis
   // so services/amend-watcher.mjs can publish without going through cordis locator).
   const sseBroker = createSseBroker({ ringSize: 1000, heartbeatMs: 15000 })
@@ -156,12 +160,12 @@ export function apply(ctx) {
     console.warn('[dsh-hermes-link v' + VERSION + '] ctx.sessions not in inject graph; /mcp/collab/import will 503 until dsh-session is mounted')
   }
 
-  // 3. fs watcher 闁?emits 'change' for new stable request_dump files.
+  // 3. fs watcher 闂?emits 'change' for new stable request_dump files.
   let watcher
   try {
     watcher = createWatcher(join(hermesHome, 'sessions'))
     watcher.on('change', async ({ sessionIds }) => {
-      console.log('[dsh-hermes-link] hermes-sessions changed: ' + sessionIds.join(', ') + ' 闁?syncing')
+      console.log('[dsh-hermes-link] hermes-sessions changed: ' + sessionIds.join(', ') + ' 闂?syncing')
       if (importer && typeof importer.sync === 'function') {
         const r = await importer.sync()
         console.log('[dsh-hermes-link] auto-sync: imported=' + r.imported + ' skipped=' + r.skipped + ' failed=' + r.failed)
@@ -184,9 +188,9 @@ export function apply(ctx) {
     console.error('[dsh-hermes-link] inbox tools registration failed:', e && e.message || e)
   }
 
-  // v0.2.1 闁?AUTOMATIC INJECTION OF Hermes turns INTO THE MAIN SESSION IS DISABLED.
+  // v0.2.1 闂?AUTOMATIC INJECTION OF Hermes turns INTO THE MAIN SESSION IS DISABLED.
   //
-  // Earlier versions (hermes-foundation v0.7 闁?dsh-hermes-link v0.2.0) appended
+  // Earlier versions (hermes-foundation v0.7 闂?dsh-hermes-link v0.2.0) appended
   // recent Hermes turns from the global session.jsonl straight into the new
   // main session's events log on every session-start. That proved unsound:
   // session.jsonl is project-agnostic and Hermed-push writes into it without a
@@ -201,7 +205,7 @@ export function apply(ctx) {
   //   2. Provide hermes_clear_injected (services/hermes-inbox.mjs) so a user
   //      who inherited injected events from a prior version can see what was
   //      written and get an explicit, honest pointer to "start a new session"
-  //      闁?the only way to truly drop them, since Session.events is append-
+  //      闂?the only way to truly drop them, since Session.events is append-
   //      only / deep-frozen and cannot be mutated retroactively.
   //
   // injectHermesTurns is still exported from services/hermes-inbox.mjs so a
@@ -223,10 +227,10 @@ export function apply(ctx) {
     }
   })
 
-  // 5. v0.2.2 闁?V4 session-mirror hook REMOVED. Was:
+  // 5. v0.2.2 闂?V4 session-mirror hook REMOVED. Was:
   //      ctx.on('session/event', (session, event) => outbox.appendSessionEvent(...))
   //    It mirrored every DSH session event (including user inputs) into Hermes
-  //    Home by default 闁?same class of bug as the v0.7 闁?v0.2.0 main-session
+  //    Home by default 闂?same class of bug as the v0.7 闂?v0.2.0 main-session
   //    injection that v0.2.1 disabled, just in the other direction. Replaced
   //    by the explicit `mirror_session_to_hermes` tool (opt-in, with secret
   //    redaction). The outbox service still exposes appendSessionEvent for the
@@ -255,13 +259,14 @@ export function apply(ctx) {
       ctx.tools.register(createConsultHermesTool({ consultClient }))
       ctx.tools.register(createMirrorSessionToHermesTool({ outbox }))
       ctx.tools.register(createLoadHermesProjectMemoryTool({ hermesHome }))
-      console.log('[dsh-hermes-link v' + VERSION + '] tools registered: list_hermes_sessions, import_hermes_session, load_hermes_persona, consult_hermes, mirror_session_to_hermes, load_hermes_project_memory')
+      ctx.tools.register(createRotateOutboxNowTool({ outboxRotation }))
+      console.log('[dsh-hermes-link v' + VERSION + '] tools registered: list_hermes_sessions, import_hermes_session, load_hermes_persona, consult_hermes, mirror_session_to_hermes, load_hermes_project_memory, rotate_outbox_now')
     }
   } catch (e) {
     console.error('[dsh-hermes-link v' + VERSION + '] tool registration failed:', e && e.message || e)
   }
 
-  // 8. HTTP routes 闁?single register call delegates all routes.
+  // 8. HTTP routes 闂?single register call delegates all routes.
   try {
     registerHttp(ctx, {
       hermesHome,
@@ -294,7 +299,7 @@ export function apply(ctx) {
     console.warn('[dsh-hermes-link] hermes-inbox health route failed:', e && e.message || e)
   }
 
-  // 9. startup auto-sync 闁?import all Hermes sessions shortly after startup.
+  // 9. startup auto-sync 闂?import all Hermes sessions shortly after startup.
   if (importer && typeof importer.sync === 'function') {
     setTimeout(async () => {
       try {
@@ -314,13 +319,20 @@ export function apply(ctx) {
     '  continuables=' + continuations.count() +
     '  amend=' + (amendWatcher ? 'on' : 'off') +
     '  heartbeat=on' +
+    '  rotation=on' +
     '  autosync=' + (importer && typeof importer.sync === 'function' ? 'on' : 'off'))
+
+  // 11. v0.3.1 F2 - start the outbox file rotation timer (hourly; first run at +5s)
+  try { outboxRotation.startInterval() } catch (e) {
+    console.warn('[dsh-hermes-link] outbox-rotation init failed:', e && e.message || e)
+  }
 
   // Disposable: on plugin unload, stop watchers + timers + DB.
   ctx.on('dispose', () => {
     if (watcher && watcher.dispose) try { watcher.dispose() } catch {}
     if (amendWatcher && amendWatcher.dispose) try { amendWatcher.dispose() } catch {}
     if (heartbeat && heartbeat.stop) try { heartbeat.stop() } catch {}
+    if (outboxRotation && outboxRotation.stop) try { outboxRotation.stop() } catch {}
     if (continuations && continuations.close) try { continuations.close() } catch {}
   })
 
@@ -333,6 +345,7 @@ export function apply(ctx) {
     consultClient,
     watcher,
     outbox,
+    outboxRotation,
     continuations,
     amendWatcher,
     version: VERSION,
