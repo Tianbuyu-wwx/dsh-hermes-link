@@ -124,6 +124,7 @@ export async function handleDispatchTask(ctx, args, deps) {
         amendNonce = (reg && reg.amendNonce) || ''
       }
       clearTimeout(timer)
+      if (globalThis.__dsh_hermes_link_broker__) globalThis.__dsh_hermes_link_broker__.publish(taskId, { kind: 'lifecycle', data: { status: 'spawned', child_id: childId } })
       appendAudit({
         ts: new Date().toISOString(),
         status: 'continuable_started',
@@ -172,6 +173,10 @@ export async function handleDispatchTask(ctx, args, deps) {
         task_id: taskId,
         error: String(e && e.message || e),
       })
+      if (globalThis.__dsh_hermes_link_broker__) {
+        globalThis.__dsh_hermes_link_broker__.publish(taskId, { kind: 'lifecycle', data: { status: 'spawn_failed', error: String(e && e.message || e) } })
+        globalThis.__dsh_hermes_link_broker__.detachTask(taskId, 'spawn_failed')
+      }
       return { _error: mcpError(null, 'E_SPAWN_FAILED', 'continuable spawn failed: ' + (e && e.message || e)) }
     }
   }

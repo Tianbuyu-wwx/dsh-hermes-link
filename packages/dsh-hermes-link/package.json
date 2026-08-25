@@ -61,7 +61,7 @@
     "access": "public"
   },
   "scripts": {
-    "test": "npm run test:converter && node ../../scripts/test-dispatch-schema.mjs && node ../../scripts/test-services.mjs && node ../../scripts/test-amend-security.mjs && node ../../scripts/test-consult-security.mjs && node ../../scripts/test-foundation-policy.mjs && node ../../scripts/test-mirror-opt-in.mjs && node ../../scripts/test-v0.2.3-hardening.mjs && node ../../scripts/test-consult-client.mjs && npm run test:smoke && node ../../scripts/import-check.mjs && node ../../scripts/verify-install.mjs",
+    "test": "npm run test:converter && node ../../scripts/test-dispatch-schema.mjs && node ../../scripts/test-services.mjs && node ../../scripts/test-amend-security.mjs && node ../../scripts/test-consult-security.mjs && node ../../scripts/test-foundation-policy.mjs && node ../../scripts/test-mirror-opt-in.mjs && node ../../scripts/test-v0.2.3-hardening.mjs && node ../../scripts/test-consult-client.mjs && node ../../scripts/test-error-codes.mjs && node ../../scripts/test-sse-broker.mjs && npm run test:smoke && node ../../scripts/import-check.mjs && node ../../scripts/verify-install.mjs",
     "test:smoke": "node ../../scripts/smoke-test.mjs",
     "test:converter": "node ../../scripts/test-request-dump.mjs",
     "test:dispatch": "node ../../scripts/test-dispatch-schema.mjs",

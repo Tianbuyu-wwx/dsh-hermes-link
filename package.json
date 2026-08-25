@@ -2,7 +2,7 @@
   "name": "dsh-hermes-link-monorepo",
   "private": true,
   "version": "0.0.0",
-  "description": "Monorepo root for @tianbuyu-wwx/dsh-hermes-link — the publishable plugin lives in packages/dsh-hermes-link.",
+  "description": "Monorepo root for @tianbuyu-wwx/dsh-hermes-link 鈥?the publishable plugin lives in packages/dsh-hermes-link.",
   "license": "MIT",
   "workspaces": [
     "packages/*"
@@ -11,7 +11,7 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "test": "node scripts/test-request-dump.mjs && node scripts/test-dispatch-schema.mjs && node scripts/test-services.mjs && node scripts/test-amend-security.mjs && node scripts/test-consult-security.mjs && node scripts/test-foundation-policy.mjs && node scripts/test-mirror-opt-in.mjs && node scripts/test-v0.2.3-hardening.mjs && node scripts/test-consult-client.mjs && node scripts/smoke-test.mjs && node scripts/import-check.mjs && node scripts/verify-install.mjs",
+    "test": "node scripts/test-request-dump.mjs && node scripts/test-dispatch-schema.mjs && node scripts/test-services.mjs && node scripts/test-amend-security.mjs && node scripts/test-consult-security.mjs && node scripts/test-foundation-policy.mjs && node scripts/test-mirror-opt-in.mjs && node scripts/test-v0.2.3-hardening.mjs && node scripts/test-consult-client.mjs && node scripts/test-error-codes.mjs && node scripts/test-sse-broker.mjs && node scripts/smoke-test.mjs && node scripts/import-check.mjs && node scripts/verify-install.mjs",
     "test:smoke": "node scripts/smoke-test.mjs",
     "test:converter": "node scripts/test-request-dump.mjs",
     "test:dispatch": "node scripts/test-dispatch-schema.mjs",

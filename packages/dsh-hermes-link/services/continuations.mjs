@@ -2,7 +2,7 @@
 //
 // Durable registry for continuable dispatch children (P2-10). SQLite-backed
 // (survives dsh restart), same shape as the retired hermes-dispatch-bridge
-// v0.3 `continuable_children` table. Also provides waitForNextReply — the
+// v0.3 `continuable_children` table. Also provides waitForNextReply 鈥?the
 // polling bridge between ctx.subagents.followup() and a child's turn/end.
 
 import { mkdirSync } from 'node:fs'
@@ -11,11 +11,25 @@ import { DatabaseSync } from 'node:sqlite'
 import { randomBytes } from 'node:crypto'
 
 /**
+ * Set of statuses that mark a continuable child as terminally finished.
+ * Used by the SSE broker (F1) to schedule channel GC after the 5s hold window.
+ * @type {Set<string>}
+ */
+export const TERMINAL_STATUSES = new Set(['completed', 'error', 'interrupted', 'orphan', 'timeout', 'spawn_failed'])
+
+/**
  * Open (create if needed) the continuations state DB.
  * @param {string} stateDir directory (~/.dsh/dsh-hermes-link)
- * @returns {object} { db, register, update, get, list, count, waitForNextReply }
+ * @param {object} [opts]
+ * @param {function} [opts.onChange] optional hook called on register/update.
+ *   Signature: ({ kind: 'register'|'update', child_id, task_id, fields?, entry })
+ *   Errors thrown by the hook are swallowed (continuations must not be blocked
+ *   by observer failures).
+ * @returns {object} { db, register, update, get, list, count, waitForNextReply, validateAmendNonce, generateAmendNonce, TERMINAL_STATUSES }
  */
-export function openContinuations(stateDir) {
+export function openContinuations(stateDir, opts) {
+  opts = opts || {}
+  const onChange = typeof opts.onChange === 'function' ? opts.onChange : null
   try { mkdirSync(stateDir, { recursive: true }) } catch {}
   const db = new DatabaseSync(join(stateDir, 'continuables.sqlite'))
   db.exec(`
@@ -39,7 +53,7 @@ export function openContinuations(stateDir) {
     CREATE INDEX IF NOT EXISTS cc_parent_idx ON continuable_children(parent_agent_id);
     CREATE INDEX IF NOT EXISTS cc_task_idx   ON continuable_children(task_id);
   `)
-  // v0.2.2: amend_nonce column — generated on register, used by amend-watcher
+  // v0.2.2: amend_nonce column 鈥?generated on register, used by amend-watcher
   // to verify the file actually came from this dispatch (defense against
   // arbitrary processes that can write to Hermes Home/inbox/dsh/amend/).
   // Safe ALTER: a fresh DB has the column already (next CREATE-TEXT migration);
@@ -47,11 +61,11 @@ export function openContinuations(stateDir) {
   // under try/catch because the second run trips "duplicate column".
   try {
     db.exec(`ALTER TABLE continuable_children ADD COLUMN amend_nonce TEXT NOT NULL DEFAULT ''`)
-  } catch (e) { /* column already exists or pre-0.2.2 schema — fine */ }
+  } catch (e) { /* column already exists or pre-0.2.2 schema 鈥?fine */ }
 
   const registry = new Map()
 
-  /** v0.2.2 — 32 hex-char nonce returned in dispatch_task metadata so Hermes
+  /** v0.2.2 鈥?32 hex-char nonce returned in dispatch_task metadata so Hermes
    *  can name its amend files uniquely per child. */
   function generateAmendNonce() {
     try { return randomBytes(16).toString('hex') } catch { return '' }
@@ -81,12 +95,15 @@ export function openContinuations(stateDir) {
         JSON.stringify(e.initialSpec || null),
         e.amendNonce,
     )
+    if (onChange) {
+      try { onChange({ kind: 'register', child_id: e.child_id, task_id: e.task_id, entry: e }) } catch (_e) {}
+    }
   }
 
   /**
    * Verify a candidate amend file's nonce against the registered child for
    * `taskId`. The amend file must carry a nonce matching the one DSH minted
-   * at dispatch time — anything else is treated as a tampered or off-path
+   * at dispatch time 鈥?anything else is treated as a tampered or off-path
    * write and rejected.
    * @param {string} taskId
    * @param {string} nonce
@@ -107,6 +124,9 @@ export function openContinuations(stateDir) {
     db.prepare(`UPDATE continuable_children SET last_seen = ?, status = ?, stop_reason = ? WHERE child_id = ?`).run(
       entry.last_seen, entry.status, entry.stop_reason || null, childId,
     )
+    if (onChange) {
+      try { onChange({ kind: 'update', child_id: childId, task_id: entry.task_id, fields, entry }) } catch (_e) {}
+    }
   }
 
   function get(childId) { return registry.get(childId) }
@@ -136,7 +156,7 @@ export function openContinuations(stateDir) {
     registry.set(row.child_id, registryRowToEntry(row))
   }
 
-  return { db, register, update, get, getByTaskId, list, count, close, waitForNextReply, validateAmendNonce, generateAmendNonce }
+  return { db, register, update, get, getByTaskId, list, count, close, waitForNextReply, validateAmendNonce, generateAmendNonce, TERMINAL_STATUSES }
 }
 
 function registryRowToEntry(r) {
@@ -160,7 +180,7 @@ function registryRowToEntry(r) {
 }
 
 // -----------------------------------------------------------------------------
-// waitForNextReply — resolve when the child's event log advances past a turn/end
+// waitForNextReply 鈥?resolve when the child's event log advances past a turn/end
 // (ported from hermes-dispatch-bridge v0.3, SSE parts removed).
 // -----------------------------------------------------------------------------
 

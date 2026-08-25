@@ -73,6 +73,12 @@ export async function handleDispatchFollowup(ctx, args, deps) {
     output_chars: outputText.length,
     real_tokens: realTokens,
   })
+  if (globalThis.__dsh_hermes_link_broker__) {
+    globalThis.__dsh_hermes_link_broker__.publish(entry.task_id, {
+      kind: 'followup',
+      data: { message_id: String(messageId), elapsed_ms: finishedAt - startedAt, output_chars: outputText.length },
+    })
+  }
   if (outbox) {
     outbox.appendUsage({
       kind: 'dispatch',
@@ -127,6 +133,9 @@ export async function handleDispatchInterrupt(ctx, args, deps) {
     ctx.subagents.interrupt(childId, { kind: 'ancestor', agent: parent })
   } catch (e) {
     return { _error: mcpError(null, 'E_SPAWN_FAILED', 'interrupt failed: ' + (e && e.message || e)) }
+  }
+  if (globalThis.__dsh_hermes_link_broker__) {
+    globalThis.__dsh_hermes_link_broker__.publish(entry.task_id, { kind: 'interrupt', data: { reason: args.reason || '(none)' } })
   }
   if (continuations) continuations.update(childId, { status: 'interrupted', stop_reason: 'interrupt_requested' })
   appendAudit({

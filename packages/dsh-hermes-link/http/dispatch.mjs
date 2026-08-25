@@ -1,19 +1,21 @@
 // http/dispatch.mjs
 //
 // v0.3.0 - SLIM entry point after E1 refactor. Wires:
-//   - auth (Bearer) 鈥?gate everything except /health when HERMES_LINK_TOKEN is set
+//   - auth (Bearer) 闂?gate everything except /health when HERMES_LINK_TOKEN is set
 //   - health endpoint
 //   - REST routes (/sessions /import /import-all /rename-all /persona /consult /memory-suggest)
 //   - JSON-RPC dispatcher (delegates to jsonrpc-handlers.mjs)
 //   - re-exports of the public API for backward compatibility (tests, external)
 //
 // The heavy lifting lives in:
-//   - jsonrpc-handlers.mjs   鈥?JSON-RPC 2.0 dispatch (initialize, tools/list, tools/call)
-//   - dispatch-task.mjs      鈥?dispatch_task + validateSpec + formatPersona + helpers
-//   - dispatch-control.mjs   鈥?dispatch_followup / interrupt / list / get
-//   - _util.mjs              鈥?mcpError / mcpResult / clampInt / readAllStream / send*
+//   - jsonrpc-handlers.mjs   闂?JSON-RPC 2.0 dispatch (initialize, tools/list, tools/call)
+//   - dispatch-task.mjs      闂?dispatch_task + validateSpec + formatPersona + helpers
+//   - dispatch-control.mjs   闂?dispatch_followup / interrupt / list / get
+//   - _util.mjs              闂?mcpError / mcpResult / clampInt / readAllStream / send*
 
 import { appendAudit, readAuditLines } from '../services/audit.mjs'
+
+
 import { mcpError, mcpResult, clampInt, readAllStream, sendJson, send } from './_util.mjs'
 import { handleRpc } from './jsonrpc-handlers.mjs'
 import {
@@ -72,9 +74,12 @@ export function register(ctx, deps) {
     console.error('[dsh-hermes-link] webServer unavailable; HTTP routes NOT registered')
     return
   }
+  // v0.3.0 F1 - SSE sseBroker is created in index.mjs and passed via deps
+  // (so amend-watcher.mjs can share the same singleton via globalThis).
+  const sseBroker = deps.sseBroker
   const { hermesHome, importer, personaLoader, consultClient, foundationSlice } = deps
 
-  // 1. JSON-RPC envelope (POST /mcp/collab) 鈥?delegates to jsonrpc-handlers.mjs.
+  // 1. JSON-RPC envelope (POST /mcp/collab) 闂?delegates to jsonrpc-handlers.mjs.
   webServer.register({
     kind: 'exact',
     path: '/mcp/collab',
@@ -106,7 +111,7 @@ export function register(ctx, deps) {
     },
   })
 
-  // 2. Health endpoint 鈥?never auth-gated.
+  // 2. Health endpoint 闂?never auth-gated.
   webServer.register({
     kind: 'exact',
     path: '/mcp/collab/health',
@@ -121,10 +126,38 @@ export function register(ctx, deps) {
       auth: BEARER_TOKEN ? 'bearer-required' : 'open',
       foundation_slice_chars: foundationSlice ? foundationSlice.length : 0,
       active_dispatchers: dispatcherCount(),
+      sse_broker: sseBroker ? sseBroker.stats() : null,
     }),
   })
 
-  // 3. /mcp/collab/sessions 鈥?list Hermes archives
+  // 2b. SSE stream (v0.3.0 F1) - real-time event feed for a continuable task.
+  //     Bearer-auth same as other routes; ?task_id= required, ?since_seq replay,
+  //     ?timeout_ms optional auto-close.
+  webServer.register({
+    kind: 'exact',
+    path: '/mcp/collab/stream',
+    handler: async (req, res) => {
+      const denied = checkAuth(req, res)
+      if (denied) return denied
+      if (!sseBroker) return sendJson(res, 503, mcpError(null, 'E_INTERNAL', 'sse broker not initialized'))
+      const url = new URL(req.url || '/', 'http://localhost')
+      const taskId = url.searchParams.get('task_id')
+      if (!taskId) return sendJson(res, 400, mcpError(null, 'E_INVALID_SPEC', 'missing task_id'))
+      const sinceSeq  = clampInt(url.searchParams.get('since_seq'),  0, 1e9, 0)
+      const timeoutMs = clampInt(url.searchParams.get('timeout_ms'), 0, 600000, 0)
+      // subscribe() writes headers + handles the response. It returns null if
+      // task is not found (already wrote not_found event + closed).
+      const sub = sseBroker.subscribe(taskId, res, { sinceSeq, timeoutMs })
+      if (sub === null) return
+      return undefined
+    },
+  })
+
+  // 2c. dispatch_subscribe JSON-RPC helper - returns the SSE URL for clients
+  //     that prefer JSON-RPC discovery over a raw GET.
+  //     (The real stream lives at /mcp/collab/stream - this just describes it.)
+
+  // 3. /mcp/collab/sessions 闂?list Hermes archives
   webServer.register({
     kind: 'exact',
     path: '/mcp/collab/sessions',
@@ -138,7 +171,7 @@ export function register(ctx, deps) {
     },
   })
 
-  // 4. /mcp/collab/import 鈥?import one Hermes session as a live DSH session
+  // 4. /mcp/collab/import 闂?import one Hermes session as a live DSH session
   webServer.register({
     kind: 'exact',
     path: '/mcp/collab/import',
@@ -287,3 +320,4 @@ export function register(ctx, deps) {
 
   console.log('[dsh-hermes-link v' + VERSION + '] routes registered: /mcp/collab (+followup/interrupt/list/get/probe)  /mcp/collab/health  /mcp/collab/sessions  /mcp/collab/import  /mcp/collab/import-all  /mcp/collab/persona  /mcp/collab/consult  /mcp/collab/memory-suggest')
 }
+

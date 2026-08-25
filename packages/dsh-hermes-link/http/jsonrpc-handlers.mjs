@@ -1,4 +1,4 @@
-﻿// http/jsonrpc-handlers.mjs
+// http/jsonrpc-handlers.mjs
 //
 // v0.3.0 - split out of http/dispatch.mjs (E1 refactor). Owns:
 //   - handleRpc: the top-level JSON-RPC dispatcher for POST /mcp/collab
@@ -86,6 +86,18 @@ export async function handleRpc(ctx, body, deps) {
       const lines = readAuditLines(limit)
       return mcpResult(id, { content: [{ type: 'text', text: lines.length ? lines.join('\n') : '(empty)' }] })
     }
+    if (name === 'dispatch_subscribe') {
+      // v0.3.0 F1: discovery helper - returns the SSE URL the caller should GET.
+      const taskId = args && typeof args.task_id === 'string' ? args.task_id : ''
+      if (!taskId) return mcpError(id, 'E_INVALID_SPEC', 'task_id required')
+      const sinceSeq  = Number.isInteger(args && args.since_seq)  ? args.since_seq  : 0
+      const timeoutMs = Number.isInteger(args && args.timeout_ms) ? args.timeout_ms : 0
+      const url = '/mcp/collab/stream?task_id=' + encodeURIComponent(taskId) + '&since_seq=' + sinceSeq + '&timeout_ms=' + timeoutMs
+      return mcpResult(id, {
+        content: [{ type: 'text', text: 'Open SSE stream at: ' + url + '\nAuthorization: Bearer <token> required (same as /mcp/collab).' }],
+        metadata: { transport: 'sse', url, since_seq: sinceSeq, timeout_ms: timeoutMs, note: 'GET is canonical; this tool only describes it.' },
+      })
+    }
     return mcpError(id, 'E_UNKNOWN_TOOL', 'unknown tool: ' + name)
   }
   return mcpError(id, 'E_UNKNOWN_METHOD', 'unknown method: ' + method)
@@ -169,6 +181,20 @@ function buildToolsList() {
         type: 'object',
         additionalProperties: false,
         properties: { limit: { type: 'integer', default: 20, minimum: 1, maximum: 500 } },
+      },
+    },
+    {
+      name: 'dispatch_subscribe',
+      description: 'v0.3.0 F1: discovery helper. Returns the SSE URL the caller should GET for real-time event streaming on a continuable task. The actual stream is at /mcp/collab/stream (text/event-stream).',
+      inputSchema: {
+        type: 'object',
+        required: ['task_id'],
+        additionalProperties: false,
+        properties: {
+          task_id:    { type: 'string', minLength: 1, maxLength: 128 },
+          since_seq:  { type: 'integer', minimum: 0, maximum: 1e9, default: 0 },
+          timeout_ms: { type: 'integer', minimum: 0, maximum: 600000, default: 0 },
+        },
       },
     },
   ]
