@@ -225,6 +225,7 @@ Report vulnerabilities privately via **GitHub Security Advisories** on this repo
 | ✅ | v0.2.3: K.1–K.5 (persona SOUL-only / cwd whitelist / mirror filename cap / redact cookie+session_id) | shipped 2026-08-22 |
 | ✅ | v0.2.4: turn envelope fix + corrupt-artifact auto-rebuild + tool output schema normalization + open-source | shipped 2026-08-22 |
 | ✅ | v0.3.0: SSE realtime stream (F1) + error codes registry (E9) + HTTP layer split into 4 files (E1) | shipped 2026-08-25 |
+| ✅ | v0.3.1: outbox file rotation (F2) + dispatch_status/tail observability (F4) + write-behind queue perf (E2) | shipped 2026-08-26 |
 | ⏭ | Reverse tunnel (cross-machine / firewall traversal) | reserved |
 | ⏭ | SSE real-time stream | reserved |
 | ⏭ | File rotation for `session.jsonl` / mirror / usage | suggested (Hermes-side cron) |

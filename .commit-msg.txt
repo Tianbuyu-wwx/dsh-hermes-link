@@ -1,0 +1,22 @@
+chore(release): bump to v0.3.1 + CHANGELOG entry
+
+v0.3.1 = additive observability (F2 rotation, F4 dispatch_status) +
+write-behind queue perf (E2). No wire protocol changes, no security model
+changes - all backward compatible.
+
+Sync points (7 files):
+  packages/dsh-hermes-link/package.json          0.3.0 -> 0.3.1
+  http/dispatch.mjs (VERSION)                   0.3.0 -> 0.3.1
+  index.mjs (VERSION)                           0.3.0 -> 0.3.1
+  dispatch-spec.schema.json (title)             v0.3.0 -> v0.3.1
+  skills/dsh-hermes-link/SKILL.md (description + body)  v0.3.0 -> v0.3.1
+  README.zh.md                                  v0.3.0 -> v0.3.1
+
+CHANGELOG: full v0.3.1 entry with Added / Changed / Tests sections.
+SKILL.md: 3 new "What it does" entries (F2 rotation, F4 status, E2 queue)
+plus corrected v0.3.1 F1 -> v0.3.0 F1 version reference.
+README.md: Roadmap line for v0.3.1.
+.changeset/patch-f2-f4-e2.md: patch changeset entry per repo convention.
+
+Verified: scripts/check-version-sync + scripts/check-docs-fresh both
+green; npm test 300/300.

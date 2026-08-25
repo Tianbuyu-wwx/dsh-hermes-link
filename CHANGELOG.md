@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.1] — 2026-08-26
+
+### Added
+- **Outbox file rotation (F2)** — `services/outbox-rotation.mjs` rotates `usage.jsonl` / `session-mirror/<sid>.jsonl` when over size, archives `heartbeat/` + `memory-suggest/` after age, purges after retention window. New DSH-side Cordis tool `rotate_outbox_now` for manual triggering (Hermes cron can call hourly).
+- **`dispatch_status` / `dispatch_tail` JSON-RPC + DSH-side tool (F4)** — live continuable children snapshot (task_id / child_id / status / tokens / recent audit entries). New `services/dispatch-status.mjs` powers both surfaces; `get_dispatch` also gains `task_id` / `kind` / `since_ts` / `until_ts` filters and `live_continuable` enrichment on each entry.
+
+### Changed (perf)
+- **Write-behind outbox queue (E2)** — `appendUsage` / `appendSessionEvent` / `writeMemorySuggestion` enqueue to per-(kind, path) buckets and return immediately; a periodic timer (default 5s) drains the queue with one `appendFileSync` per file per flush. Per-bucket retry on failure (3x), queue cap with warning + counter. `outbox.stop()` on plugin unload flushes synchronously. Heartbeat now also carries `outbox_queue_depth` + `outbox_flush_runs` + caller-provided `last_dispatch_latency_ms` + `dsh_version`.
+
+### Tests
+- `scripts/test-outbox-rotation.mjs` — 14 cases (size + age archive for heartbeat / memory-suggest, size rotation for usage + session-mirror, purge, idempotency, defaults, missing-dirs tolerance, stats, lifecycle).
+- `scripts/test-dispatch-status.mjs` — 18 cases (readAuditRecords parsing + missing-file tolerance; filterAuditRecords single + combined; buildDispatchStatus with/without filter, with/without audit_recent, null continuations, is_live detection; readChildSessionTail not-live + tail slicing + null ctx + limit cap; round-trip JSON).
+- `scripts/test-outbox-writebehind.mjs` — 17 cases (write-behind semantics, batching 100 entries into 1 flush, session-mirror per-sid grouping, timer flush, queue cap, heartbeat enrichment, mixed kinds, stop, counters, config exposed, error tolerance).
+- All existing tests pass unchanged (3 K.3 cases + 3 outbox cases updated to call `flushNow()` before reading files). Total: 300 passing (283 baseline + 17 new).
+
+### Security
+- No changes to the security model. All cross-process channels remain authenticated (amend nonce + consult secret + bearer). F2/F4 are observability/perf only.
+
+---
+
 ## [0.3.0] — 2026-08-25
 
 ### Added
