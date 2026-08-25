@@ -1,24 +1,15 @@
 // http/_util.mjs
 //
-// v0.3.0 — shared HTTP utilities extracted during the dispatch.mjs refactor
-// (E1). Centralizes the small functions that every split route file needs:
-//
-//   - mcpError / mcpResult   — JSON-RPC 2.0 envelope builders
-//   - clampInt               — query-string int coercion with bounds
-//   - truncate               — long-text elision (used in renderTurnsForContext)
-//   - readAllStream          — UTF-8-safe request body reader (no chunk-boundary mojibake)
-//   - sendJson               — write JSON response with explicit utf-8 charset
-//   - send                   — write raw response
-//
-// In commit 2 (E9 — error codes) mcpError moves to services/error-codes.mjs
-// to add the centralized ErrorCodes registry + error_code/hint in data.
-// This file will then re-export from there to keep all callers unchanged.
+// v0.3.0 - shared HTTP utilities extracted during the dispatch.mjs refactor
+// (E1). mcpError / mcpResult now live in services/error-codes.mjs (E9) - this
+// file re-exports them so existing callers (`import { mcpError } from './_util.mjs'`)
+// keep working unchanged. The thin shim also keeps clampInt / truncate /
+// readAllStream / sendJson / send which are HTTP-only plumbing.
 
-function mcpResult(id, result) { return { jsonrpc: '2.0', id, result } }
-
-function mcpError(id, code, message, data) {
-  return { jsonrpc: '2.0', id, error: Object.assign({ code, message }, data !== undefined ? { data } : {}) }
-}
+// mcpError + mcpResult are now sourced from the centralized error-codes
+// registry; re-export so older `import { mcpError } from './_util.mjs'` paths
+// continue to resolve.
+export { mcpError, mcpResult, ErrorCodes } from '../services/error-codes.mjs'
 
 function clampInt(v, min, max, dflt) {
   if (v == null) return dflt
@@ -29,7 +20,7 @@ function clampInt(v, min, max, dflt) {
 
 function truncate(s, max) {
   if (s == null) return ''
-  return s.length > max ? s.slice(0, max) + '\n…(' + (s.length - max) + ' chars truncated)' : s
+  return s.length > max ? s.slice(0, max) + '\n...(' + (s.length - max) + ' chars truncated)' : s
 }
 
 function readAllStream(stream) {
@@ -37,7 +28,7 @@ function readAllStream(stream) {
     if (stream == null) return resolve('')
     if (typeof stream === 'string') return resolve(stream)
     if (typeof stream.on !== 'function') return resolve('')
-    // v0.2.3: accumulate raw Buffers and decode once — per-chunk c.toString()
+    // v0.2.3: accumulate raw Buffers and decode once - per-chunk c.toString()
     // corrupts multi-byte UTF-8 characters that straddle a chunk boundary
     // (observed as mojibake in CJK task payloads).
     const chunks = []
@@ -59,4 +50,4 @@ function send(res, status, body) {
   res.end(body)
 }
 
-export { mcpError, mcpResult, clampInt, truncate, readAllStream, sendJson, send }
+export { clampInt, truncate, readAllStream, sendJson, send }

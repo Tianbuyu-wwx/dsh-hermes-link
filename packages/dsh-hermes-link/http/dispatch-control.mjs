@@ -18,14 +18,14 @@ const VERSION = '0.3.0'
 export async function handleDispatchFollowup(ctx, args, deps) {
   const { continuations, outbox } = deps
   const childId = args.child_id
-  if (!childId) return { _error: mcpError(null, -32602, 'invalid spec: child_id required') }
+  if (!childId) return { _error: mcpError(null, 'E_INVALID_SPEC', 'invalid spec: child_id required') }
   const entry = continuations ? continuations.get(childId) : null
-  if (!entry) return { _error: mcpError(null, -32012, 'unknown child_id; not in registry') }
+  if (!entry) return { _error: mcpError(null, 'E_UNKNOWN_CHILD', 'unknown child_id; not in registry') }
   if (!Array.isArray(args.content) || args.content.length === 0) {
-    return { _error: mcpError(null, -32602, 'invalid spec: content (ContentBlock[]) required') }
+    return { _error: mcpError(null, 'E_INVALID_SPEC', 'invalid spec: content (ContentBlock[]) required') }
   }
   const liveParent = ctx.agents.get(entry.parent_agent_id) || pickParentAgent(ctx)
-  if (!liveParent) return { _error: mcpError(null, -32005, 'no live parent agent available for followup') }
+  if (!liveParent) return { _error: mcpError(null, 'E_NO_LIVE_AGENT', 'no live parent agent available for followup') }
 
   const deadlineMs = Number.isInteger(args.deadline_ms) ? args.deadline_ms : 60000
   const controller = new AbortController()
@@ -40,7 +40,7 @@ export async function handleDispatchFollowup(ctx, args, deps) {
     })
   } catch (e) {
     clearTimeout(timer)
-    return { _error: mcpError(null, -32010, 'followup submit failed: ' + (e && e.message || e)) }
+    return { _error: mcpError(null, 'E_SPAWN_FAILED', 'followup submit failed: ' + (e && e.message || e)) }
   }
 
   const reloadedAgent = ctx.agents.get(childId)
@@ -52,7 +52,7 @@ export async function handleDispatchFollowup(ctx, args, deps) {
   } catch (e) {
     clearTimeout(timer)
     if (continuations) continuations.update(childId, { status: 'timeout', stop_reason: 'followup_deadline' })
-    return { _error: mcpError(null, -32011, 'followup wait failed: ' + (e && e.message || e), { message_id: String(messageId) }) }
+    return { _error: mcpError(null, 'E_DISPATCH_FAILED', 'followup wait failed: ' + (e && e.message || e), { message_id: String(messageId) }) }
   }
 
   clearTimeout(timer)
@@ -114,9 +114,9 @@ export async function handleDispatchFollowup(ctx, args, deps) {
 export async function handleDispatchInterrupt(ctx, args, deps) {
   const { continuations } = deps
   const childId = args.child_id
-  if (!childId) return { _error: mcpError(null, -32602, 'invalid spec: child_id required') }
+  if (!childId) return { _error: mcpError(null, 'E_INVALID_SPEC', 'invalid spec: child_id required') }
   const entry = continuations ? continuations.get(childId) : null
-  if (!entry) return { _error: mcpError(null, -32012, 'unknown child_id') }
+  if (!entry) return { _error: mcpError(null, 'E_UNKNOWN_CHILD', 'unknown child_id') }
   const agent = ctx.agents.get(childId)
   if (!agent) {
     if (continuations) continuations.update(childId, { status: 'orphan', stop_reason: 'interrupted_not_live' })
@@ -126,7 +126,7 @@ export async function handleDispatchInterrupt(ctx, args, deps) {
   try {
     ctx.subagents.interrupt(childId, { kind: 'ancestor', agent: parent })
   } catch (e) {
-    return { _error: mcpError(null, -32010, 'interrupt failed: ' + (e && e.message || e)) }
+    return { _error: mcpError(null, 'E_SPAWN_FAILED', 'interrupt failed: ' + (e && e.message || e)) }
   }
   if (continuations) continuations.update(childId, { status: 'interrupted', stop_reason: 'interrupt_requested' })
   appendAudit({
@@ -144,7 +144,7 @@ export async function handleDispatchInterrupt(ctx, args, deps) {
 
 export async function handleDispatchList(ctx, args, deps) {
   const { continuations } = deps
-  if (!continuations) return { _error: mcpError(null, -32012, 'continuation registry not available') }
+  if (!continuations) return { _error: mcpError(null, 'E_UNKNOWN_CHILD', 'continuation registry not available') }
   const limit = Number.isInteger(args.limit) ? Math.min(args.limit, 200) : 50
   const rows = continuations.list({ limit })
   const enriched = rows.map((r) => ({
@@ -160,11 +160,11 @@ export async function handleDispatchList(ctx, args, deps) {
 export async function handleDispatchGet(ctx, args, deps) {
   const { continuations } = deps
   const childId = args.child_id
-  if (!childId) return { _error: mcpError(null, -32602, 'invalid spec: child_id required' ) }
+  if (!childId) return { _error: mcpError(null, 'E_INVALID_SPEC', 'invalid spec: child_id required' ) }
   const entry = continuations ? continuations.get(childId) : null
   const agent = ctx.agents.get(childId)
   if (!agent) {
-    return { _error: mcpError(null, -32012, 'child agent not live in current dsh session; dispatch_list shows persisted metadata') }
+    return { _error: mcpError(null, 'E_UNKNOWN_CHILD', 'child agent not live in current dsh session; dispatch_list shows persisted metadata') }
   }
   const events = agent.session.events
   const since = Number.isInteger(args.since) ? Math.max(0, args.since) : 0

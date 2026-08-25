@@ -51,7 +51,7 @@ export { mcpError, mcpResult, readAllStream, sendJson, send } from './_util.mjs'
 // -----------------------------------------------------------------------------
 
 function authFail(res) {
-  return sendJson(res, 401, mcpError(null, -32001, 'unauthorized: missing or invalid Authorization: Bearer <token>'))
+  return sendJson(res, 401, mcpError(null, 'E_AUTH_REQUIRED', 'unauthorized: missing or invalid Authorization: Bearer <token>'))
 }
 
 function checkAuth(req, res) {
@@ -85,13 +85,13 @@ export function register(ctx, deps) {
       let body = null
       if (method === 'POST') {
         const raw = await readAllStream(req)
-        if (!raw) return sendJson(res, 400, mcpError(null, -32600, 'missing body'))
+        if (!raw) return sendJson(res, 400, mcpError(null, 'E_INVALID_REQUEST', 'missing body'))
         try { body = JSON.parse(raw) }
-        catch (e) { return sendJson(res, 400, mcpError(null, -32700, 'parse error: ' + e.message)) }
+        catch (e) { return sendJson(res, 400, mcpError(null, 'E_PARSE_ERROR', 'parse error: ' + e.message)) }
       } else if (method === 'GET') {
         body = { jsonrpc: '2.0', id: 0, method: 'ping' }
       } else {
-        return sendJson(res, 405, mcpError(null, -32600, 'method not allowed: ' + method))
+        return sendJson(res, 405, mcpError(null, 'E_INVALID_REQUEST', 'method not allowed: ' + method))
       }
       try {
         const out = await handleRpc(ctx, body, {
@@ -101,7 +101,7 @@ export function register(ctx, deps) {
         if (out === null) return send(res, 204, '')
         return sendJson(res, 200, out)
       } catch (e) {
-        return sendJson(res, 500, mcpError(body && body.id, -32603, 'internal: ' + (e && e.message || e)))
+        return sendJson(res, 500, mcpError(body && body.id, 'E_INTERNAL', 'internal: ' + (e && e.message || e)))
       }
     },
   })

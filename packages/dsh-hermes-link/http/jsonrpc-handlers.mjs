@@ -1,4 +1,4 @@
-// http/jsonrpc-handlers.mjs
+﻿// http/jsonrpc-handlers.mjs
 //
 // v0.3.0 - split out of http/dispatch.mjs (E1 refactor). Owns:
 //   - handleRpc: the top-level JSON-RPC dispatcher for POST /mcp/collab
@@ -86,9 +86,9 @@ export async function handleRpc(ctx, body, deps) {
       const lines = readAuditLines(limit)
       return mcpResult(id, { content: [{ type: 'text', text: lines.length ? lines.join('\n') : '(empty)' }] })
     }
-    return mcpError(id, -32601, 'unknown tool: ' + name)
+    return mcpError(id, 'E_UNKNOWN_TOOL', 'unknown tool: ' + name)
   }
-  return mcpError(id, -32601, 'unknown method: ' + method)
+  return mcpError(id, 'E_UNKNOWN_METHOD', 'unknown method: ' + method)
 }
 
 function buildToolsList() {
@@ -176,7 +176,7 @@ function buildToolsList() {
 
 function handleProbe(ctx, id, args) {
   const probeName = args && typeof args.skill === 'string' && args.skill ? args.skill : ''
-  if (!probeName) return mcpError(id, -32602, 'invalid spec: missing required field: skill')
+  if (!probeName) return mcpError(id, 'E_INVALID_SPEC', 'invalid spec: missing required field: skill')
   let names = null
   try {
     let view = null
@@ -187,11 +187,11 @@ function handleProbe(ctx, id, args) {
     if (view && view.restrictableNames) names = [...view.restrictableNames].sort()
   } catch {}
   if (!names) {
-    return mcpError(id, -32603, 'tool catalog unavailable: tools.view().restrictableNames not readable in this dsh build')
+    return mcpError(id, 'E_TOOL_CATALOG_UNAVAILABLE', 'tools.view().restrictableNames not readable in this dsh build')
   }
   if (names.includes(probeName)) {
     return mcpResult(id, { content: [{ type: 'text', text: 'ok: tool "' + probeName + '" is known (' + names.length + ' global tools)' }] })
   }
-  return mcpError(id, -32011,
+  return mcpError(id, 'E_DISPATCH_FAILED',
     'unknown tool "' + probeName + '"; known global tools (' + names.length + '): ' + names.join(', '))
 }

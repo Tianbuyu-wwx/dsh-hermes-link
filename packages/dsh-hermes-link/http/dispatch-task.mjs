@@ -31,16 +31,16 @@ export function dispatcherCount() { return dispatchers.size }
 export async function handleDispatchTask(ctx, args, deps) {
   const { consultClient, foundationSlice, continuations, outbox } = deps
   const err = validateSpec(args)
-  if (err) return { _error: mcpError(null, -32602, 'invalid spec: ' + err) }
+  if (err) return { _error: mcpError(null, 'E_INVALID_SPEC', 'invalid spec: ' + err) }
 
   const parent = pickParentAgent(ctx)
   if (!parent) {
-    return { _error: mcpError(null, -32005, 'no live agent available; dsh session must be running to dispatch a task') }
+    return { _error: mcpError(null, 'E_NO_LIVE_AGENT', 'no live agent available; dsh session must be running to dispatch a task') }
   }
 
   const taskId = args.task_id
   if (dispatchers.has(taskId)) {
-    return { _error: mcpError(null, -32004, 'duplicate task_id; already running: ' + taskId) }
+    return { _error: mcpError(null, 'E_DUPLICATE_TASK_ID', 'duplicate task_id; already running: ' + taskId) }
   }
   dispatchers.set(taskId, { startedAt: Date.now(), status: 'running' })
 
@@ -172,7 +172,7 @@ export async function handleDispatchTask(ctx, args, deps) {
         task_id: taskId,
         error: String(e && e.message || e),
       })
-      return { _error: mcpError(null, -32010, 'continuable spawn failed: ' + (e && e.message || e)) }
+      return { _error: mcpError(null, 'E_SPAWN_FAILED', 'continuable spawn failed: ' + (e && e.message || e)) }
     }
   }
 
@@ -252,7 +252,7 @@ export async function handleDispatchTask(ctx, args, deps) {
   }
 
   if (error) {
-    return { _error: mcpError(null, -32011, 'dispatch failed: ' + (error && error.message || error),
+    return { _error: mcpError(null, 'E_DISPATCH_FAILED', 'dispatch failed: ' + (error && error.message || error),
       { task_id: taskId, elapsed_ms: finishedAt - startedAt, d1: d1Status }) }
   }
   return {
