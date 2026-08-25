@@ -130,7 +130,24 @@ export function register(ctx, deps) {
     }),
   })
 
-  // 2b. SSE stream (v0.3.0 F1) - real-time event feed for a continuable task.
+  // 2b-prime. v0.3.2 F6 - Prometheus metrics endpoint (text exposition format v0.0.4)
+  webServer.register({
+    kind: 'exact',
+    path: '/mcp/collab/metrics',
+    handler: async (req, res) => {
+      const denied = checkAuth(req, res); if (denied) return denied
+      const m = deps.metrics
+      if (!m) {
+        res.writeHead(503, { 'content-type': 'text/plain; charset=utf-8' })
+        res.end('# metrics registry not initialized\n')
+        return
+      }
+      res.writeHead(200, { 'content-type': 'text/plain; version=0.0.4; charset=utf-8' })
+      res.end(m.serialize())
+    },
+  })
+
+    // 2b. SSE stream (v0.3.0 F1) - real-time event feed for a continuable task.
   //     Bearer-auth same as other routes; ?task_id= required, ?since_seq replay,
   //     ?timeout_ms optional auto-close.
   webServer.register({
@@ -194,6 +211,7 @@ export function register(ctx, deps) {
       const status = result.status === 'created' || result.status === 'already_imported' ? 200
                    : result.status === 'not_found' ? 404
                    : 500
+      if (deps.metrics) deps.metrics.inc('hermes_link_import_total', { status: result.status })
       appendAudit({ kind: 'import', hermesSessionId, status: result.status, ts: Date.now() })
       return sendJson(res, status, result)
     },
@@ -282,6 +300,7 @@ export function register(ctx, deps) {
       const status = result.status === 'replied' ? 200
                    : result.status === 'pending' ? 202
                    : 500
+      if (deps.metrics) deps.metrics.inc('hermes_link_consult_total', { status: result.status })
       appendAudit({ kind: 'consult', status: result.status, ticket: result.ticket || null, elapsed_ms: Date.now() - startedAt, ts: Date.now() })
       if (deps.outbox && result.status === 'replied') {
         deps.outbox.appendUsage({ kind: 'consult', status: 'replied', ticket: result.ticket, elapsed_ms: Date.now() - startedAt })

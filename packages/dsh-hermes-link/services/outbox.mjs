@@ -27,6 +27,11 @@ const DEFAULT_FLUSH_INTERVAL_MS = 5000
 const DEFAULT_MAX_QUEUE_SIZE    = 10000
 const DEFAULT_MAX_RETRIES       = 3
 
+/** Optional metrics sink (set externally). */
+function _metricsSink() { /* replaced by setMetricsSink */ }
+let metricsSink = null
+export function setMetricsSink(m) { metricsSink = m }
+
 /** Create the outbox service rooted at Hermes Home. */
 export function createOutbox({
   hermesHome,
@@ -244,6 +249,7 @@ export function createOutbox({
         ...rec,
       }) + '\n'
       enqueue('usage', usagePath, line)
+      if (metricsSink) try { metricsSink.inc('hermes_link_outbox_usage_total') } catch (_e) {}
       return true
     } catch (e) {
       console.error('[dsh-hermes-link] usage append failed:', e && e.message || e)
@@ -264,6 +270,7 @@ export function createOutbox({
         ...suggestion,
       }
       enqueue('suggestion', suggestDir, payload)
+      if (metricsSink) try { metricsSink.inc('hermes_link_outbox_memory_suggest_total') } catch (_e) {}
       return { ok: true, ts }
     } catch (e) {
       console.error('[dsh-hermes-link] memory-suggest enqueue failed:', e && e.message || e)
@@ -283,8 +290,10 @@ export function createOutbox({
       const path = join(mirrorDir, `${safeId}.jsonl`)
       const payload = { ts: Date.now(), event }
       enqueue('mirror', path, payload)
+      if (metricsSink) try { metricsSink.inc('hermes_link_outbox_session_events_total') } catch (_e) {}
       return true
     } catch (e) {
+      if (metricsSink) try { metricsSink.inc('hermes_link_outbox_session_mirror_errors_total') } catch (_e) {}
       // log once per direction - mirror is best-effort
       if (!mirrorErrors.has(String(sessionId))) {
         mirrorErrors.add(String(sessionId))

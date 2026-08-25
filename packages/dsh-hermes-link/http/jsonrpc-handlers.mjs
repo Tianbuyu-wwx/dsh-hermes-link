@@ -54,6 +54,7 @@ export async function handleRpc(ctx, body, deps) {
   if (method === 'tools/call') {
     const name = params && params.name
     const args = (params && params.arguments) || {}
+    if (deps.metrics) deps.metrics.inc('hermes_link_dispatch_total', { mode: args.mode === 'continuable' ? 'continuable' : 'one-shot', status: 'started' })
     if (name === 'dispatch_task') {
       const out = await handleDispatchTask(ctx, args, deps)
       if (out._error) return out._error
@@ -62,11 +63,13 @@ export async function handleRpc(ctx, body, deps) {
     if (name === 'dispatch_probe') {
       return handleProbe(ctx, id, args)
     }
+    if (deps.metrics) deps.metrics.inc('hermes_link_followup_total', { status: 'started' })
     if (name === 'dispatch_followup') {
       const out = await handleDispatchFollowup(ctx, args, deps)
       if (out._error) return out._error
       return mcpResult(id, out)
     }
+    if (deps.metrics) deps.metrics.inc('hermes_link_interrupt_total', { status: 'started' })
     if (name === 'dispatch_interrupt') {
       const out = await handleDispatchInterrupt(ctx, args, deps)
       if (out._error) return out._error
@@ -83,6 +86,7 @@ export async function handleRpc(ctx, body, deps) {
       return mcpResult(id, out)
     }
     if (name === 'get_dispatch') {
+      if (deps.metrics) deps.metrics.inc('hermes_link_dispatch_total', { mode: 'read', status: 'audit' })
       // v0.3.1 F4: enhanced with task_id/kind/since_ts/until_ts filters +
       // continuable_children enrichment when available.
       const limit = Number(args.limit) || 20
@@ -114,6 +118,7 @@ export async function handleRpc(ctx, body, deps) {
       return mcpResult(id, { content: [{ type: 'text', text: filtered.length ? JSON.stringify(filtered, null, 2) : '(empty)' }] })
     }
     if (name === 'dispatch_status') {
+      if (deps.metrics) deps.metrics.inc('hermes_link_dispatch_total', { mode: 'read', status: 'status' })
       // v0.3.1 F4: live continuable children snapshot + audit_recent + token snapshot
       const taskIdFilter = typeof args.task_id === 'string' ? args.task_id : null
       const includeAudit = Number.isInteger(args.include_audit_recent) ? args.include_audit_recent : 5
@@ -125,6 +130,7 @@ export async function handleRpc(ctx, body, deps) {
       return mcpResult(id, status)
     }
     if (name === 'dispatch_tail') {
+      if (deps.metrics) deps.metrics.inc('hermes_link_dispatch_total', { mode: 'read', status: 'tail' })
       // v0.3.1 F4: last N session events from a live child agent
       const childId = typeof args.child_id === 'string' ? args.child_id : ''
       if (!childId) return mcpError(id, 'E_INVALID_SPEC', 'child_id required')

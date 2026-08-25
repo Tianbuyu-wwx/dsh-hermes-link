@@ -50,9 +50,12 @@ import { createOutbox } from './services/outbox.mjs'
 import { createOutboxRotation } from './services/outbox-rotation.mjs'
 import { openContinuations, TERMINAL_STATUSES } from './services/continuations.mjs'
 import { createSseBroker } from './services/sse-broker.mjs'
+import { createMetricsRegistry } from './services/metrics.mjs'
 import { createAmendWatcher } from './services/amend-watcher.mjs'
-import { stateDir as auditStateDir } from './services/audit.mjs'
-import { register as registerHttp, pickParentAgent } from './http/dispatch.mjs'
+import { stateDir as auditStateDir, setMetricsSink as setAuditMetrics } from './services/audit.mjs'
+import { setMetricsSink as setOutboxMetrics } from './services/outbox.mjs'
+import { setMetricsSink as setAmendMetrics } from './services/amend-watcher.mjs'
+import { register as registerHttp, pickParentAgent, dispatcherCount } from './http/dispatch.mjs'
 import { createListHermesSessionsTool } from './tools/list-hermes-sessions.mjs'
 import { createImportHermesSessionTool } from './tools/import-hermes-session.mjs'
 import { createLoadHermesPersonaTool } from './tools/load-hermes-persona.mjs'
@@ -65,6 +68,66 @@ import { createDispatchStatusTool } from './tools/dispatch-status.mjs'
 const skillDir = fileURLToPath(new URL('./skills/dsh-hermes-link', import.meta.url))
 const MAX_FOUNDATION_SLICE_CHARS = 4096
 const VERSION = '0.3.1'
+
+// -----------------------------------------------------------------------------
+// v0.3.2 F6 - register the canonical metric shape so the wire format is
+// stable across versions. The shapes are documented in SKILL.md so users
+// can pin their Prometheus scrapers.
+// -----------------------------------------------------------------------------
+
+function registerMetricsShape(metrics, { VERSION }) {
+  // Counters
+  metrics.registerCounter('hermes_link_dispatch_total',
+    'Total dispatch_task invocations by mode and terminal status', ['mode', 'status'])
+  metrics.registerCounter('hermes_link_followup_total',
+    'Total dispatch_followup invocations by terminal status', ['status'])
+  metrics.registerCounter('hermes_link_interrupt_total',
+    'Total dispatch_interrupt invocations by terminal status', ['status'])
+  metrics.registerCounter('hermes_link_consult_total',
+    'Total consult_hermes invocations by terminal status', ['status'])
+  metrics.registerCounter('hermes_link_import_total',
+    'Total import_hermes_session invocations by terminal status', ['status'])
+  metrics.registerCounter('hermes_link_amend_total',
+    'Total amend file deliveries by result', ['result'])
+  metrics.registerCounter('hermes_link_amend_rejected_legacy_total',
+    'Total amend files rejected for legacy two-segment filename format')
+  metrics.registerCounter('hermes_link_outbox_flush_runs_total',
+    'Total write-behind outbox flush runs')
+  metrics.registerCounter('hermes_link_outbox_dropped_queue_full_total',
+    'Total outbox items dropped due to queue cap')
+  metrics.registerCounter('hermes_link_outbox_dropped_retries_total',
+    'Total outbox items dropped after retry exhaustion')
+  metrics.registerCounter('hermes_link_outbox_session_mirror_errors_total',
+    'Total session-mirror append errors')
+  metrics.registerCounter('hermes_link_outbox_memory_suggest_total',
+    'Total memory-suggest writes')
+  metrics.registerCounter('hermes_link_outbox_usage_total',
+    'Total usage records appended')
+  metrics.registerCounter('hermes_link_outbox_session_events_total',
+    'Total session-mirror events appended')
+  metrics.registerCounter('hermes_link_audit_appends_total',
+    'Total audit.jsonl appends')
+  metrics.registerCounter('hermes_link_continuables_registered_total',
+    'Total continuable children ever registered (cumulative since DSH start)')
+
+  // Gauges
+  metrics.registerGauge('hermes_link_continuable_children',
+    'Live continuable children by status', ['status'])
+  metrics.registerGauge('hermes_link_outbox_queue_depth',
+    'Current write-behind outbox queue depth (buckets)')
+  metrics.registerGauge('hermes_link_outbox_items_queued',
+    'Current write-behind outbox items pending (sum of all bucket sizes)')
+  metrics.registerGauge('hermes_link_active_dispatchers',
+    'Current number of in-flight one-shot dispatchers (module-level map size)')
+  metrics.registerGauge('hermes_link_sse_clients',
+    'Current number of attached SSE subscribers')
+  metrics.registerGauge('hermes_link_sse_channels',
+    'Current number of distinct SSE task_id channels with attached subscribers')
+  metrics.registerGauge('hermes_link_uptime_seconds',
+    'DSH process uptime in seconds')
+  metrics.registerGauge('hermes_link_build_info',
+    'Build info (always 1; labels carry the version)', ['version'])
+}
 
 // -----------------------------------------------------------------------------
 // Hermes Home auto-detect
@@ -137,6 +200,13 @@ export function apply(ctx) {
   const outbox = createOutbox({ hermesHome })
   // v0.3.1 F2 - file rotation for the outbox (heartbeat/usage/memory-suggest/session-mirror).
   const outboxRotation = createOutboxRotation({ hermesHome })
+  // v0.3.2 F6 - Prometheus-compatible metrics registry.
+  const metrics = createMetricsRegistry()
+  registerMetricsShape(metrics, { VERSION })
+  // Wire audit + outbox + sse counter bridges
+  setAuditMetrics(metrics)
+  setOutboxMetrics(metrics)
+  setAmendMetrics(metrics)
   // v0.3.0 F1 - SSE broker (per-process singleton, also stashed on globalThis
   // so services/amend-watcher.mjs can publish without going through cordis locator).
   const sseBroker = createSseBroker({ ringSize: 1000, heartbeatMs: 15000 })
@@ -329,6 +399,49 @@ export function apply(ctx) {
     console.warn('[dsh-hermes-link] outbox-rotation init failed:', e && e.message || e)
   }
 
+  // 12. v0.3.2 F6 - metric collector (gauges only; counters are incremented in-place).
+  const metricCollector = (() => {
+    function childrenByStatus() {
+      const map = {}
+      if (!continuations || typeof continuations.list !== 'function') return map
+      for (const row of continuations.list({ limit: 500 })) {
+        const s = row.status || 'unknown'
+        map[s] = (map[s] || 0) + 1
+      }
+      return map
+    }
+    function collectOnce() {
+      try {
+        if (outbox && typeof outbox.outboxStats === 'function') {
+          const os = outbox.outboxStats()
+          metrics.set('hermes_link_outbox_queue_depth', os.queueDepth)
+          if (os.counters) {
+            metrics.set('hermes_link_outbox_items_queued', (os.counters.enqueued || 0) - (os.counters.flushed || 0))
+            metrics.set('hermes_link_outbox_flush_runs_total', os.counters.flushRuns || 0)
+            metrics.set('hermes_link_outbox_dropped_queue_full_total', os.counters.droppedQueueFull || 0)
+            metrics.set('hermes_link_outbox_dropped_retries_total', os.counters.droppedRetriesExhausted || 0)
+          }
+        }
+        const children = childrenByStatus()
+        const allStatuses = new Set([...Object.keys(children), 'started', 'idle', 'completed', 'error', 'interrupted', 'orphan', 'timeout'])
+        for (const s of allStatuses) metrics.set('hermes_link_continuable_children', children[s] || 0, { status: s })
+        metrics.set('hermes_link_continuables_registered_total', 0)
+        if (sseBroker && typeof sseBroker.stats === 'function') {
+          const ss = sseBroker.stats()
+          metrics.set('hermes_link_sse_clients', ss.total_subscribers || 0)
+          metrics.set('hermes_link_sse_channels', ss.channels || 0)
+        }
+        metrics.set('hermes_link_active_dispatchers', (typeof dispatcherCount === 'function') ? dispatcherCount() : 0)
+        metrics.set('hermes_link_uptime_seconds', Math.floor(process.uptime()))
+        metrics.set('hermes_link_build_info', 1, { version: VERSION })
+      } catch (_e) { /* swallow */ }
+    }
+    const t = setInterval(collectOnce, 5000)
+    t.unref?.()
+    collectOnce()
+    return { stop() { clearInterval(t) }, collectOnce }
+  })()
+
   // Disposable: on plugin unload, stop watchers + timers + DB.
   ctx.on('dispose', () => {
     if (watcher && watcher.dispose) try { watcher.dispose() } catch {}
@@ -336,6 +449,7 @@ export function apply(ctx) {
     if (heartbeat && heartbeat.stop) try { heartbeat.stop() } catch {}
     if (outboxRotation && outboxRotation.stop) try { outboxRotation.stop() } catch {}
     if (outbox && outbox.stop) try { outbox.stop() } catch {}
+    if (metricCollector && metricCollector.stop) try { metricCollector.stop() } catch {}
     if (continuations && continuations.close) try { continuations.close() } catch {}
   })
 
@@ -351,6 +465,7 @@ export function apply(ctx) {
     outboxRotation,
     continuations,
     amendWatcher,
+    metrics,
     version: VERSION,
   })
 }

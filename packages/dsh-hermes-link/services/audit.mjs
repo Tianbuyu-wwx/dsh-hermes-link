@@ -19,11 +19,18 @@ export function auditPath() {
   return join(stateDir(), 'audit.jsonl')
 }
 
+/** Optional metrics sink for counting audit appends. Set externally. */
+let metricsSink = null
+export function setMetricsSink(m) { metricsSink = m }
+
 /** Append one audit record. Best-effort, never throws. */
 export function appendAudit(rec) {
   try {
     mkdirSync(stateDir(), { recursive: true })
     appendFileSync(auditPath(), JSON.stringify(rec) + '\n', 'utf8')
+    if (metricsSink) {
+      try { metricsSink.inc('hermes_link_audit_appends_total') } catch (_e) {}
+    }
   } catch (e) {
     console.error('[dsh-hermes-link] audit append failed:', e && e.message || e)
   }

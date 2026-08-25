@@ -14,6 +14,9 @@
 import { readdirSync, readFileSync, existsSync, mkdirSync, renameSync } from 'node:fs'
 import { join } from 'node:path'
 
+let metricsSink = null
+export function setMetricsSink(m) { metricsSink = m }
+
 const POLL_INTERVAL_MS = 2000
 
 /**
@@ -71,6 +74,8 @@ export function createAmendWatcher({ hermesHome, ctx, continuations, pickParentA
       // aside so the file doesn't loop forever; NEVER deliver.
       stats.rejected_legacy++
       stats.ignored++
+      if (metricsSink) try { metricsSink.inc('hermes_link_amend_total', { result: 'rejected_legacy' }) } catch (_e) {}
+      if (metricsSink) try { metricsSink.inc('hermes_link_amend_rejected_legacy_total') } catch (_e) {}
       try { renameSync(filePath, join(doneDir, `legacy-${Date.now()}-${fileName}`)) } catch {}
       return { status: 'rejected_legacy_format', file: fileName, note: 'v0.2.2+ requires a nonce segment in the filename; rename your Hermes amend writer to "<ts>-<task_id>-<nonce>.json". See docs/delivery-v0.6.0 "v0.2.2 hotfix".' }
     }
@@ -101,6 +106,7 @@ export function createAmendWatcher({ hermesHome, ctx, continuations, pickParentA
     if (!validNonce) {
       stats.rejected_nonce++
       stats.ignored++
+      if (metricsSink) try { metricsSink.inc('hermes_link_amend_total', { result: 'rejected_nonce' }) } catch (_e) {}
       try { renameSync(filePath, join(doneDir, `bad-nonce-${Date.now()}-${fileName}`)) } catch {}
       return { status: 'rejected_nonce', task_id: req.task_id }
     }
@@ -158,9 +164,11 @@ export function createAmendWatcher({ hermesHome, ctx, continuations, pickParentA
         } catch (_e) {}
       }
       stats.delivered++
+      if (metricsSink) try { metricsSink.inc('hermes_link_amend_total', { result: 'delivered' }) } catch (_e) {}
       return { status: 'delivered', task_id: req.task_id, child_id: entry.child_id }
     } catch (e) {
       stats.failed++
+      if (metricsSink) try { metricsSink.inc('hermes_link_amend_total', { result: 'failed_deliver' }) } catch (_e) {}
       return { status: 'failed_deliver', task_id: req.task_id, error: String(e && e.message || e) }
     }
   }
