@@ -12,7 +12,7 @@ import { appendAudit } from '../services/audit.mjs'
 import { buildProjectMemorySlice } from '../services/hermes-project-memory.mjs'
 import { mcpError } from './_util.mjs'
 
-export const VERSION = '0.3.6'
+export const VERSION = '0.4.0'
 
 const DEFAULT_MAX_TOKENS  = 4000
 const DEFAULT_DEADLINE_MS = 60000

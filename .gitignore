@@ -32,9 +32,10 @@ Thumbs.db
 coverage/
 .nyc_output/
 
-# changesets: config IS tracked; only transient state inside is ignored
+# changesets: config and release notes ARE tracked; only transient state inside is ignored
 .changeset/*
 !.changeset/config.json
+!.changeset/*.md
 
 # misc
 *.tgz

@@ -2,7 +2,7 @@
 // Default cross-end sync: Hermes calls this to see what dsh has been
 // doing (audit log, continuable-child registry, recent dispatch results).
 
-import { readFileSync, existsSync, statSync } from 'node:fs'
+import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs'
 import { DatabaseSync } from 'node:sqlite'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
@@ -13,6 +13,14 @@ const DSH_HOME = process.env.DSH_HOME || join(homedir(), '.dsh')
 const AUDIT_PATH = join(DSH_HOME, 'dsh-hermes-link', 'audit.jsonl')
 const SQLITE_PATH = join(DSH_HOME, 'dsh-hermes-link', 'continuables.sqlite')
 const INBOX_LATEST = join(DSH_HOME, 'hermes-inbox', 'latest.md')
+// v0.4.0 - Hermes-side mirror files live under Hermes Home/inbox/dsh/session-mirror.
+function hermesHome() {
+  if (process.env.HERMES_HOME) return process.env.HERMES_HOME
+  const local = process.env.LOCALAPPDATA || join(homedir(), 'AppData', 'Local')
+  return join(local, 'hermes')
+}
+const MIRROR_DIR = join(hermesHome(), 'inbox', 'dsh', 'session-mirror')
+const MIRROR_STATE = join(DSH_HOME, 'dsh-hermes-link', 'session-mirror-state.json')
 
 const mode = process.argv[2] || 'all'
 
@@ -68,6 +76,27 @@ function readInbox() {
     return { error: 'inbox read failed: ' + e.message }
   }
 }
+function listSessionMirrors() {
+  if (!existsSync(MIRROR_DIR)) return { exists: false, path: MIRROR_DIR }
+  let enabled = {}
+  try { enabled = JSON.parse(readFileSync(MIRROR_STATE, 'utf8')).sessions || {} } catch (_e) {}
+  const files = readdirSync(MIRROR_DIR).filter((f) => f.endsWith('.jsonl')).sort()
+  return {
+    exists: true,
+    path: MIRROR_DIR,
+    enabled_sessions: enabled,
+    mirrors: files.map((f) => {
+      const p = join(MIRROR_DIR, f)
+      const st = statSync(p)
+      return {
+        file: f,
+        size: st.size,
+        mtime: st.mtime.toISOString(),
+        enabled: !!enabled[f.replace(/\.jsonl$/, '')],
+      }
+    }),
+  }
+}
 
 function emit(section, data) {
   console.log('=== ' + section + ' ===')
@@ -108,4 +137,7 @@ if (mode === 'children' || mode === 'all') {
 }
 if (mode === 'inbox' || mode === 'all') {
   emit('hermes-inbox (latest DSH sees)', readInbox())
+}
+if (mode === 'mirror' || mode === 'all') {
+  emit('session-mirror (DSH -> Hermes)', listSessionMirrors())
 }

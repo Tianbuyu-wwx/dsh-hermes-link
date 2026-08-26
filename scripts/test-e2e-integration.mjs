@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // scripts/test-e2e-integration.mjs
 //
-// v0.3.6 - End-to-end integration test that wires up the HTTP surface
+// v0.4.0 - End-to-end integration test that wires up the HTTP surface
 // (registerHttp from packages/dsh-hermes-link/http/dispatch.mjs) against
 // a real http.createServer() and exercises the routes via fetch().
 //
@@ -217,7 +217,7 @@ await t('e2e: /mcp/collab/health returns 200 with version + auth status', async 
     assert.equal(res.headers.get('content-type'), 'application/json; charset=utf-8')
     const body = await res.json()
     assert.equal(body.ok, true)
-    assert.equal(body.version, '0.3.6')
+    assert.equal(body.version, '0.4.0')
     assert.equal(body.auth, 'open')
     assert.ok(body.sse_broker)
     assert.ok(body.sse_broker.channels === 0)
@@ -249,7 +249,7 @@ await t('e2e: /mcp/collab (GET) responds to ping with version', async () => {
     const body = await res.json()
     assert.equal(body.jsonrpc, '2.0')
     assert.ok(body.result)
-    assert.equal(body.result.version, '0.3.6')
+    assert.equal(body.result.version, '0.4.0')
     assert.equal(body.result.ok, true)
   } finally { await s.close() }
 })
@@ -488,6 +488,8 @@ await t('e2e: route table covers all documented paths', async () => {
       // REST helpers
       '/mcp/collab/health',
       '/mcp/collab/sessions',
+'/mcp/collab/session-stream',
+    '/mcp/collab/session-mirror/status',
       '/mcp/collab/import',
       '/mcp/collab/import-all',
       '/mcp/collab/rename-all',

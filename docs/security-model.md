@@ -48,13 +48,13 @@ DSH's webserver binds to `127.0.0.1:3080` by default. **Do not expose it to the 
 
 ## Layer 2 (v0.2.2 S1) — V4 session-mirror is opt-in
 
-**Code**: [`packages/dsh-hermes-link/tools/mirror-session-to-hermes.mjs`](../packages/dsh-hermes-link/tools/mirror-session-to-hermes.mjs) replaces the previous `ctx.on('session/event', …)` hook.
+**Code**: [`packages/dsh-hermes-link/tools/mirror-session-to-hermes.mjs`](../packages/dsh-hermes-link/tools/mirror-session-to-hermes.mjs) and [`packages/dsh-hermes-link/services/session-mirror.mjs`](../packages/dsh-hermes-link/services/session-mirror.mjs) replace the previous auto-every-event `ctx.on('session/event', …)` hook.
 
-**What it does**: Removes the auto-every-event mirror hook. The mirror tool is **only** invoked when a user calls `mirror_session_to_hermes` (or a Hermes-side dispatch chooses to mirror).
+**What it does**: The v0.2.2 one-shot mirror tool is **only** invoked when a user calls `mirror_session_to_hermes`. v0.4.0 adds `session_mirror action=enable` — an explicit per-session switch that turns on automatic mirroring for **that DSH session only** (default OFF globally). Every mirrored event is redacted by `services/redact.mjs`; `session_mirror action=disable` turns it off.
 
 **Threat it defends**: A pre-v0.2.2 DSH session was being written into Hermes's default store on every event — including user inputs and tool calls. Switching projects would write project A's content into project B's Hermes index.
 
-**Companion** (v0.2.3 K.5): `redactEvent()` strips 10+ secret patterns before writing — `cookie`, `set-cookie`, `session_id`, plus `api_key`, `password`, `token`, `bearer`, JWT, AWS keys, PEM blocks. Default `redact: true`; pass `redact: false` only with intent.
+**Companion** (v0.2.3 K.5, v0.4.0 shared): `services/redact.mjs` exports `redactEvent()` and strips 10+ secret patterns before writing — `cookie`, `set-cookie`, `session_id`, plus `api_key`, `password`, `token`, `bearer`, JWT, AWS keys, PEM blocks. One-shot tool default `redact: true`; automatic mirroring always redacts.
 
 ## Layer 3 (v0.2.2 S2) — H4 amend nonce
 

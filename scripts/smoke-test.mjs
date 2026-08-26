@@ -38,12 +38,15 @@ const required = [
   'services/consult-hermes.mjs',
   'services/hermes-inbox.mjs',
   'services/outbox.mjs',
+  'services/redact.mjs',
+  'services/session-mirror.mjs',
   'services/continuations.mjs',
   'services/amend-watcher.mjs',
   'services/audit.mjs',
   'services/hermes-project-memory.mjs',
   'http/dispatch.mjs',
   'tools/list-hermes-sessions.mjs',
+  'tools/session-mirror-control.mjs',
   'tools/import-hermes-session.mjs',
   'tools/load-hermes-persona.mjs',
   'tools/consult-hermes.mjs',
@@ -136,12 +139,15 @@ const mjsFiles = [
   'services/consult-hermes.mjs',
   'services/hermes-inbox.mjs',
   'services/outbox.mjs',
+  'services/redact.mjs',
+  'services/session-mirror.mjs',
   'services/continuations.mjs',
   'services/amend-watcher.mjs',
   'services/audit.mjs',
   'services/hermes-project-memory.mjs',
   'http/dispatch.mjs',
   'tools/list-hermes-sessions.mjs',
+  'tools/session-mirror-control.mjs',
   'tools/import-hermes-session.mjs',
   'tools/load-hermes-persona.mjs',
   'tools/consult-hermes.mjs',
@@ -179,9 +185,18 @@ check('scripts/test-v0.2.3-hardening.mjs exists',
 const personaSrc = readFileSync(join(pkg, 'services', 'persona-loader.mjs'), 'utf8')
 check('persona-loader no longer reads MEMORY.md (K.1)',
   !/if \(want\.memory\)/.test(personaSrc))
+const redactSrc = readFileSync(join(pkg, 'services', 'redact.mjs'), 'utf8')
+check('shared redact service covers cookie / set-cookie / session_id (K.5)',
+  /cookie|session_id|set[_-]?cookie/i.test(redactSrc))
 const mirrorSrc = readFileSync(join(pkg, 'tools', 'mirror-session-to-hermes.mjs'), 'utf8')
-check('mirror-session redacts cookie / set-cookie / session_id (K.5)',
-  /cookie|session_id|set[_-]?cookie/i.test(mirrorSrc))
+check('mirror-session tool re-exports shared redactEvent',
+  /export \{ redactEvent \}/.test(mirrorSrc))
+const sessionMirrorSrc = readFileSync(join(pkg, 'services', 'session-mirror.mjs'), 'utf8')
+check('session-mirror service always redacts via redactEvent',
+  /redactEvent/.test(sessionMirrorSrc))
+const dispatchSrc = readFileSync(join(pkg, 'http', 'dispatch.mjs'), 'utf8')
+check('dispatch exposes /mcp/collab/session-stream',
+  /\/mcp\/collab\/session-stream/.test(dispatchSrc))
 const importerSrc = readFileSync(join(pkg, 'import', 'import-hermes-session.mjs'), 'utf8')
 check('import-hermes-session cwd safety check present (K.2)',
   /isSafeCwd/.test(importerSrc))

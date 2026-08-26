@@ -27,6 +27,17 @@ const DEFAULT_FLUSH_INTERVAL_MS = 5000
 const DEFAULT_MAX_QUEUE_SIZE    = 10000
 const DEFAULT_MAX_RETRIES       = 3
 
+/** Sanitize a DSH session id into a safe filesystem name for mirror JSONL. */
+export function safeSessionId(sessionId) {
+  let safeId = String(sessionId).replace(/[^A-Za-z0-9._-]/g, '_')
+  if (safeId.length > 200) {
+    const head = safeId.slice(0, 184)
+    const tail = createHash('sha1').update(safeId).digest('hex').slice(0, 12)
+    safeId = `${head}_${tail}`
+  }
+  return safeId
+}
+
 /** Optional metrics sink (set externally). */
 function _metricsSink() { /* replaced by setMetricsSink */ }
 let metricsSink = null
@@ -281,12 +292,7 @@ export function createOutbox({
   /** V4: append one DSH session event to the Hermes-visible mirror (JSONL). Write-behind. */
   function appendSessionEvent(sessionId, event) {
     try {
-      let safeId = String(sessionId).replace(/[^A-Za-z0-9._-]/g, '_')
-      if (safeId.length > 200) {
-        const head = safeId.slice(0, 184)
-        const tail = createHash('sha1').update(safeId).digest('hex').slice(0, 12)
-        safeId = `${head}_${tail}`
-      }
+      const safeId = safeSessionId(sessionId)
       const path = join(mirrorDir, `${safeId}.jsonl`)
       const payload = { ts: Date.now(), event }
       enqueue('mirror', path, payload)
@@ -301,6 +307,11 @@ export function createOutbox({
       }
       return false
     }
+  }
+
+  /** Resolve the mirror JSONL path for a session id (without writing). */
+  function mirrorPath(sessionId) {
+    return join(mirrorDir, `${safeSessionId(sessionId)}.jsonl`)
   }
   const mirrorErrors = new Set()
 
@@ -324,6 +335,7 @@ export function createOutbox({
   return {
     root, heartbeatDir, usagePath, suggestDir, mirrorDir,
     startHeartbeat, appendUsage, writeMemorySuggestion, appendSessionEvent,
+    mirrorPath, safeSessionId,
     stop, outboxStats, flushNow,
   }
 }

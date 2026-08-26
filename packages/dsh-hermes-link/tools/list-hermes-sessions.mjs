@@ -5,10 +5,10 @@
 
 import { defineTool } from '@deepseek-ai/dsh-tools'
 
-export function createListHermesSessionsTool({ importer }) {
+export function createListHermesSessionsTool({ importer, sessionMirror }) {
   return defineTool({
     name: 'list_hermes_sessions',
-    description: 'List Hermes Agent session archives (latest dump per session), newest first, enriched with title/model/cwd from Hermes state.db. Read-only. Use when the user asks what Hermes sessions exist or wants to continue an old Hermes conversation.',
+    description: 'List Hermes Agent session archives (latest dump per session), newest first, enriched with title/model/cwd from Hermes state.db and v0.4.0 mirror sync status. Read-only. Use when the user asks what Hermes sessions exist or wants to continue an old Hermes conversation.',
     parameters: {
       limit: { type: 'integer', description: 'Max sessions to return (default 50, max 500).' },
     },
@@ -41,6 +41,9 @@ export function createListHermesSessionsTool({ importer }) {
         model: s.model,
         cwd: s.cwd,
         size_bytes: s.size_bytes,
+        // v0.4.0: imported DSH session id is `hermes-<session_id>`; this is
+        // the status of mirroring that DSH session back to Hermes.
+        mirror_status: sessionMirror ? sessionMirror.status('hermes-' + s.session_id) : null,
       })) }
     },
   })

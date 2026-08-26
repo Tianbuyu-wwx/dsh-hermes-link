@@ -30,7 +30,7 @@ import {
   pickParentAgent,
 } from './dispatch-task.mjs'
 
-export const VERSION = '0.3.6'
+export const VERSION = '0.4.0'
 const BEARER_TOKEN = process.env.HERMES_LINK_TOKEN || ''
 
 // Re-exports for backward compat (tests / external consumers).
@@ -77,7 +77,7 @@ export function register(ctx, deps) {
   // v0.3.0 F1 - SSE sseBroker is created in index.mjs and passed via deps
   // (so amend-watcher.mjs can share the same singleton via globalThis).
   const sseBroker = deps.sseBroker
-  const { hermesHome, importer, personaLoader, consultClient, foundationSlice } = deps
+  const { hermesHome, importer, personaLoader, consultClient, foundationSlice, sessionMirror } = deps
 
   // 1. JSON-RPC envelope (POST /mcp/collab) 闂?delegates to jsonrpc-handlers.mjs.
   webServer.register({
@@ -170,6 +170,34 @@ export function register(ctx, deps) {
       return undefined
     },
   })
+// 2b2. v0.4.0 - SSE stream for a DSH session mirror.
+  //     Hermes (or any client) can subscribe to real-time DSH session events
+  //     that are being mirrored to Hermes Home/inbox/dsh/session-mirror/.
+  //     Bearer-auth same as other routes; ?session_id= required, ?since_seq
+  //     replay, ?timeout_ms optional auto-close.
+  webServer.register({
+    kind: 'exact',
+    path: '/mcp/collab/session-stream',
+    handler: async (req, res) => {
+      const denied = checkAuth(req, res)
+      if (denied) return denied
+      if (!sseBroker) return sendJson(res, 503, mcpError(null, 'E_INTERNAL', 'sse broker not initialized'))
+      const url = new URL(req.url || '/', 'http://localhost')
+      const sessionId = url.searchParams.get('session_id')
+      if (!sessionId) return sendJson(res, 400, mcpError(null, 'E_INVALID_SPEC', 'missing session_id'))
+      const safeId = sessionMirror && sessionMirror.status ? sessionMirror.status(sessionId).safe_session_id : sessionId
+      const channel = `session:${safeId}`
+      if (!sseBroker.isAttached(channel)) {
+        sseBroker.attachTask(channel, { kind: 'session-mirror', session_id: sessionId, attached_at: Date.now() })
+      }
+      const rawSince  = url.searchParams.get('since_seq')
+      const sinceSeq  = rawSince === null ? -1 : clampInt(rawSince, 0, 1e9, 0)
+      const timeoutMs = clampInt(url.searchParams.get('timeout_ms'), 0, 600000, 0)
+      const sub = sseBroker.subscribe(channel, res, { sinceSeq, timeoutMs })
+      if (sub === null) return
+      return undefined
+    },
+  })
 
   // 2c. dispatch_subscribe JSON-RPC helper - returns the SSE URL for clients
   //     that prefer JSON-RPC discovery over a raw GET.
@@ -185,7 +213,29 @@ export function register(ctx, deps) {
       const url = new URL(req.url || '/', 'http://localhost')
       const limit = clampInt(url.searchParams.get('limit'), 1, 500, 200)
       const list = await importer.list({ limit })
-      return sendJson(res, 200, { count: list.length, sessions: list })
+      return sendJson(res, 200, {
+        count: list.length,
+        sessions: list.map((s) => ({
+          ...s,
+          // v0.4.0: if this Hermes session was imported as a DSH session
+          // (`hermes-<id>`), its mirrored-back state is shown here.
+          mirror_status: sessionMirror ? sessionMirror.status('hermes-' + s.session_id) : null,
+        })),
+      })
+    },
+  })
+// 3b. v0.4.0 - session-mirror status (one by ?session_id=, or all enabled)
+  webServer.register({
+    kind: 'exact',
+    path: '/mcp/collab/session-mirror/status',
+    handler: async (req, res) => {
+      const denied = checkAuth(req, res); if (denied) return denied
+      if (!sessionMirror) return sendJson(res, 503, { error: 'session mirror service not available' })
+      const url = new URL(req.url || '/', 'http://localhost')
+      const sessionId = url.searchParams.get('session_id')
+      if (sessionId) return sendJson(res, 200, sessionMirror.status(sessionId))
+      const sessions = sessionMirror.listStatus()
+      return sendJson(res, 200, { count: sessions.length, sessions })
     },
   })
 
@@ -338,6 +388,6 @@ export function register(ctx, deps) {
     },
   })
 
-  console.log('[dsh-hermes-link v' + VERSION + '] routes registered: /mcp/collab (+followup/interrupt/list/get/probe)  /mcp/collab/health  /mcp/collab/sessions  /mcp/collab/import  /mcp/collab/import-all  /mcp/collab/persona  /mcp/collab/consult  /mcp/collab/memory-suggest')
+  console.log('[dsh-hermes-link v' + VERSION + '] routes registered: /mcp/collab (+followup/interrupt/list/get/probe)  /mcp/collab/health  /mcp/collab/sessions  /mcp/collab/session-stream  /mcp/collab/session-mirror/status  /mcp/collab/import  /mcp/collab/import-all  /mcp/collab/persona  /mcp/collab/consult  /mcp/collab/memory-suggest')
 }
 

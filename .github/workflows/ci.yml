@@ -51,9 +51,20 @@ jobs:
 
       - name: Consult client tests
         run: npm run test:consult
+      - name: Session mirror tests (v0.4.0 opt-in)
+        run: npm run test:session-mirror
+
+      - name: Extended pure tests (SSE / outbox rotation / status / metrics / dry-run / workspace infer)
+        run: npm run test:extended
+
+      - name: E2E integration tests (HTTP surface + routes)
+        run: npm run test:e2e
+
+      - name: Docs freshness + version sync
+        run: npm run test:docs
 
   import-check:
-    name: 19-module import-check (host must provide @deepseek-ai/*)
+    name: 22-module import-check (host must provide @deepseek-ai/*)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

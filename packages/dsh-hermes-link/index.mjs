@@ -48,6 +48,7 @@ import { createConsultClient } from './services/consult-hermes.mjs'
 import { registerInboxTools, inboxHealthPayload, sessionHasHermesMarker } from './services/hermes-inbox.mjs'
 import { createOutbox } from './services/outbox.mjs'
 import { createOutboxRotation } from './services/outbox-rotation.mjs'
+import { createSessionMirror } from './services/session-mirror.mjs'
 import { openContinuations, TERMINAL_STATUSES } from './services/continuations.mjs'
 import { createSseBroker } from './services/sse-broker.mjs'
 import { createMetricsRegistry } from './services/metrics.mjs'
@@ -61,13 +62,14 @@ import { createImportHermesSessionTool } from './tools/import-hermes-session.mjs
 import { createLoadHermesPersonaTool } from './tools/load-hermes-persona.mjs'
 import { createConsultHermesTool } from './tools/consult-hermes.mjs'
 import { createMirrorSessionToHermesTool } from './tools/mirror-session-to-hermes.mjs'
+import { createSessionMirrorControlTool } from './tools/session-mirror-control.mjs'
 import { createLoadHermesProjectMemoryTool } from './tools/load-hermes-project-memory.mjs'
 import { createRotateOutboxNowTool } from './tools/rotate-outbox-now.mjs'
 import { createDispatchStatusTool } from './tools/dispatch-status.mjs'
 
 const skillDir = fileURLToPath(new URL('./skills/dsh-hermes-link', import.meta.url))
 const MAX_FOUNDATION_SLICE_CHARS = 4096
-const VERSION = '0.3.6'
+const VERSION = '0.4.0'
 
 // -----------------------------------------------------------------------------
 // v0.3.2 F6 - register the canonical metric shape so the wire format is
@@ -212,6 +214,9 @@ export function apply(ctx) {
   const sseBroker = createSseBroker({ ringSize: 1000, heartbeatMs: 15000 })
   globalThis.__dsh_hermes_link_broker__ = sseBroker
 
+  // v0.4.0 - opt-in automatic DSH session mirror (V4). Default OFF.
+  const sessionMirror = createSessionMirror({ hermesHome, outbox, sseBroker })
+
   const continuations = openContinuations(auditStateDir(), {
     onChange: ({ kind, child_id, task_id, fields, entry }) => {
       if (kind === 'register') {
@@ -298,14 +303,19 @@ export function apply(ctx) {
     }
   })
 
-  // 5. v0.2.2 闂?V4 session-mirror hook REMOVED. Was:
-  //      ctx.on('session/event', (session, event) => outbox.appendSessionEvent(...))
-  //    It mirrored every DSH session event (including user inputs) into Hermes
-  //    Home by default 闂?same class of bug as the v0.7 闂?v0.2.0 main-session
-  //    injection that v0.2.1 disabled, just in the other direction. Replaced
-  //    by the explicit `mirror_session_to_hermes` tool (opt-in, with secret
-  //    redaction). The outbox service still exposes appendSessionEvent for the
-  //    opt-in tool to call.
+  // 5. v0.4.0 - V4 session-mirror hook, now opt-in per session.
+  //    Unlike v0.2.0/v0.2.1, nothing is mirrored unless the user called
+  //    `session_mirror action=enable` for this session. Automatic mirroring
+  //    always redacts secrets (services/redact.mjs).
+  ctx.on('session/event', (session, event) => {
+    try {
+      const sid = (session && (session.id || session.sessionId)) || (event && event.session_id)
+      if (!sid || !sessionMirror.isEnabled(sid)) return
+      sessionMirror.handleEvent(sid, event)
+    } catch (e) {
+      console.error('[dsh-hermes-link] session mirror hook failed:', e && e.message || e)
+    }
+  })
 
   // 6. D3 heartbeat (60s), H4 amend watcher (2s poll).
   const heartbeat = outbox.startHeartbeat(60_000, { version: 'dsh-hermes-link/' + VERSION })
@@ -324,15 +334,16 @@ export function apply(ctx) {
   // 7. Cordis tools (DSH-side columns of the link).
   try {
     if (ctx.tools && ctx.tools.register) {
-      ctx.tools.register(createListHermesSessionsTool({ importer }))
+      ctx.tools.register(createListHermesSessionsTool({ importer, sessionMirror }))
       ctx.tools.register(createImportHermesSessionTool({ importer }))
       ctx.tools.register(createLoadHermesPersonaTool({ personaLoader, hermesHome }))
       ctx.tools.register(createConsultHermesTool({ consultClient }))
       ctx.tools.register(createMirrorSessionToHermesTool({ outbox }))
+      ctx.tools.register(createSessionMirrorControlTool({ sessionMirror }))
       ctx.tools.register(createLoadHermesProjectMemoryTool({ hermesHome }))
       ctx.tools.register(createRotateOutboxNowTool({ outboxRotation }))
       ctx.tools.register(createDispatchStatusTool({ continuations, ctx }))
-      console.log('[dsh-hermes-link v' + VERSION + '] tools registered: list_hermes_sessions, import_hermes_session, load_hermes_persona, consult_hermes, mirror_session_to_hermes, load_hermes_project_memory, rotate_outbox_now, dispatch_status')
+      console.log('[dsh-hermes-link v' + VERSION + '] tools registered: list_hermes_sessions, import_hermes_session, load_hermes_persona, consult_hermes, mirror_session_to_hermes, session_mirror, load_hermes_project_memory, rotate_outbox_now, dispatch_status')
     }
   } catch (e) {
     console.error('[dsh-hermes-link v' + VERSION + '] tool registration failed:', e && e.message || e)
@@ -349,6 +360,7 @@ export function apply(ctx) {
       continuations,
       outbox,
       sseBroker,
+      sessionMirror,
     })
   } catch (e) {
     console.error('[dsh-hermes-link] HTTP route registration failed:', e && e.message || e)
@@ -449,6 +461,7 @@ export function apply(ctx) {
     if (heartbeat && heartbeat.stop) try { heartbeat.stop() } catch {}
     if (outboxRotation && outboxRotation.stop) try { outboxRotation.stop() } catch {}
     if (outbox && outbox.stop) try { outbox.stop() } catch {}
+    if (sessionMirror && sessionMirror.stop) try { sessionMirror.stop() } catch {}
     if (metricCollector && metricCollector.stop) try { metricCollector.stop() } catch {}
     if (continuations && continuations.close) try { continuations.close() } catch {}
   })
@@ -465,6 +478,7 @@ export function apply(ctx) {
     outboxRotation,
     continuations,
     amendWatcher,
+    sessionMirror,
     metrics,
     version: VERSION,
   })

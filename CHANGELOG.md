@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > Note: Pre-v0.2 versions lived in the `dsh-hermes` monorepo (`packages/dsh-hermes-link/`) alongside the deprecated `hermes-foundation / -oneshot-arbitrate / -dispatch-bridge` triad. The history below is mirrored from that repository's `docs/delivery-v0.6.0-20260821.md`.
 
 ---
+## [0.4.0] — 2026-08-26
+
+### Added
+- **Opt-in automatic DSH session mirror (V4 opt-in)** — new `session_mirror` tool (`enable` / `disable` / `status`) turns on per-session continuous mirroring to `Hermes Home/inbox/dsh/session-mirror/<sid>.jsonl`. Default OFF; only the user's explicit opt-in enables it. Every mirrored event is redacted through the shared `services/redact.mjs` scrubber (API keys / tokens / passwords / cookies / JWTs / PEMs).
+- **Hermes real-time session sync / session-projection** — `GET /mcp/collab/session-stream?session_id=<sid>` is an SSE feed of newly mirrored DSH events, and `GET /mcp/collab/session-mirror/status` reports mirror state for one or all sessions. `list_hermes_sessions` and `GET /mcp/collab/sessions` now include `mirror_status` so the DSH sidebar/session list can show sync state. `scripts/hermes-view-dsh.mjs mirror` shows the mirror directory from the Hermes side.
+
+### Changed
+- Secret redaction code moved from `tools/mirror-session-to-hermes.mjs` into `services/redact.mjs`; the one-shot tool re-exports `redactEvent` for backward compatibility.
+- `services/outbox.mjs` now exports `safeSessionId` and exposes `mirrorPath()` so mirror status can be computed consistently.
+
+### Tests
+- New `scripts/test-session-mirror.mjs` covers default-off, redacted writes, disable, backfill, state persistence, and SSE publication (6 cases).
+- `scripts/smoke-test.mjs` and `scripts/import-check.mjs` now cover the new service/tool modules and SSE route.
+
+---
+## [0.3.6] — 2026-08-26
 ## [0.3.6] — 2026-08-26
 
 ### Fixed
