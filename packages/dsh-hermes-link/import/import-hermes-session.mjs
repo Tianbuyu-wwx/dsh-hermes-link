@@ -174,14 +174,114 @@ export function createImporter({ ctx, hermesHome, workspaceDir }) {
     }
     return true
   }
+/** Normalize a filesystem path for comparison (case + trailing separators). */
+  function normalizePath(p) {
+    return String(p || '').replace(/[\\/]+/g, '/').replace(/\/+$/, '').toLowerCase()
+  }
 
-  function resolveCwd(info, requestedWorkspace) {
+  function samePath(a, b) {
+    return !!a && !!b && normalizePath(a) === normalizePath(b)
+  }
+
+  /**
+   * Infer the original working directory from a Hermes request dump when
+   * state.db has no usable cwd/git_repo_root. Hermes often records `cd
+   * "E:/项目/xxx"` in terminal tool calls; the most frequent existing safe
+   * directory is treated as the session's original workspace.
+   */
+  function inferWorkspaceFromDump(dump) {
+    const counts = new Map()
+    const consider = (p) => {
+      if (!p || typeof p !== 'string') return
+      p = p.trim().replace(/[\\/]+$/, '')
+      if (!p || !isSafeCwd(p)) return
+      if (!existsSync(p) || !statSync(p).isDirectory()) return
+      counts.set(p, (counts.get(p) || 0) + 1)
+    }
+    const considerCommand = (cmd) => {
+      if (typeof cmd !== 'string') return
+      const patterns = [
+        /cd\s+["']([^"']+)["']/g,
+        /cd\s+([A-Za-z]:[\\/][^\s"']+)/g,
+        /cd\s+(\/[^\s"']+)/g,
+      ]
+      for (const re of patterns) {
+        for (const m of cmd.matchAll(re)) consider(m[1])
+      }
+    }
+    const considerArgs = (args) => {
+      if (typeof args === 'string') {
+        try { args = JSON.parse(args) } catch { return }
+      }
+      if (!args || typeof args !== 'object') return
+      if (typeof args.command === 'string') considerCommand(args.command)
+      for (const key of ['path', 'cwd', 'workspace', 'directory']) {
+        if (typeof args[key] === 'string') consider(args[key])
+      }
+    }
+    const messages = dump && dump.request && dump.request.body && Array.isArray(dump.request.body.messages)
+      ? dump.request.body.messages
+      : []
+    for (const m of messages) {
+      if (!m || typeof m !== 'object') continue
+      if (Array.isArray(m.tool_calls)) {
+        for (const tc of m.tool_calls) {
+          const fn = tc && (tc.function || tc)
+          if (fn && fn.arguments) considerArgs(fn.arguments)
+          else if (fn && fn.input) considerArgs(fn.input)
+        }
+      }
+      if (Array.isArray(m.content)) {
+        for (const block of m.content) {
+          if (block && block.type === 'tool_use' && block.input) considerArgs(block.input)
+        }
+      }
+    }
+    let best = null
+    let bestCount = 0
+    for (const [p, c] of counts) {
+      if (c > bestCount || (c === bestCount && (!best || p.length > best.length))) {
+        best = p
+        bestCount = c
+      }
+    }
+    return best
+  }
+
+  /** True when the persisted log has real DSH-side activity after the seed. */
+  function hasPostImportActivity(inspection) {
+    const events = (inspection && inspection.events) || []
+    let seedIdx = -1
+    for (let i = 0; i < events.length; i++) {
+      if (events[i] && events[i].type === 'session/end-seed') seedIdx = i
+    }
+    if (seedIdx < 0) return true // unexpected shape; don't auto-delete
+    for (let i = seedIdx + 1; i < events.length; i++) {
+      const ev = events[i]
+      if (ev && ev.type !== 'session/title') return true
+    }
+    return false
+  }
+
+  function resolveCwd(info, requestedWorkspace, dump) {
     if (requestedWorkspace && typeof requestedWorkspace === 'string' && requestedWorkspace.trim()) {
       return requestedWorkspace.trim()
     }
-    if (info && info.cwd && isSafeCwd(info.cwd) && existsSync(info.cwd) && statSync(info.cwd).isDirectory()) {
-      return info.cwd
+    const homeDir = process.env.USERPROFILE || ''
+    const stateCwd = info && info.cwd && isSafeCwd(info.cwd) && existsSync(info.cwd) && statSync(info.cwd).isDirectory()
+      ? info.cwd
+      : null
+    const repoRoot = info && info.gitRepoRoot && isSafeCwd(info.gitRepoRoot) && existsSync(info.gitRepoRoot) && statSync(info.gitRepoRoot).isDirectory()
+      ? info.gitRepoRoot
+      : null
+    const inferred = dump ? inferWorkspaceFromDump(dump) : null
+    // Prefer the state.db cwd (authoritative) unless it is just the user's
+    // home directory and the dump points at a more specific project.
+    if (stateCwd && !(homeDir && samePath(stateCwd, homeDir) && inferred)) {
+      return stateCwd
     }
+    if (repoRoot) return repoRoot
+    if (inferred) return inferred
     return hermesWorkspaceDir
   }
 
@@ -209,26 +309,70 @@ export function createImporter({ ctx, hermesHome, workspaceDir }) {
     }
 
     const dshSessionId = `hermes-${hermesSessionId}`
-    const finalCwd = resolveCwd(info, opts.workspace)
+    const finalCwd = resolveCwd(info, opts.workspace, dump)
 
     // Already persisted on disk → nothing to do (resume will find it). We still
     // ensure the workspace exists + session attached (idempotent), because the
     // workspace registry only bootstraps at startup and persisted-only imports
     // that arrived later would otherwise be invisible to the sidebar.
     try {
-      await ctx.sessionPersistence.inspect(dshSessionId)
-      const attachErr = await attachToWorkspace(ctx, finalCwd, dshSessionId)
-      return {
-        status: 'already_imported',
-        hermesSessionId,
-        sessionId: dshSessionId,
-        eventCount: null,
-        firstUserSnippet: info.first_user_snippet,
-        title: info.title || null,
-        cwd: finalCwd,
-        model: info.model || null,
-        note: 'already persisted',
-        attach: attachErr ? ('failed: ' + attachErr) : 'ok',
+      const existing = await ctx.sessionPersistence.inspect(dshSessionId)
+      const existingCwd = (existing && existing.meta && existing.meta.cwd) || null
+      const cwdChanged = !samePath(existingCwd, finalCwd)
+      if (!cwdChanged) {
+        const attachErr = await attachToWorkspace(ctx, finalCwd, dshSessionId)
+        return {
+          status: 'already_imported',
+          hermesSessionId,
+          sessionId: dshSessionId,
+          eventCount: null,
+          firstUserSnippet: info.first_user_snippet,
+          title: info.title || null,
+          cwd: finalCwd,
+          model: info.model || null,
+          note: 'already persisted',
+          attach: attachErr ? ('failed: ' + attachErr) : 'ok',
+        }
+      }
+      // Workspace changed (e.g. old hermes-workspace fallback -> now inferred or
+      // state.db cwd). Auto-rebuild only when no DSH-side activity exists after
+      // the seed; otherwise we would delete real work done in the imported session.
+      if (!hasPostImportActivity(existing)) {
+        const artifacts = await ctx.sessionPersistence.listArtifacts()
+        const bad = artifacts.find((a) => (a.header && a.header.id === dshSessionId) || (a.meta && a.meta.id === dshSessionId))
+        if (bad && bad.path) {
+          await rm(bad.path, { force: true })
+          console.log('[dsh-hermes-link] moved persisted session ' + dshSessionId + ' to workspace ' + finalCwd + '; rebuilding from dump')
+          // fall through to create with the new workspace
+        } else {
+          const attachErr = await attachToWorkspace(ctx, existingCwd || finalCwd, dshSessionId)
+          return {
+            status: 'already_imported',
+            hermesSessionId,
+            sessionId: dshSessionId,
+            eventCount: null,
+            firstUserSnippet: info.first_user_snippet,
+            title: info.title || null,
+            cwd: existingCwd || finalCwd,
+            model: info.model || null,
+            note: 'cwd changed to ' + finalCwd + ' but persisted artifact could not be located/removed',
+            attach: attachErr ? ('failed: ' + attachErr) : 'ok',
+          }
+        }
+      } else {
+        const attachErr = await attachToWorkspace(ctx, existingCwd || finalCwd, dshSessionId)
+        return {
+          status: 'already_imported',
+          hermesSessionId,
+          sessionId: dshSessionId,
+          eventCount: null,
+          firstUserSnippet: info.first_user_snippet,
+          title: info.title || null,
+          cwd: existingCwd || finalCwd,
+          model: info.model || null,
+          note: 'cwd changed to ' + finalCwd + ' but session has post-import activity; automatic rebuild skipped',
+          attach: attachErr ? ('failed: ' + attachErr) : 'ok',
+        }
       }
     } catch (e) {
       const msg = String(e && e.message || e)

@@ -13,7 +13,7 @@ import { waitForNextReply } from '../services/continuations.mjs'
 import { mcpError } from './_util.mjs'
 import { extractOutputText, measureRealTokens, pickParentAgent } from './dispatch-task.mjs'
 
-const VERSION = '0.3.0'
+const VERSION = '0.3.5'
 
 export async function handleDispatchFollowup(ctx, args, deps) {
   const { continuations, outbox, sseBroker } = deps

@@ -43,7 +43,7 @@ Hermes 是任务编排器 —— 规划工作、选择 skill、加载知识切�
   - `dispatch_followup` / `dispatch_interrupt` / `dispatch_list` / `dispatch_get` / `get_dispatch`
   - **`dispatch_probe`** —— 零成本工具名校验（基于 `ctx.tools.view().restrictableNames`），避免 Hermes 烧一次 LLM 轮次才发现 skill 名拼错
 - **Bearer 鉴权**（`HERMES_LINK_TOKEN` env，未设置则放行）
-- **H4 amend nonce**（v0.3.4+）：amend 文件必须命名为 `<ts>-<task_id>-<nonce>.json`，nonce 在 `dispatch_task` 响应里给
+- **H4 amend nonce**（v0.3.5+）：amend 文件必须命名为 `<ts>-<task_id>-<nonce>.json`，nonce 在 `dispatch_task` 响应里给
 - **Consult reply_secret**（v0.3.4+）：reply 文件必须命名为 `<ticket>-<secret>.json`，secret 在 consult payload 里给
 - **Persona envelope**：自动注入 SOUL（v0.3.4+），`include_project_memory: true` 显式 opt-in cwd-scoped MEMORY；encoding rules 防 CJK 乱码；sentinel 字符串原样 verbatim
 - **真实测量的 token**：`ctx.tokenMeter.measure(run.localAgent)` 把 `tokens_used` 写入 dispatch-result（不再为 null）
@@ -209,6 +209,7 @@ node scripts/verify-install.mjs
 | ✅ | v0.3.4：S1–S4 | 2026-08-21 |
 | ✅ | v0.2.3：K.1–K.5 | 2026-08-22 |
 | ✅ | v0.2.4：turn 包络修复 + 损坏重建 + 工具 schema 归一化 + 开源 | 2026-08-22 |
+| ✅ | v0.3.5：SSE 首条事件回放修复 + HTTP 端到端集成测试 | 2026-08-26 |
 | ⏭ | 反向隧道（跨机/穿墙） | 保留 |
 | ⏭ | SSE 实时流 | 保留 |
 | ⏭ | 文件自动轮转（session.jsonl / mirror / usage） | 建议（Hermes 侧 cron） |

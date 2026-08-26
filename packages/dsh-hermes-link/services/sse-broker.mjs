@@ -107,7 +107,10 @@ export function createSseBroker({
    */
   function subscribe(taskId, res, opts) {
     opts = opts || {}
-    const sinceSeq  = Number.isInteger(opts.sinceSeq)  ? opts.sinceSeq  : 0
+    // Default to -1: a fresh subscriber that does not pass since_seq should
+    // receive the whole buffered ring, including the first event (seq 0).
+    // Explicit sinceSeq uses "events after N" semantics (seq > N).
+    const sinceSeq  = Number.isInteger(opts.sinceSeq)  ? opts.sinceSeq  : -1
     const timeoutMs = Number.isInteger(opts.timeoutMs) ? opts.timeoutMs : 0
 
     const ch = channels.get(taskId)

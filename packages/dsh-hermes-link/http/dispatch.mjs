@@ -30,7 +30,7 @@ import {
   pickParentAgent,
 } from './dispatch-task.mjs'
 
-export const VERSION = '0.3.4'
+export const VERSION = '0.3.5'
 const BEARER_TOKEN = process.env.HERMES_LINK_TOKEN || ''
 
 // Re-exports for backward compat (tests / external consumers).
@@ -160,7 +160,8 @@ export function register(ctx, deps) {
       const url = new URL(req.url || '/', 'http://localhost')
       const taskId = url.searchParams.get('task_id')
       if (!taskId) return sendJson(res, 400, mcpError(null, 'E_INVALID_SPEC', 'missing task_id'))
-      const sinceSeq  = clampInt(url.searchParams.get('since_seq'),  0, 1e9, 0)
+      const rawSince  = url.searchParams.get('since_seq')
+      const sinceSeq  = rawSince === null ? -1 : clampInt(rawSince, 0, 1e9, 0)
       const timeoutMs = clampInt(url.searchParams.get('timeout_ms'), 0, 600000, 0)
       // subscribe() writes headers + handles the response. It returns null if
       // task is not found (already wrote not_found event + closed).

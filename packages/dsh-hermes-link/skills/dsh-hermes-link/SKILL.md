@@ -1,6 +1,6 @@
 ---
 name: dsh-hermes-link
-description: Hermes ↔ DSH bidirectional link. Use when the user wants to import a Hermes session into DSH, load Hermes persona (SOUL + config), load Hermes memory scoped to the current working directory, dispatch a task to a DSH sub-agent (one-shot or continuable), amend a running sub-agent, push a result to / consult Hermes from DSH, or see Hermes's conversation record in DSH. The plugin does NOT auto-inject Hermes turns into the current session (v0.3.4), does NOT auto-mirror DSH sessions to Hermes (v0.2.2), and does NOT auto-load Hermes MEMORY.md (v0.2.3); all cross-project channels are explicit opt-in only.
+description: Hermes ↔ DSH bidirectional link. Use when the user wants to import a Hermes session into DSH, load Hermes persona (SOUL + config), load Hermes memory scoped to the current working directory, dispatch a task to a DSH sub-agent (one-shot or continuable), amend a running sub-agent, push a result to / consult Hermes from DSH, or see Hermes's conversation record in DSH. The plugin does NOT auto-inject Hermes turns into the current session (v0.3.5), does NOT auto-mirror DSH sessions to Hermes (v0.2.2), and does NOT auto-load Hermes MEMORY.md (v0.2.3); all cross-project channels are explicit opt-in only.
 when_to_use: |
   The dsh-hermes-link plugin connects DSH to a Hermes Agent installation. DSH-side
   tools (callable from this session):

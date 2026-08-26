@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > Note: Pre-v0.2 versions lived in the `dsh-hermes` monorepo (`packages/dsh-hermes-link/`) alongside the deprecated `hermes-foundation / -oneshot-arbitrate / -dispatch-bridge` triad. The history below is mirrored from that repository's `docs/delivery-v0.6.0-20260821.md`.
 
 ---
+## [0.3.5] — 2026-08-26
+### Added
+- **Imported Hermes sessions now land in the original workspace** - when state.db has no usable `cwd`/`git_repo_root`, the importer infers the original working directory from `cd` tool calls in the request dump (most frequent existing safe directory). Existing `hermes-workspace` sessions that have no DSH-side post-import activity are automatically rebuilt under the inferred/known workspace on the next import/sync.
+
+### Fixed
+- **SSE stream lost the first buffered event (seq 0) for fresh subscribers** - `services/sse-broker.mjs` now defaults `sinceSeq` to `-1` when no replay position is supplied, and `GET /mcp/collab/stream` omitting `since_seq` uses the same "start from the beginning" behavior. Previously a new subscriber that connected after `attachTask()` + `publish()` received an empty stream until the next event, so a `lifecycle/started` event could be missed.
+
+### Tests
+- `scripts/test-sse-broker.mjs` - added case 3b: subscribe without `since_seq` replays buffered `seq:0` events. Total: 17 passing.
+- New `scripts/test-e2e-integration.mjs` - 22 end-to-end cases covering route registration, health, metrics text format, JSON-RPC envelope/error codes, sessions/persona/import/consult/memory-suggest error paths, SSE stream (missing/unknown/valid+timeout), 404, malformed JSON, and empty body.
+- New `scripts/test-workspace-infer.mjs` - 2 cases: infer original workspace from dump when state.db cwd is null; migrate safe hermes-workspace session to inferred original workspace.
+- Wired into root `npm test` and package `npm test` so the full HTTP surface is covered in CI.
+
+---
 
 ## [0.3.4] — 2026-08-29
 

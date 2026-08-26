@@ -20,7 +20,7 @@ import {
   handleDispatchGet,
 } from './dispatch-control.mjs'
 
-const VERSION = '0.3.0'
+const VERSION = '0.3.5'
 
 export async function handleRpc(ctx, body, deps) {
   const id     = body && body.id

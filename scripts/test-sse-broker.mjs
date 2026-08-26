@@ -71,6 +71,18 @@ t('case 3: unknown task_id returns 200 + single not_found event then closes', ()
   assert.ok(res.closed())
 })
 
+t('case 3b: subscribe without since_seq replays buffered events including seq 0', () => {
+  const b = createSseBroker()
+  b.attachTask('t3b')
+  b.publish('t3b', { kind: 'lifecycle', data: { status: 'started' } })
+  const res = mockRes()
+  b.subscribe('t3b', res) // no sinceSeq -> should replay from the beginning
+  const body = res.writes.join('')
+  assert.ok(body.includes('event: lifecycle'))
+  assert.ok(body.includes('"status":"started"'))
+  assert.ok(body.includes('"seq":0'))
+})
+
 // --- since_seq replay ---
 t('case 4: since_seq replays buffered events > N', () => {
   const b = createSseBroker()
