@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > Note: Pre-v0.2 versions lived in the `dsh-hermes` monorepo (`packages/dsh-hermes-link/`) alongside the deprecated `hermes-foundation / -oneshot-arbitrate / -dispatch-bridge` triad. The history below is mirrored from that repository's `docs/delivery-v0.6.0-20260821.md`.
 
 ---
+## [0.3.6] — 2026-08-26
+
+### Fixed
+- **`dispatch_task` continuable mode returned HTTP 500 in real DSH** - `http/dispatch-task.mjs` now destructures `sseBroker` from `deps`, so the post-spawn SSE publish no longer throws `sseBroker is not defined`. The child was already created/registered (and SSE lifecycle was emitted by the registry hook), but the HTTP response failed; this caused Hermes-side callers to see a 500 even though the sub-agent ran.
+
+### Tests
+- Full `npm test` continues to pass; the fix is covered by the existing dispatch/SSE integration paths and real-DSH verification.
+
+---
 ## [0.3.5] — 2026-08-26
 ### Added
 - **Imported Hermes sessions now land in the original workspace** - when state.db has no usable `cwd`/`git_repo_root`, the importer infers the original working directory from `cd` tool calls in the request dump (most frequent existing safe directory). Existing `hermes-workspace` sessions that have no DSH-side post-import activity are automatically rebuilt under the inferred/known workspace on the next import/sync.

@@ -12,7 +12,7 @@ import { appendAudit } from '../services/audit.mjs'
 import { buildProjectMemorySlice } from '../services/hermes-project-memory.mjs'
 import { mcpError } from './_util.mjs'
 
-export const VERSION = '0.3.5'
+export const VERSION = '0.3.6'
 
 const DEFAULT_MAX_TOKENS  = 4000
 const DEFAULT_DEADLINE_MS = 60000
@@ -29,7 +29,7 @@ const dispatchers = new Map()
 export function dispatcherCount() { return dispatchers.size }
 
 export async function handleDispatchTask(ctx, args, deps) {
-  const { consultClient, foundationSlice, continuations, outbox } = deps
+  const { consultClient, foundationSlice, continuations, outbox, sseBroker } = deps
   const err = validateSpec(args)
   if (err) return { _error: mcpError(null, 'E_INVALID_SPEC', 'invalid spec: ' + err) }
 

@@ -230,6 +230,7 @@ Report vulnerabilities privately via **GitHub Security Advisories** on this repo
 | ✅ | v0.3.4: amend fs.watch + debounced batch (E3 perf) + globalThis cleanup (E5) | shipped 2026-08-29 |
 | ✅ | v0.3.2: Prometheus /mcp/collab/metrics endpoint (F6) with 16 counters + 8 gauges | shipped 2026-08-27 |
 | ✅ | v0.3.5: SSE first-event replay fix + HTTP surface end-to-end integration test | shipped 2026-08-26 |
+| ✅ | v0.3.6: dispatch_task continuable HTTP 500 fix (sseBroker destructure) | shipped 2026-08-26 |
 | ⏭ | Reverse tunnel (cross-machine / firewall traversal) | reserved |
 | ⏭ | SSE real-time stream | reserved |
 | ⏭ | File rotation for `session.jsonl` / mirror / usage | suggested (Hermes-side cron) |
