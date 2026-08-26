@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.4] — 2026-08-29
+
+### Changed (perf)
+- **`services/amend-watcher.mjs`: event-driven delivery (E3)** - replaced the 2s `setInterval` polling loop with `fs.watch` + a 200ms debounce window that batches burst deliveries into a single `scanOnce()`. A slow 5s `setInterval` runs alongside as a safety net (fs.watch is known to silently miss events on some platforms). Falls back to the legacy 2s polling if `fs.watch` throws or emits an error. New `watcherActive()` accessor exposes which mode is active.
+
+### Changed (refactor)
+- **`globalThis.__dsh_hermes_link_broker__` removed (E5)** - the SSE broker is now propagated via explicit deps injection (`createAmendWatcher({ broker })`, `registerHttp` deps chain). A `globalThis` fallback remains for the deprecation window so existing test setups and external callers keep working. All public surface (HTTP routes, JSON-RPC methods, tool names) is unchanged.
+
+### Tests
+- `scripts/test-amend-watch.mjs` - 10 cases (lifecycle + `watcherActive()`, new file detection within 4s window, burst batched into single scan, legacy + bad-nonce paths still work, empty dir tolerance, stats counters, idempotent dispose).
+- All 370 existing tests pass unchanged (legacy globalThis fallback keeps them working).
+- Total: 370 passing (360 baseline + 10 amend-watch).
+
+---
+
 ## [0.3.3] — 2026-08-28
 
 ### Added

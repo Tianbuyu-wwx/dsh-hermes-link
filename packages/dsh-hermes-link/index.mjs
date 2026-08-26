@@ -67,7 +67,7 @@ import { createDispatchStatusTool } from './tools/dispatch-status.mjs'
 
 const skillDir = fileURLToPath(new URL('./skills/dsh-hermes-link', import.meta.url))
 const MAX_FOUNDATION_SLICE_CHARS = 4096
-const VERSION = '0.3.3'
+const VERSION = '0.3.4'
 
 // -----------------------------------------------------------------------------
 // v0.3.2 F6 - register the canonical metric shape so the wire format is

@@ -227,6 +227,7 @@ Report vulnerabilities privately via **GitHub Security Advisories** on this repo
 | ✅ | v0.3.0: SSE realtime stream (F1) + error codes registry (E9) + HTTP layer split into 4 files (E1) | shipped 2026-08-25 |
 | ✅ | v0.3.1: outbox file rotation (F2) + dispatch_status/tail observability (F4) + write-behind queue perf (E2) | shipped 2026-08-26 |
 | ✅ | v0.3.3: dispatch_dry_run JSON-RPC pre-flight estimator (F5) for Hermes-side cost control | shipped 2026-08-28 |
+| ✅ | v0.3.4: amend fs.watch + debounced batch (E3 perf) + globalThis cleanup (E5) | shipped 2026-08-29 |
 | ✅ | v0.3.2: Prometheus /mcp/collab/metrics endpoint (F6) with 16 counters + 8 gauges | shipped 2026-08-27 |
 | ⏭ | Reverse tunnel (cross-machine / firewall traversal) | reserved |
 | ⏭ | SSE real-time stream | reserved |

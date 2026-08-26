@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "dsh-hermes-link://dispatch-spec.schema.json",
-  "title": "Hermes → DSH dispatch spec (dsh-hermes-link v0.3.3)",
+  "title": "Hermes → DSH dispatch spec (dsh-hermes-link v0.3.4)",
   "description": "JSON-RPC 2.0 /tools/call dispatch_task arguments. Slim field surface; no audit-only fields at the protocol level (audit is server-side).",
   "type": "object",
   "additionalProperties": false,

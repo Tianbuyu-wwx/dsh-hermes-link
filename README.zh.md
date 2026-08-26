@@ -43,9 +43,9 @@ Hermes 是任务编排器 —— 规划工作、选择 skill、加载知识切�
   - `dispatch_followup` / `dispatch_interrupt` / `dispatch_list` / `dispatch_get` / `get_dispatch`
   - **`dispatch_probe`** —— 零成本工具名校验（基于 `ctx.tools.view().restrictableNames`），避免 Hermes 烧一次 LLM 轮次才发现 skill 名拼错
 - **Bearer 鉴权**（`HERMES_LINK_TOKEN` env，未设置则放行）
-- **H4 amend nonce**（v0.3.3+）：amend 文件必须命名为 `<ts>-<task_id>-<nonce>.json`，nonce 在 `dispatch_task` 响应里给
-- **Consult reply_secret**（v0.3.3+）：reply 文件必须命名为 `<ticket>-<secret>.json`，secret 在 consult payload 里给
-- **Persona envelope**：自动注入 SOUL（v0.3.3+），`include_project_memory: true` 显式 opt-in cwd-scoped MEMORY；encoding rules 防 CJK 乱码；sentinel 字符串原样 verbatim
+- **H4 amend nonce**（v0.3.4+）：amend 文件必须命名为 `<ts>-<task_id>-<nonce>.json`，nonce 在 `dispatch_task` 响应里给
+- **Consult reply_secret**（v0.3.4+）：reply 文件必须命名为 `<ticket>-<secret>.json`，secret 在 consult payload 里给
+- **Persona envelope**：自动注入 SOUL（v0.3.4+），`include_project_memory: true` 显式 opt-in cwd-scoped MEMORY；encoding rules 防 CJK 乱码；sentinel 字符串原样 verbatim
 - **真实测量的 token**：`ctx.tokenMeter.measure(run.localAgent)` 把 `tokens_used` 写入 dispatch-result（不再为 null）
 
 ### 用户视图线（DSH → Hermes）
@@ -56,7 +56,7 @@ Hermes 是任务编排器 —— 规划工作、选择 skill、加载知识切�
 | `import_hermes_session` | 把 Hermes 档案转成 DSH 会话 —— **侧边栏点击即可继续** |
 | `load_hermes_persona` | 把 Hermes SOUL.md + config 注入当前会话（v0.2.3 起**不再读 MEMORY.md**）|
 | `load_hermes_project_memory` | cwd-scoped Hermes MEMORY.md 加载（只匹配本项目的 Hermes 会话） |
-| `consult_hermes` | 问 Hermes 问题（文件通道 + secret 后缀回复，v0.3.3+） |
+| `consult_hermes` | 问 Hermes 问题（文件通道 + secret 后缀回复，v0.3.4+） |
 | `mirror_session_to_hermes` | 手动 mirror 当前 DSH 会话到 Hermes（含 cookie / JWT / API key / set-cookie / session_id redact，v0.2.3+） |
 | `hermes_inbox` / `hermes_inbox_append` | 读写共享对话记录 `~/.dsh/hermes-inbox/session.jsonl` |
 | `hermes_clear_injected` | 仅审计：报告 v0.2.0 之前自动注入主 session 的轮数，建议"开新 session" |
@@ -74,10 +74,10 @@ Hermes 是任务编排器 —— 规划工作、选择 skill、加载知识切�
 
 | 风险 | 缓解 | 自版本 |
 |---|---|---|
-| 跨项目上下文污染（Hermes 把 A 项目对话注进 DSH 的 B 项目 session） | 主 session 自动注入关闭；MEMORY 不广播；project-memory 只按 cwd 匹配 | v0.2.1 + v0.3.3 + v0.2.3 |
-| 攻击者写 `amend/*` 劫持运行中的子 agent | nonce-bound 文件名 | v0.3.3 |
-| 攻击者写 `consult-reply/*` 冒充 Hermes | secret-bound 文件名 | v0.3.3 |
-| 派出的子 agent 拿到全 Hermes MEMORY（含所有项目笔记） | foundation 只含 SOUL；MEMORY 按 dispatch 显式 opt-in | v0.3.3 |
+| 跨项目上下文污染（Hermes 把 A 项目对话注进 DSH 的 B 项目 session） | 主 session 自动注入关闭；MEMORY 不广播；project-memory 只按 cwd 匹配 | v0.2.1 + v0.3.4 + v0.2.3 |
+| 攻击者写 `amend/*` 劫持运行中的子 agent | nonce-bound 文件名 | v0.3.4 |
+| 攻击者写 `consult-reply/*` 冒充 Hermes | secret-bound 文件名 | v0.3.4 |
+| 派出的子 agent 拿到全 Hermes MEMORY（含所有项目笔记） | foundation 只含 SOUL；MEMORY 按 dispatch 显式 opt-in | v0.3.4 |
 | Hermes state.db 被下毒指向 `C:\Windows\System32` | `isSafeCwd()` 拒 17 项系统目录 + null byte + >1024 字符 | v0.2.3 |
 | Mirror 文件名 >200 字符触发 `ENAMETOOLONG` 静默失败 | sha1(12 hex) 截断 + head 拼接保唯一 | v0.2.3 |
 | Mirror 泄露 cookie / set-cookie / session_id | redact regex 列表扩到 10+ 种 | v0.2.3 |
@@ -187,7 +187,7 @@ node scripts/verify-install.mjs
 |---|---|---|
 | `HERMES_HOME` | 自动探测（Windows `%LOCALAPPDATA%\hermes`、POSIX `~/.local/share/hermes`） | Hermes 数据根 |
 | `HERMES_LINK_TOKEN` | 未设置 | 设置后所有 `/mcp/collab*`（除 `/health`）要求 `Authorization: Bearer <token>` |
-| `HERMES_LINK_TRUST_LEGACY` | 未设置（`0`） | 设置为 `1` 时，旧 `<ticket>.json` consult-reply 也被接受（与 v0.3.3+ `<ticket>-<secret>.json` 并行） |
+| `HERMES_LINK_TRUST_LEGACY` | 未设置（`0`） | 设置为 `1` 时，旧 `<ticket>.json` consult-reply 也被接受（与 v0.3.4+ `<ticket>-<secret>.json` 并行） |
 
 ---
 
@@ -206,7 +206,7 @@ node scripts/verify-install.mjs
 | ✅ | L1/L2/L3 三件套 → 单一 `dsh-hermes-link` | 2026-08-20 |
 | ✅ | v0.1 → v0.2：双向完整 + 可持续 + amend nonce + mirror opt-in + foundation SOUL-only | 2026-08-21 |
 | ✅ | v0.2.1：关闭主 session 自动注入 + `hermes_clear_injected` 审计 | 2026-08-21 |
-| ✅ | v0.3.3：S1–S4 | 2026-08-21 |
+| ✅ | v0.3.4：S1–S4 | 2026-08-21 |
 | ✅ | v0.2.3：K.1–K.5 | 2026-08-22 |
 | ✅ | v0.2.4：turn 包络修复 + 损坏重建 + 工具 schema 归一化 + 开源 | 2026-08-22 |
 | ⏭ | 反向隧道（跨机/穿墙） | 保留 |
@@ -217,8 +217,8 @@ node scripts/verify-install.mjs
 
 ## FAQ
 
-**Q：Hermes 端需要为 v0.3.3+ 升级什么？**
-需要。amend nonce 和 consult reply_secret 是破坏性变更。见 [docs/hermes-upgrade-v0.3.3.md](docs/hermes-upgrade-v0.3.3.md) 与参考实现 `scripts/hermes-gateway-demo.py`。
+**Q：Hermes 端需要为 v0.3.4+ 升级什么？**
+需要。amend nonce 和 consult reply_secret 是破坏性变更。见 [docs/hermes-upgrade-v0.3.4.md](docs/hermes-upgrade-v0.3.4.md) 与参考实现 `scripts/hermes-gateway-demo.py`。
 
 **Q：我导入了一个 Hermes 会话，侧边栏有，但打不开。**
 那是 v0.2.4 之前的 bug（`turn:0` 事件流过不了 DSH 持久化校验）—— v0.2.4 修：turn 包络从 1 起，损坏 artifact 自动删除重建。升到 v0.2.4 即可（auto-sync 会自动愈合）。
@@ -248,7 +248,7 @@ MIT © 2026 Tianbuyu-wwx —— 见 [LICENSE](LICENSE)。
 - [docs/plugin-developer-guide.md](docs/plugin-developer-guide.md) —— Hermes 端 gateway 开发指南
 - [docs/plugin-install-guide.md](docs/plugin-install-guide.md) —— 三种安装路径
 - [docs/dispatch-spec.md](docs/dispatch-spec.md) —— JSON-RPC 协议
-- [docs/hermes-upgrade-v0.3.3.md](docs/hermes-upgrade-v0.3.3.md) —— Hermes 端 breaking change 升级指南
+- [docs/hermes-upgrade-v0.3.4.md](docs/hermes-upgrade-v0.3.4.md) —— Hermes 端 breaking change 升级指南
 - [docs/delivery-v0.6.0-20260821.md](docs/delivery-v0.6.0-20260821.md) —— 历史发布说明
 - [CHANGELOG.md](CHANGELOG.md) —— 版本历史
 - [CONTRIBUTING.md](CONTRIBUTING.md) —— 开发流程
