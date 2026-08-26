@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env node
+#!/usr/bin/env node
 // scripts/test-workspace-infer.mjs
 //
 // v0.3.5 - Verify that a Hermes session with no state.db cwd can be imported

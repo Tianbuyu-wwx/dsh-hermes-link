@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env node
+#!/usr/bin/env node
 // scripts/test-dispatch-dry-run.mjs
 //
 // Unit tests for services/dispatch-dry-run.mjs (v0.3.3 F5).

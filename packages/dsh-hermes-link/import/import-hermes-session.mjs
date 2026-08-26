@@ -157,6 +157,10 @@ export function createImporter({ ctx, hermesHome, workspaceDir }) {
     const isAbsPosix = p.startsWith('/')
     if (!isAbsWin && !isAbsPosix) return false
     const norm = p.replace(/[\\/]+/g, '/').toLowerCase()
+    // macOS temp dirs live under /var/folders (often a symlink to
+    // /private/var/folders). These are user-scoped temp dirs, not
+    // system-critical /var paths, so they are safe to anchor a session to.
+    if (norm === '/var/folders' || norm.startsWith('/var/folders/')) return true
     // System-critical directories we never want to anchor a session to.
     const forbidden = [
       // Windows
