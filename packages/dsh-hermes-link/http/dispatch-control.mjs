@@ -16,7 +16,7 @@ import { extractOutputText, measureRealTokens, pickParentAgent } from './dispatc
 const VERSION = '0.3.0'
 
 export async function handleDispatchFollowup(ctx, args, deps) {
-  const { continuations, outbox } = deps
+  const { continuations, outbox, sseBroker } = deps
   const childId = args.child_id
   if (!childId) return { _error: mcpError(null, 'E_INVALID_SPEC', 'invalid spec: child_id required') }
   const entry = continuations ? continuations.get(childId) : null
@@ -79,6 +79,12 @@ export async function handleDispatchFollowup(ctx, args, deps) {
       data: { message_id: String(messageId), elapsed_ms: finishedAt - startedAt, output_chars: outputText.length },
     })
   }
+  if (sseBroker) {
+    sseBroker.publish(entry.task_id, {
+      kind: 'followup',
+      data: { message_id: String(messageId), elapsed_ms: finishedAt - startedAt, output_chars: outputText.length },
+    })
+  }
   if (outbox) {
     outbox.appendUsage({
       kind: 'dispatch',
@@ -118,7 +124,7 @@ export async function handleDispatchFollowup(ctx, args, deps) {
 }
 
 export async function handleDispatchInterrupt(ctx, args, deps) {
-  const { continuations } = deps
+  const { continuations, sseBroker } = deps
   const childId = args.child_id
   if (!childId) return { _error: mcpError(null, 'E_INVALID_SPEC', 'invalid spec: child_id required') }
   const entry = continuations ? continuations.get(childId) : null
@@ -138,6 +144,7 @@ export async function handleDispatchInterrupt(ctx, args, deps) {
     globalThis.__dsh_hermes_link_broker__.publish(entry.task_id, { kind: 'interrupt', data: { reason: args.reason || '(none)' } })
   }
   if (continuations) continuations.update(childId, { status: 'interrupted', stop_reason: 'interrupt_requested' })
+  if (sseBroker && entry) sseBroker.publish(entry.task_id, { kind: 'interrupt', data: { reason: args.reason || '(none)' } })
   appendAudit({
     ts: new Date().toISOString(),
     status: 'interrupted',

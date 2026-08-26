@@ -48,9 +48,12 @@ function parseAmendFileName(name) {
  * @param {object} deps.ctx            Cordis ctx (ctx.subagents, ctx.agents)
  * @param {object} deps.continuations  from services/continuations.mjs
  * @param {Function} deps.pickParentAgent
- * @returns {{ dispose: Function, deliver: Function, stats: Function }}
+ * @param {object} [deps.broker]      v0.3.4 E5: optional SSE broker; if absent
+ *                                    the watcher falls back to globalThis for
+ *                                    backward compatibility (deprecation path)
+ * @returns {{ dispose, deliver, stats, watcherActive }}
  */
-export function createAmendWatcher({ hermesHome, ctx, continuations, pickParentAgent }) {
+export function createAmendWatcher({ hermesHome, ctx, continuations, pickParentAgent, broker }) {
   const amendDir = join(hermesHome, 'inbox', 'dsh', 'amend')
   const doneDir  = join(amendDir, 'done')
   try { mkdirSync(amendDir, { recursive: true }) } catch {}
@@ -156,10 +159,11 @@ export function createAmendWatcher({ hermesHome, ctx, continuations, pickParentA
         clearTimeout(timer)
       }
       try { renameSync(filePath, join(doneDir, `${Date.now()}-${fileName}`)) } catch {}
-      // v0.3.0 F1 - SSE broker notification on successful amend delivery
-      if (globalThis.__dsh_hermes_link_broker__) {
+      // v0.3.4 E5: broker comes via constructor arg (preferred) or globalThis (legacy fallback)
+      const b = broker || globalThis.__dsh_hermes_link_broker__
+      if (b) {
         try {
-          globalThis.__dsh_hermes_link_broker__.publish(req.task_id, {
+          b.publish(req.task_id, {
             kind: 'amend',
             data: { filename: fileName, content_preview: String(content[0].text || '').slice(0, 200) },
           })

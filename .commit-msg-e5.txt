@@ -1,0 +1,43 @@
+refactor(broker): replace globalThis with explicit deps propagation (E5)
+
+v0.3.0 F1 introduced SSE broker events by stashing the broker on
+globalThis so that services/amend-watcher.mjs could publish events
+without going through cordis locator. This worked but it was a small
+hack that bypassed the rest of the plugin's dependency injection
+discipline.
+
+E5 cleans this up: broker is now an explicit constructor / deps
+parameter, with a globalThis fallback for the deprecation window.
+
+Changes:
+  index.mjs:
+    - removed `globalThis.__dsh_hermes_link_broker__ = sseBroker`
+    - passes `broker: sseBroker` into `createAmendWatcher()`
+    - `sseBroker` was already in registerHttp deps (no change)
+
+  services/amend-watcher.mjs:
+    - new optional `broker` constructor arg (preferred)
+    - reads `const b = broker || globalThis.__dsh_hermes_link_broker__`
+      so existing test setups (which relied on the globalThis shim)
+      keep working until they migrate
+    - JSDoc updated to document the new param + return shape (includes
+      watcherActive)
+
+  http/dispatch-task.mjs:
+    - destructures `sseBroker` from deps
+    - replaces 3 globalThis publish sites (spawned, spawn_failed x2)
+
+  http/dispatch-control.mjs:
+    - destructures `sseBroker` from deps
+    - replaces 2 globalThis publish sites (followup completion,
+      interrupt)
+
+Verification:
+  - All 370 tests pass unchanged (the globalThis fallback keeps
+    legacy callers working; new callers pass broker via deps)
+  - test-amend-watch.mjs continues to work without modification
+    (relies on globalThis fallback)
+  - test-services.mjs continues to work (validates the dispatch path)
+
+No wire protocol changes. No security model changes. No user-visible
+behavior changes - purely an internal architectural cleanup.
