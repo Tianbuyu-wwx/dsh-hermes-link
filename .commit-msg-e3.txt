@@ -1,0 +1,31 @@
+perf(amend): fs.watch + debounced batch delivery (E3)
+
+The amend watcher polled every 2 seconds via setInterval, meaning a
+freshly-written amend file sat in the queue for up to 2s before
+being delivered to the running sub-agent. v0.3.4 E3 replaces the
+polling loop with an event-driven fs.watch + a 200ms debounce window
+that batches burst deliveries into a single scan.
+
+services/amend-watcher.mjs:
+  - Replace setInterval(scanOnce, 2000) with fs.watch(amendDir, {persistent:false})
+  - Debounce: collect burst events within FS_WATCH_DEBOUNCE_MS=200
+    into a single scanOnce() call (avoids thundering herd from N files)
+  - Safety-net: a slow 5s setInterval runs alongside fs.watch because
+    fs.watch is known to silently miss events on some platforms
+    (Windows network shares, certain FS drivers)
+  - Polling fallback (2s loop) is used when fs.watch throws or emits
+    error (e.g. read-only FS, exotic platforms)
+  - watcherActive() boolean exposes which mode is active
+  - dispose() tears down watch + interval + debounce cleanly; idempotent
+
+Public surface unchanged - the same deliver/stats/dispose shape plus
+the new watcherActive() accessor.
+
+Tests:
+  + scripts/test-amend-watch.mjs (10 cases: lifecycle + watcherActive,
+    new file detection within 4s window, burst batched into single
+    scan, legacy + bad-nonce paths still work, empty dir tolerance,
+    stats counters, idempotent dispose)
+  Existing test-amend-security still passes (5/5)
+
+All 370 tests pass (360 baseline + 10 amend-watch).

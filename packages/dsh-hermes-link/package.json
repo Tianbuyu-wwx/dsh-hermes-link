@@ -61,12 +61,12 @@
     "access": "public"
   },
   "scripts": {
-    "test": "npm run test:converter && node ../../scripts/test-dispatch-schema.mjs && node ../../scripts/test-services.mjs && node ../../scripts/test-amend-security.mjs && node ../../scripts/test-consult-security.mjs && node ../../scripts/test-foundation-policy.mjs && node ../../scripts/test-mirror-opt-in.mjs && node ../../scripts/test-v0.2.3-hardening.mjs && node ../../scripts/test-consult-client.mjs && node ../../scripts/test-error-codes.mjs && node ../../scripts/test-sse-broker.mjs && node ../../scripts/test-outbox-rotation.mjs && node ../../scripts/test-dispatch-status.mjs && node ../../scripts/test-outbox-writebehind.mjs && node ../../scripts/test-metrics.mjs && node ../../scripts/test-metrics-integration.mjs && node ../../scripts/test-dispatch-dry-run.mjs && npm run test:smoke && node ../../scripts/import-check.mjs && node ../../scripts/verify-install.mjs && node ../../scripts/check-version-sync.mjs && node ../../scripts/check-docs-fresh.mjs",
+    "test": "npm run test:converter && node ../../scripts/test-dispatch-schema.mjs && node ../../scripts/test-services.mjs && node ../../scripts/test-amend-security.mjs && node ../../scripts/test-amend-watch.mjs && node ../../scripts/test-consult-security.mjs && node ../../scripts/test-foundation-policy.mjs && node ../../scripts/test-mirror-opt-in.mjs && node ../../scripts/test-v0.2.3-hardening.mjs && node ../../scripts/test-consult-client.mjs && node ../../scripts/test-error-codes.mjs && node ../../scripts/test-sse-broker.mjs && node ../../scripts/test-outbox-rotation.mjs && node ../../scripts/test-dispatch-status.mjs && node ../../scripts/test-outbox-writebehind.mjs && node ../../scripts/test-metrics.mjs && node ../../scripts/test-metrics-integration.mjs && node ../../scripts/test-dispatch-dry-run.mjs && npm run test:smoke && node ../../scripts/import-check.mjs && node ../../scripts/verify-install.mjs && node ../../scripts/check-version-sync.mjs && node ../../scripts/check-docs-fresh.mjs",
     "test:smoke": "node ../../scripts/smoke-test.mjs",
     "test:converter": "node ../../scripts/test-request-dump.mjs",
     "test:dispatch": "node ../../scripts/test-dispatch-schema.mjs",
     "test:services": "node ../../scripts/test-services.mjs",
-    "test:security": "node ../../scripts/test-amend-security.mjs && node ../../scripts/test-consult-security.mjs && node ../../scripts/test-foundation-policy.mjs && node ../../scripts/test-mirror-opt-in.mjs",
+    "test:security": "node ../../scripts/test-amend-security.mjs && node ../../scripts/test-amend-watch.mjs && node ../../scripts/test-consult-security.mjs && node ../../scripts/test-foundation-policy.mjs && node ../../scripts/test-mirror-opt-in.mjs",
     "test:hardening": "node ../../scripts/test-v0.2.3-hardening.mjs",
     "test:consult": "node ../../scripts/test-consult-client.mjs",
     "test:install": "node ../../scripts/verify-install.mjs",

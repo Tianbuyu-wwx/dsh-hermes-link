@@ -11,13 +11,15 @@
 // delivery queues until the current turn ends). Processed files are renamed
 // into amend/done/; delivery failures leave the file in place and log.
 
-import { readdirSync, readFileSync, existsSync, mkdirSync, renameSync } from 'node:fs'
+import { readdirSync, readFileSync, existsSync, mkdirSync, renameSync, watch } from 'node:fs'
 import { join } from 'node:path'
 
 let metricsSink = null
 export function setMetricsSink(m) { metricsSink = m }
 
-const POLL_INTERVAL_MS = 2000
+const POLL_INTERVAL_MS = 2000      // legacy fallback (when fs.watch is unavailable)
+const FS_WATCH_DEBOUNCE_MS = 200    // collect burst events into one batch
+const FS_WATCH_FALLBACK_MS = 5000  // slow safety-net poll even when fs.watch is active
 
 /**
  * v0.2.2 鈥?amend file naming convention:
@@ -174,7 +176,11 @@ export function createAmendWatcher({ hermesHome, ctx, continuations, pickParentA
   }
 
   let timer = null
+  let pollHandle = null
+  let watchHandle = null
+  let debounceTimer = null
   let stopped = false
+  let watcherActive = false  // true when fs.watch is functional; false when fallback
 
   async function scanOnce() {
     if (stopped || !existsSync(amendDir)) return
@@ -191,17 +197,76 @@ export function createAmendWatcher({ hermesHome, ctx, continuations, pickParentA
     }
   }
 
-  // Initial scan + interval.
-  setTimeout(scanOnce, 3000)
-  timer = setInterval(scanOnce, POLL_INTERVAL_MS)
-  timer.unref?.()
+  /** v0.3.4 E3: debounced scan trigger.
+   *  Collects burst events within FS_WATCH_DEBOUNCE_MS into one scanOnce(). */
+  function scheduleScan() {
+    if (stopped) return
+    if (debounceTimer) return  // already scheduled
+    debounceTimer = setTimeout(() => {
+      debounceTimer = null
+      scanOnce().catch(() => {})
+    }, FS_WATCH_DEBOUNCE_MS)
+    debounceTimer.unref?.()
+  }
+
+  // Initial scan after 3s (same as before).
+  const initialScan = setTimeout(() => {
+    scanOnce().catch(() => {})
+  }, 3000)
+  initialScan.unref?.()
+
+  // Try event-driven fs.watch first; fall back to polling if it fails.
+  try {
+    watchHandle = watch(amendDir, { persistent: false }, (eventType, filename) => {
+      if (!filename) return
+      // Watch may emit 'rename' (file add/remove) or 'change' (content update).
+      // We only care about .json files.
+      if (typeof filename === 'string' && filename.endsWith('.json')) {
+        scheduleScan()
+      }
+    })
+    watchHandle.on('error', (err) => {
+      console.warn('[dsh-hermes-link] amend fs.watch error, falling back to polling:', err && err.message || err)
+      try { watchHandle.close() } catch (_e) {}
+      watchHandle = null
+      watcherActive = false
+      installPollingFallback()
+    })
+    watcherActive = true
+    // Slow safety-net poll: even with watch active, scan occasionally
+    // because fs.watch is known to miss events on some platforms (Windows
+    // network shares, certain FS drivers). 5s is acceptable overhead.
+    pollHandle = setInterval(() => {
+      if (!stopped) scanOnce().catch(() => {})
+    }, FS_WATCH_FALLBACK_MS)
+    pollHandle.unref?.()
+  } catch (e) {
+    console.warn('[dsh-hermes-link] amend fs.watch unavailable, using polling:', e && e.message || e)
+    watcherActive = false
+    installPollingFallback()
+  }
+
+  /** Fall back to the legacy 2s polling loop. */
+  function installPollingFallback() {
+    if (timer || pollHandle) return
+    timer = setInterval(() => {
+      if (!stopped) scanOnce().catch(() => {})
+    }, POLL_INTERVAL_MS)
+    timer.unref?.()
+  }
 
   return {
     deliver,
     stats,
+    watcherActive: () => watcherActive,
     dispose() {
       stopped = true
+      if (initialScan) clearTimeout(initialScan)
+      if (debounceTimer) clearTimeout(debounceTimer)
+      if (watchHandle) try { watchHandle.close() } catch {}
       if (timer) clearInterval(timer)
+      if (pollHandle) clearInterval(pollHandle)
+      watcherActive = false
     },
   }
 }
