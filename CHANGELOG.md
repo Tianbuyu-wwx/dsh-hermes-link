@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.3.3] — 2026-08-28
+
+### Added
+- **`dispatch_dry_run` JSON-RPC tool (F5)** — pre-flight estimator for `dispatch_task`. Returns `{ estimated_prompt_tokens, estimated_max_output_tokens, estimated_total_tokens, prompt_chars, persona_chars, task_chars, knowledge_chars, args_chars, model_tier, would_block_on, warnings }`. Heuristic (chars / 4) but surfaces truncation risks and unknown skills without spawning a sub-agent. Use before `dispatch_task` to validate token budgets on the Hermes side. New `services/dispatch-dry-run.mjs` powers the estimator.
+
+### Changed
+- `http/jsonrpc-handlers.mjs` registers `dispatch_dry_run` in `tools/list` and increments `hermes_link_dispatch_total{mode="dry-run",status="requested"}` per call.
+
+### Tests
+- `scripts/test-dispatch-dry-run.mjs` — 30 cases (minimal spec + char accounting: persona/task/knowledge/args sums; token estimate formula; validation failures for missing required fields / null / array / empty strings; warnings for length / prompt size / model_tier / max_tokens; `would_block_on` for unknown skills; error tolerance on `ctx.tools.view` throwing; realistic Hermes pre-flight scenario; no-side-effects verification).
+- Total: 360 passing (330 baseline + 30 dry-run).
+
+---
+
 ## [0.3.2] — 2026-08-27
 
 ### Added

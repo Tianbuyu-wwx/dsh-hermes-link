@@ -1,0 +1,22 @@
+chore(release): bump to v0.3.3 + CHANGELOG entry
+
+v0.3.3 = dispatch_dry_run pre-flight estimator (F5). Pure addition -
+no wire-protocol changes for existing JSON-RPC routes, no security
+model changes. Hermes can now validate token budgets before dispatching
+without burning an LLM turn on a doomed call.
+
+Sync points (6 files):
+  packages/dsh-hermes-link/package.json          0.3.2 -> 0.3.3
+  http/dispatch.mjs (VERSION)                   0.3.2 -> 0.3.3
+  index.mjs (VERSION)                           0.3.2 -> 0.3.3
+  dispatch-spec.schema.json (title)             v0.3.2 -> v0.3.3
+  skills/dsh-hermes-link/SKILL.md               v0.3.2 -> v0.3.3
+  README.zh.md                                  v0.3.2 -> v0.3.3
+
+CHANGELOG: full v0.3.3 entry describing dispatch_dry_run + shape.
+SKILL.md: documents the new dispatch_dry_run tool.
+README.md: Roadmap line for v0.3.3.
+.changeset/patch-f5-dry-run.md: patch changeset entry.
+
+Verified: scripts/check-version-sync (6/6) + scripts/check-docs-fresh
+(19/19) both green; npm test 360/360.
