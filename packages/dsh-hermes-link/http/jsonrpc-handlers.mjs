@@ -10,6 +10,7 @@
 import schema from '../dispatch-spec.schema.json' with { type: 'json' }
 import { readAuditLines, auditPath as _auditPath } from '../services/audit.mjs'
 import { buildDispatchStatus, readChildSessionTail, filterAuditRecords, readAuditRecords } from '../services/dispatch-status.mjs'
+import { buildDispatchDryRun } from '../services/dispatch-dry-run.mjs'
 import { mcpError, mcpResult } from './_util.mjs'
 import { handleDispatchTask } from './dispatch-task.mjs'
 import {
@@ -141,6 +142,18 @@ export async function handleRpc(ctx, body, deps) {
       if (!tail.ok) return mcpError(id, tail.error_code, tail.hint || '')
       return mcpResult(id, tail)
     }
+    if (name === 'dispatch_dry_run') {
+      // v0.3.3 F5: pre-flight estimator (no sub-agent spawned)
+      if (deps.metrics) deps.metrics.inc('hermes_link_dispatch_total', { mode: 'dry-run', status: 'requested' })
+      const result = buildDispatchDryRun(args, { ctx, foundationSlice: deps.foundationSlice })
+      if (!result.ok) {
+        return mcpError(id, result.error_code, result.hint)
+      }
+      return mcpResult(id, {
+        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+        metadata: result,
+      })
+    }
     if (name === 'dispatch_subscribe') {
       // v0.3.0 F1: discovery helper - returns the SSE URL the caller should GET.
       const taskId = args && typeof args.task_id === 'string' ? args.task_id : ''
@@ -253,6 +266,26 @@ function buildToolsList() {
         properties: {
           task_id:              { type: 'string', minLength: 1, maxLength: 128 },
           include_audit_recent: { type: 'integer', default: 5, minimum: 0, maximum: 50 },
+        },
+      },
+    },
+    {
+      name: 'dispatch_dry_run',
+      description: 'v0.3.3 F5: pre-flight estimator for dispatch_task. Returns estimated prompt/output tokens + would_block_on + warnings WITHOUT spawning a sub-agent. Use this before dispatch_task to validate the skill name, check token budget, and surface truncation risks.',
+      inputSchema: {
+        type: 'object',
+        required: ['task_id', 'skill', 'task'],
+        additionalProperties: false,
+        properties: {
+          task_id:         { type: 'string', minLength: 1, maxLength: 128 },
+          skill:           { type: 'string', minLength: 1, maxLength: 64 },
+          task:            { type: 'string', minLength: 1, maxLength: 8000 },
+          args:            { type: 'object' },
+          knowledge_subset:{ type: 'array', maxItems: 16, items: { type: 'object' } },
+          model_tier:      { type: 'string', enum: ['flash', 'pro', 'vision'], default: 'flash' },
+          max_tokens:      { type: 'integer', minimum: 256, maximum: 32000, default: 4000 },
+          mode:            { type: 'string', enum: ['one-shot', 'continuable'] },
+          provider:        { type: 'string', enum: ['fork', 'spawn'] },
         },
       },
     },
