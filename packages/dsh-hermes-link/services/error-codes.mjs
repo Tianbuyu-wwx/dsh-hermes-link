@@ -1,6 +1,7 @@
-// services/error-codes.mjs
+﻿// services/error-codes.mjs
 //
 // v0.3.0 (E9) - centralized error code registry for dsh-hermes-link.
+// v0.5.0 (B1) - +E_TOKEN_BUDGET_EXCEEDED for pre-flight / real-dispatch budget gates.
 //
 // Each code carries:
 //   - the JSON-RPC code number (preserves the wire-level value used pre-v0.3.0
@@ -20,8 +21,6 @@ export const ErrorCodes = {
     message: 'unauthorized: missing or invalid Authorization: Bearer <token>',
     hint: 'set HERMES_LINK_TOKEN in DSH env to enable auth; supply Bearer header at caller',
   },
-  // -32002 reserved for E_CWD_UNSAFE - not currently used (Layer 7 substitutes fallback
-  // rather than erroring). Kept available in case future HTTP entry points want to reject.
   E_DUPLICATE_TASK_ID: {
     code: -32004,
     message: 'duplicate task_id',
@@ -52,6 +51,11 @@ export const ErrorCodes = {
     message: 'tool catalog unavailable',
     hint: 'tools.view().restrictableNames not readable in this dsh build - dispatch_probe is unsupported',
   },
+  E_TOKEN_BUDGET_EXCEEDED: {
+    code: -32021,
+    message: 'token budget exceeded',
+    hint: 'call dispatch_dry_run with the same args to see estimated vs max budget; raise max_prompt_tokens/max_total_tokens or trim the prompt',
+  },
 
   // ---- 326xx / 327xx: standard JSON-RPC ----
   E_UNKNOWN_METHOD: {
@@ -60,7 +64,7 @@ export const ErrorCodes = {
     hint: 'see tools/list for the supported set',
   },
   E_UNKNOWN_TOOL: {
-    code: -32601,  // same numeric code as E_UNKNOWN_METHOD - both are method-not-found, different namespace
+    code: -32601,
     message: 'unknown tool',
     hint: 'see tools/list for the supported set',
   },

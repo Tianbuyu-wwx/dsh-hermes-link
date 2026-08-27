@@ -5,7 +5,7 @@
 [![Node >=20](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](package.json)
 [![dsh-plugin](https://img.shields.io/badge/dsh--plugin-blue)](https://github.com/dsh-market/awesome-dsh-plugin)
 
-> 当前版本：v0.4.0
+> 当前版本：v0.5.0
 > **Hermes Agent** 与 **DeepSeek Harness (DSH)** 的双向桥接：Hermes 通过 `POST /mcp/collab` JSON-RPC 派任务（一次性或可持续），DSH 启动子 agent 执行、返回真实测量的 token，并允许你**把任意 Hermes 会话作为原生 DSH 会话继续**。
 
 [English README](README.md) | 中文
@@ -48,8 +48,8 @@ Hermes 是任务编排器 —— 规划工作、选择 skill、加载知识切�
 - **Consult reply_secret**（v0.3.4+）：reply 文件必须命名为 `<ticket>-<secret>.json`，secret 在 consult payload 里给
 - **Persona envelope**：自动注入 SOUL（v0.3.4+），`include_project_memory: true` 显式 opt-in cwd-scoped MEMORY；encoding rules 防 CJK 乱码；sentinel 字符串原样 verbatim
 - **真实测量的 token**：`ctx.tokenMeter.measure(run.localAgent)` 把 `tokens_used` 写入 dispatch-result（不再为 null）
-- **`GET /mcp/collab/session-stream`（v0.4.0）** —— 已开启 mirror 的 DSH 会话新事件 SSE 流（`?session_id=<sid>`，支持 `since_seq` / `timeout_ms`）
-- **`GET /mcp/collab/session-mirror/status`（v0.4.0）** —— 查询单个或全部 session mirror 状态（`?session_id=<sid>`）
+- **`GET /mcp/collab/session-stream`（v0.5.0）** —— 已开启 mirror 的 DSH 会话新事件 SSE 流（`?session_id=<sid>`，支持 `since_seq` / `timeout_ms`）
+- **`GET /mcp/collab/session-mirror/status`（v0.5.0）** —— 查询单个或全部 session mirror 状态（`?session_id=<sid>`）
 
 ### 用户视图线（DSH → Hermes）
 
@@ -61,7 +61,7 @@ Hermes 是任务编排器 —— 规划工作、选择 skill、加载知识切�
 | `load_hermes_project_memory` | cwd-scoped Hermes MEMORY.md 加载（只匹配本项目的 Hermes 会话） |
 | `consult_hermes` | 问 Hermes 问题（文件通道 + secret 后缀回复，v0.3.4+） |
 | `mirror_session_to_hermes` | 手动 mirror 当前 DSH 会话到 Hermes（含 cookie / JWT / API key / set-cookie / session_id redact，v0.2.3+） |
-| `session_mirror` | v0.4.0 opt-in 自动 mirror 开关：对当前 DSH 会话 `enable` / `disable` / `status`（默认关闭，自动脱敏） |
+| `session_mirror` | v0.5.0 opt-in 自动 mirror 开关：对当前 DSH 会话 `enable` / `disable` / `status`（默认关闭，自动脱敏） |
 | `hermes_inbox` / `hermes_inbox_append` | 读写共享对话记录 `~/.dsh/hermes-inbox/session.jsonl` |
 | `hermes_clear_injected` | 仅审计：报告 v0.2.0 之前自动注入主 session 的轮数，建议"开新 session" |
 
@@ -72,7 +72,7 @@ Hermes 是任务编排器 —— 规划工作、选择 skill、加载知识切�
 - **导入格式兼容**：转换器同时支持 Anthropic 风格 content block 和 OpenAI 兼容 request dump（`assistant.content` 字符串 + `assistant.tool_calls[]` + `role: 'tool'` 结果），导入 DSH 时会保留 Hermes 的 AI 回复与工具调用记录
 - **heartbeat**（60s）、**usage**（每任务）、**memory-suggest** 持续写入
 - **amend watcher**（H4 nonce-bound）把 Hermes 的中途 amend 投递给运行中的可持续子 agent
-- **session mirror** 为 v0.4.0 逐会话 opt-in：调用 `session_mirror action=enable` 后，新事件会脱敏写入 `Hermes Home/inbox/dsh/session-mirror/<sid>.jsonl`；Hermes 也可订阅 `GET /mcp/collab/session-stream?session_id=<sid>` 实时 SSE
+- **session mirror** 为 v0.5.0 逐会话 opt-in：调用 `session_mirror action=enable` 后，新事件会脱敏写入 `Hermes Home/inbox/dsh/session-mirror/<sid>.jsonl`；Hermes 也可订阅 `GET /mcp/collab/session-stream?session_id=<sid>` 实时 SSE
 - **Hermes Home 自动探测**：`HERMES_HOME` env → Windows `%LOCALAPPDATA%\hermes` → POSIX `~/.local/share/hermes`
 
 ### 安全边界
@@ -136,7 +136,7 @@ node scripts/verify-install.mjs
 在 DSH 里：
 
 ```
-/mcp/collab/health → { ok: true, version: "0.4.0", importer_ready: true, persona_ready: true, consult_ready: true, auth: "open|bearer-required", continuable_registry: "on", foundation_slice_chars: 1234, active_dispatchers: 0 }
+/mcp/collab/health → { ok: true, version: "0.5.0", importer_ready: true, persona_ready: true, consult_ready: true, auth: "open|bearer-required", continuable_registry: "on", foundation_slice_chars: 1234, active_dispatchers: 0 }
 ```
 
 ---

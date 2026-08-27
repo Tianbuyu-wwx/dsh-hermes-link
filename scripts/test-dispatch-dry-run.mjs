@@ -81,11 +81,15 @@ t('case 8: prompt_chars sums persona + task + knowledge + args + overhead', () =
   assert.equal(r.prompt_chars, 659)
 })
 
-t('case 9: estimated_prompt_tokens = ceil(prompt_chars / 4)', () => {
+t('case 9: estimated_prompt_tokens uses real tokenizer, prompt_chars keeps legacy formula', () => {
+  // v0.5.0 (B1): estimated_prompt_tokens is now computed via the real
+  // o200k_base / cl100k_base tokenizer (gpt-tokenizer), not chars / 4.
+  // prompt_chars keeps the legacy ENVELOPE_OVERHEAD_CHARS + sum formula.
   const r = buildDispatchDryRun({ ...MIN, task: 'x'.repeat(99) }, { foundationSlice: 'z'.repeat(0) })
-  // prompt_chars = 500 + 0 + 99 + 0 + 0 = 599; ceil(599/4) = 150
-  assert.equal(r.prompt_chars, 599)
-  assert.equal(r.estimated_prompt_tokens, 150)
+  assert.equal(r.prompt_chars, 599)   // 500 + 0 + 99 + 0 + 0 (legacy shape)
+  // real tokens: 'x'.repeat(99) = 13 tokens + ENVELOPE_OVERHEAD_TOKENS(120)
+  assert.equal(r.estimated_prompt_tokens, 133)
+  assert.ok(['o200k_base', 'cl100k_base'].includes(r.tokenizer.impl), 'expected real tokenizer, got ' + r.tokenizer.status + '/' + r.tokenizer.impl)
 })
 
 // --- validation failures ---
@@ -139,9 +143,11 @@ t('case 18: task > 8000 chars triggers maxLength warning', () => {
   assert.ok(r.warnings.some((w) => w.includes('task_at_or_above_maxLength')))
 })
 
-t('case 19: large prompt (>16K tokens) triggers prompt warning', () => {
-  const r = buildDispatchDryRun({ ...MIN, task: 'x'.repeat(80000) }, {})
-  assert.ok(r.warnings.some((w) => w.includes('prompt_very_large')))
+t('case 19: large prompt (real tokens > 16K) triggers prompt_very_large warning', () => {
+  // v0.5.0 (B1): threshold is on real tokens now. 160K chars of 'x'
+  // compresses to ~20K tokens on o200k_base, crossing PROMPT_VERY_LARGE_TOKENS=16000.
+  const r = buildDispatchDryRun({ ...MIN, task: 'x'.repeat(160000) }, {})
+  assert.ok(r.warnings.some((w) => w.includes('prompt_very_large')) || r.warnings.some((w) => w.includes('prompt_above_tier_budget')), 'expected prompt_very_large or prompt_above_tier_budget warning for large task')
 })
 
 t('case 20: persona > 4KB triggers truncation warning', () => {

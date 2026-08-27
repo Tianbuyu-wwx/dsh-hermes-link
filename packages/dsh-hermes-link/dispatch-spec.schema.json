@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "dsh-hermes-link://dispatch-spec.schema.json",
-  "title": "Hermes → DSH dispatch spec (dsh-hermes-link v0.4.0)",
+  "title": "Hermes → DSH dispatch spec (dsh-hermes-link v0.5.0)",
   "description": "JSON-RPC 2.0 /tools/call dispatch_task arguments. Slim field surface; no audit-only fields at the protocol level (audit is server-side).",
   "type": "object",
   "additionalProperties": false,
@@ -25,6 +25,9 @@
                           },
     "model_tier":        { "type": "string", "enum": ["flash", "pro", "vision"], "default": "flash" },
     "max_tokens":        { "type": "integer", "minimum": 256, "maximum": 32000, "default": 4000 },
+      "max_prompt_tokens": { "type": "integer", "minimum": 0, "description": "v0.5.0 (B1): hard cap on estimated prompt tokens. dispatch_task returns E_TOKEN_BUDGET_EXCEEDED (-32021) when over." },
+      "max_total_tokens":  { "type": "integer", "minimum": 0, "description": "v0.5.0 (B1): hard cap on estimated prompt+output tokens. dispatch_task returns E_TOKEN_BUDGET_EXCEEDED (-32021) when over." },
+      "include_tokenizer_diagnostics": { "type": "boolean", "default": false, "description": "v0.5.0 (B1): if true, the dispatch_dry_run response includes result.tokenizer = { impl, status } so the Hermes-side caller can detect heuristic fallback." },
     "deadline_ms":       { "type": "integer", "minimum": 1000, "maximum": 600000, "default": 60000 },
     "mode":              { "type": "string", "enum": ["one-shot", "continuable"], "default": "one-shot", "description": "one-shot = full result in the dispatch reply; continuable = returns child_id, then Hermes drives followups via dispatch_followup / dispatch_interrupt." },
     "provider":          { "type": "string", "enum": ["spawn", "fork"], "description": "spawn: isolated child. fork: child inherits parent session history. Default: fork for continuable, spawn for one-shot." },

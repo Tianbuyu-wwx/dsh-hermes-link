@@ -43,8 +43,8 @@ Earlier we ran this as three separate plugins (`hermes-foundation`, `hermes-ones
   - `dispatch_subscribe` (v0.3.0) — discovery helper that returns the SSE URL.
   - **`get_dispatch`** — read `audit.jsonl` for the most recent entries.
 - **`GET /mcp/collab/stream` (v0.3.0 F1)** — `text/event-stream` of real-time events for a continuable task (lifecycle / step / token / amend / followup / interrupt). Bearer-auth, `?task_id=...&since_seq=N&timeout_ms=N`.
-- **`GET /mcp/collab/session-stream` (v0.4.0)** — SSE feed of newly mirrored DSH session events for an enabled session (`?session_id=<sid>`, `since_seq` / `timeout_ms` supported).
-- **`GET /mcp/collab/session-mirror/status` (v0.4.0)** — mirror status for one session (`?session_id=<sid>`) or all enabled sessions.
+- **`GET /mcp/collab/session-stream` (v0.5.0)** — SSE feed of newly mirrored DSH session events for an enabled session (`?session_id=<sid>`, `since_seq` / `timeout_ms` supported).
+- **`GET /mcp/collab/session-mirror/status` (v0.5.0)** — mirror status for one session (`?session_id=<sid>`) or all enabled sessions.
 - **Bearer auth** via `HERMES_LINK_TOKEN` env (open by default).
 - **H4 amend nonce** (v0.2.2+): amend files must be named `<ts>-<task_id>-<nonce>.json`; nonce returned in `dispatch_task` metadata.
 - **Consult reply_secret** (v0.2.2+): reply files must be named `<ticket>-<secret>.json`; secret returned in the consult payload.
@@ -61,7 +61,7 @@ Earlier we ran this as three separate plugins (`hermes-foundation`, `hermes-ones
 | `load_hermes_project_memory` | cwd-scoped Hermes MEMORY.md loader (matches only this project's Hermes sessions) |
 | `consult_hermes` | ask Hermes a question (file-based async; reply must carry secret suffix since v0.2.2) |
 | `mirror_session_to_hermes` | opt-in V4 mirror with secret-pattern redaction (v0.2.2; cookies / JWTs / API keys / set-cookie / session_id redacted) |
-| `session_mirror` | v0.4.0 opt-in automatic mirror switch: `enable` / `disable` / `status` for current DSH session (redacted, default OFF) |
+| `session_mirror` | v0.5.0 opt-in automatic mirror switch: `enable` / `disable` / `status` for current DSH session (redacted, default OFF) |
 | `hermes_inbox` / `hermes_inbox_append` | read / append to the shared conversation record (`~/.dsh/hermes-inbox/session.jsonl`) |
 | `hermes_clear_injected` | audit-only: count turns auto-injected by an older hermes-foundation/dsh-hermes-link version, point at "open a new session" |
 | `rotate_outbox_now` | v0.3.1 F2: force an immediate outbox file rotation pass (size-based usage.jsonl / session-mirror rotation + age-based heartbeat / memory-suggest archive + purge) |
@@ -74,7 +74,7 @@ Earlier we ran this as three separate plugins (`hermes-foundation`, `hermes-ones
 - **Import format compatibility**: the converter accepts both Anthropic-style content blocks and OpenAI-compatible request dumps (`assistant.content` string + `assistant.tool_calls[]` + `role: 'tool'` results), so Hermes AI replies and tool calls are preserved in imported DSH sessions.
 - **heartbeat** (60s), **usage** (per-task), **memory-suggest** all run in the background.
 - **amend watcher** (H4 nonce-bound) delivers mid-task amendments from Hermes to running continuable children.
-- **session mirror** is opt-in per session (v0.4.0). Once `session_mirror action=enable` is called, every new DSH event is redacted and written to `Hermes Home/inbox/dsh/session-mirror/<sid>.jsonl`; Hermes can also subscribe to `GET /mcp/collab/session-stream?session_id=<sid>` for real-time SSE.
+- **session mirror** is opt-in per session (v0.5.0). Once `session_mirror action=enable` is called, every new DSH event is redacted and written to `Hermes Home/inbox/dsh/session-mirror/<sid>.jsonl`; Hermes can also subscribe to `GET /mcp/collab/session-stream?session_id=<sid>` for real-time SSE.
 - **Hermes Home auto-detect**: `HERMES_HOME` env → `%LOCALAPPDATA%\hermes` on Windows → `~/.local/share/hermes` on POSIX.
 
 ### Security boundaries
@@ -138,7 +138,7 @@ node scripts/verify-install.mjs
 Then in DSH:
 
 ```
-/mcp/collab/health → { ok: true, version: "0.4.0", importer_ready: true, persona_ready: true, consult_ready: true, auth: "open|bearer-required", continuable_registry: "on", foundation_slice_chars: 1234, active_dispatchers: 0 }
+/mcp/collab/health → { ok: true, version: "0.5.0", importer_ready: true, persona_ready: true, consult_ready: true, auth: "open|bearer-required", continuable_registry: "on", foundation_slice_chars: 1234, active_dispatchers: 0 }
 ```
 
 ---
