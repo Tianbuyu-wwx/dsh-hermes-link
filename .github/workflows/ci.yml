@@ -29,7 +29,17 @@ jobs:
           cache: npm
 
       - name: Install
-        run: npm ci --no-audit --no-fund
+        # macOS runners occasionally flake on cold-cache `npm ci` (the npm temp
+        # dir under /var/folders and the homebrew node shim interaction have
+        # produced intermittent EPERM/ENOTEMPTY errors on macos-26-arm64).
+        # A 3-attempt retry keeps the matrix green for a transient fs hiccup
+        # while still surfacing a real install failure on the third try.
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 10
+          max_attempts: 3
+          retry_on: error
+          command: npm ci --no-audit --no-fund
 
       - name: Smoke test
         run: npm run test:smoke

@@ -1,5 +1,7 @@
 # @tianbuyu-wwx/dsh-hermes-link
 
+> **Versions 0.3.1, 0.3.2, 0.3.3, and 0.3.4 were documented in the monorepo CHANGELOG (`../../CHANGELOG.md`) but never published to npm. See the "Published-vs-documented version map (2026-08-26)" section there. Use `0.3.5` (or later) for the consolidating release.**
+
 ## 0.4.0
 
 ### Minor Changes

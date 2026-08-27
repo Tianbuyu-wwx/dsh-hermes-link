@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > Note: Pre-v0.2 versions lived in the `dsh-hermes` monorepo (`packages/dsh-hermes-link/`) alongside the deprecated `hermes-foundation / -oneshot-arbitrate / -dispatch-bridge` triad. The history below is mirrored from that repository's `docs/delivery-v0.6.0-20260821.md`.
 
 ---
+
+## ⚠️ Published-vs-documented version map (2026-08-26)
+
+These commits existed and the work shipped through subsequent published versions, **but the version numbers below were never published to npm**. Treat them as documentation-only:
+
+| Documented version | Status on npm | Consolidating release | What changed in the actual release |
+|---|---|---|---|
+| 0.3.4 (E3 + E5)  | **never published** | 0.3.5 | `fs.watch`-based amend watcher + `globalThis` removal landed with the workspace-infer work |
+| 0.3.3 (F5)       | **never published** | 0.3.5 | `dispatch_dry_run` tool shipped inside the 0.3.5 batch |
+| 0.3.2 (F6)       | **never published** | 0.3.5 | Prometheus metrics endpoint + registry shipped inside the 0.3.5 batch |
+| 0.3.1 (F2 + F4)  | **never published** | 0.3.5 | outbox rotation + `dispatch_status` shipped inside the 0.3.5 batch |
+
+**Why they were skipped:** During the 0.3.0 → 0.3.6 cycle the changesets PR flow occasionally opened release PRs with no actual change-set entries, so individual patch/minor versions were consolidated into the next release PR. The CHANGELOG below preserves the per-version narrative because it documents **what landed**, not **what was tagged**. **Use the actual `0.3.5` (or later) release notes for capability availability.**
+
+---
+
 ## [0.4.0] — 2026-08-26
 
 ### Added
