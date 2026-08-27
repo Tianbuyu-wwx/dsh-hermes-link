@@ -49,15 +49,8 @@ jobs:
       - name: Publish to npm (only when changesets reported changes)
         if: steps.changesets.outputs.published == 'true'
         run: npm publish --workspace=packages/dsh-hermes-link --access public --provenance
-        # Provenance requires npm trusted publishing (OIDC). When NPM_TOKEN is
-        # also exported, npm silently falls back to the legacy auth path and the
-        # `--provenance` flag produces no attestation. Do NOT add NODE_AUTH_TOKEN here - configure the trusted publisher at:
-        #   https://www.npmjs.com/settings/YOUR_NAMESPACE/dsh-hermes-link
-        #     -> Publishing access -> Trusted Publishers -> Add -> GitHub Actions
-        #   owner: Tianbuyu-wwx
-        #   repo:  dsh-hermes-link
-        #   workflow: .github/workflows/release.yml
-        # The `permissions: id-token: write` block above wires the OIDC token.
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}   # legacy auth; OIDC switch requires Trusted Publishers setup on npmjs.com (follow-up PR)
 
       - name: Manual fallback note
         if: failure()
