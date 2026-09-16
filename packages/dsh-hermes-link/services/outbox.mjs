@@ -22,6 +22,7 @@
 import { mkdirSync, writeFileSync, appendFileSync, existsSync, renameSync, readFileSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
+import { isEchoSession, isNoiseEvent } from './mirror-policy.mjs'
 
 const DEFAULT_FLUSH_INTERVAL_MS = 5000
 const DEFAULT_MAX_QUEUE_SIZE    = 10000
@@ -292,9 +293,31 @@ export function createOutbox({
   /** V4: append one DSH session event to the Hermes-visible mirror (JSONL). Write-behind. */
   function appendSessionEvent(sessionId, event) {
     try {
+      // v0.6.0 (B) - echo/noise guard at the write path. session-mirror.mjs applies
+      // the same filter (and counts what it drops); this second gate protects
+      // callers that bypass the service, notably the one-shot
+      // mirror_session_to_hermes tool: without it, mirroring a session imported
+      // from Hermes (hermes-<sid>, agentPreset hermes-imported) writes Hermes'
+      // own transcript back into Hermes' own inbox. Returns false = "not
+      // mirrored" (the pre-existing success/failure return contract is
+      // unchanged for every event that passes the guard).
+      if (isEchoSession(sessionId, null) || isNoiseEvent(event)) return false
       const safeId = safeSessionId(sessionId)
       const path = join(mirrorDir, `${safeId}.jsonl`)
-      const payload = { ts: Date.now(), event }
+      // C2/C3 (v0.6.0) - resume cursor + provenance on every mirrored line.
+      // `cursor` is the DSH event seq: a Hermes reader keeps the last line's
+      // cursor and asks the SSE feed for ?since_seq=<cursor> (the broker uses
+      // "seq > sinceSeq" semantics) instead of rescanning the whole file.
+      // `source` + `origin_session_id` are the idempotency half: neither side
+      // re-consumes what it wrote itself (the same property the mirror's echo
+      // guard enforces in the other direction).
+      const payload = {
+        ts: Date.now(),
+        cursor: event && Number.isInteger(event.seq) ? event.seq : null,
+        source: 'dsh',
+        origin_session_id: String(sessionId),
+        event,
+      }
       enqueue('mirror', path, payload)
       if (metricsSink) try { metricsSink.inc('hermes_link_outbox_session_events_total') } catch (_e) {}
       return true

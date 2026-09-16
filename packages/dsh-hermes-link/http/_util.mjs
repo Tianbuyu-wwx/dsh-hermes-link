@@ -50,4 +50,26 @@ function send(res, status, body) {
   res.end(body)
 }
 
-export { clampInt, truncate, readAllStream, sendJson, send }
+// v0.6.0 (D1) fix - telemetry is best-effort, NEVER load-bearing.
+// services/metrics.mjs deliberately THROWS on inc()/set() of an unregistered
+// metric (that contract is asserted by scripts/test-metrics.mjs). But the HTTP
+// handlers call metrics on the request path, so any registry/handler shape
+// mismatch used to turn a perfectly good request into E_INTERNAL / HTTP 500 -
+// a metric name registered in index.mjs but forgotten in a harness or a future
+// embedder was enough to take the whole JSON-RPC surface down. Every handler
+// metric update therefore goes through this guard. Errors are swallowed on
+// purpose: losing a counter sample is acceptable, failing a request is not.
+function incMetric(deps, name, labels) {
+  try {
+    if (deps && deps.metrics && typeof deps.metrics.inc === 'function') deps.metrics.inc(name, labels)
+  } catch (_e) { /* telemetry must never take down the request path */ }
+}
+
+// Same guard for gauges.
+function setMetric(deps, name, value, labels) {
+  try {
+    if (deps && deps.metrics && typeof deps.metrics.set === 'function') deps.metrics.set(name, value, labels)
+  } catch (_e) { /* telemetry must never take down the request path */ }
+}
+
+export { clampInt, truncate, readAllStream, sendJson, send, incMetric, setMetric }

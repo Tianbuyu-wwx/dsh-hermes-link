@@ -42,6 +42,7 @@ import { homedir } from 'node:os'
 import { FileSystemSkillProvider } from '@deepseek-ai/dsh-skill-filesystem'
 import { requestDumpToEvents, groupBySession, walkRequestDumps } from './import/request-dump-to-events.mjs'
 import { createImporter } from './import/import-hermes-session.mjs'
+import { pruneDuplicateMemberships } from './import/import-hermes-session.mjs'
 import { createWatcher } from './services/hermes-session-watcher.mjs'
 import { loadPersona } from './services/persona-loader.mjs'
 import { createConsultClient } from './services/consult-hermes.mjs'
@@ -49,9 +50,11 @@ import { registerInboxTools, inboxHealthPayload, sessionHasHermesMarker } from '
 import { createOutbox } from './services/outbox.mjs'
 import { createOutboxRotation } from './services/outbox-rotation.mjs'
 import { createSessionMirror } from './services/session-mirror.mjs'
+import { createHermesOutboxConsumer } from './services/hermes-outbox-consumer.mjs'
 import { openContinuations, TERMINAL_STATUSES } from './services/continuations.mjs'
 import { createSseBroker } from './services/sse-broker.mjs'
 import { createMetricsRegistry } from './services/metrics.mjs'
+import { buildRateLimiterFromEnv } from './services/rate-limit.mjs'
 import { createAmendWatcher } from './services/amend-watcher.mjs'
 import { stateDir as auditStateDir, setMetricsSink as setAuditMetrics } from './services/audit.mjs'
 import { setMetricsSink as setOutboxMetrics } from './services/outbox.mjs'
@@ -69,7 +72,7 @@ import { createDispatchStatusTool } from './tools/dispatch-status.mjs'
 
 const skillDir = fileURLToPath(new URL('./skills/dsh-hermes-link', import.meta.url))
 const MAX_FOUNDATION_SLICE_CHARS = 4096
-const VERSION = '0.5.0'
+const VERSION = '0.6.0'
 
 // -----------------------------------------------------------------------------
 // v0.3.2 F6 - register the canonical metric shape so the wire format is
@@ -111,6 +114,30 @@ function registerMetricsShape(metrics, { VERSION }) {
     'Total audit.jsonl appends')
   metrics.registerCounter('hermes_link_continuables_registered_total',
     'Total continuable children ever registered (cumulative since DSH start)')
+  metrics.registerCounter('hermes_link_rate_limited_total',
+    'Total rate-limit rejections (v0.6.0 D1) by endpoint and scope', ['endpoint', 'scope'])
+  metrics.registerCounter('hermes_link_rate_limit_skipped_total',
+    'Total rate-limit checks bypassed because caller is unauthenticated (open mode)', ['endpoint'])
+  // v0.6.0 (B) - HERMES_LINK_MIRROR_POLICY observability. Every policy decision
+  // and every event the echo/noise guard drops is counted; the resolved policy
+  // itself is exported as an info gauge (label value), so a scraper can alert on
+  // an unexpected "all". session-mirror.mjs guards each inc/set, so an
+  // unregistered name here can never break the mirror instead of the metric.
+  metrics.registerCounter('hermes_link_mirror_policy_auto_enabled_total',
+    'Total sessions auto-enabled by HERMES_LINK_MIRROR_POLICY', ['policy'])
+  metrics.registerCounter('hermes_link_mirror_policy_auto_skipped_total',
+    'Total sessions HERMES_LINK_MIRROR_POLICY left un-mirrored, by reason', ['policy', 'reason'])
+  metrics.registerCounter('hermes_link_mirror_events_skipped_total',
+    'Total session events dropped by the mirror echo/noise guard', ['reason'])
+  // v0.6.0 (C1/C3) - Hermes -> DSH notification consumer (outbox/hermes/).
+  // hermes-outbox-consumer.mjs guards each inc(), so a shape mismatch here can
+  // never take the consumer down instead of the metric.
+  metrics.registerCounter('hermes_link_hermes_outbox_total',
+    'Total Hermes outbox notifications by kind and result', ['kind', 'result'])
+  // v0.6.0 (D/B6) - consult tickets that went stale without a reply. The audit
+  // found three of them three weeks old with nothing reporting it.
+  metrics.registerCounter('hermes_link_consult_expired_total',
+    'Total consult tickets found stale (no reply within TTL) by the backlog sweep', ['bucket'])
 
   // Gauges
   metrics.registerGauge('hermes_link_continuable_children',
@@ -129,6 +156,8 @@ function registerMetricsShape(metrics, { VERSION }) {
     'DSH process uptime in seconds')
   metrics.registerGauge('hermes_link_build_info',
     'Build info (always 1; labels carry the version)', ['version'])
+  metrics.registerGauge('hermes_link_mirror_policy_info',
+    'Resolved HERMES_LINK_MIRROR_POLICY (always 1; label carries the policy)', ['policy'])
 }
 
 // -----------------------------------------------------------------------------
@@ -195,7 +224,11 @@ export function apply(ctx) {
 
   // 2. sub-services (factories 闂?pure, hold no Cordis resources until used)
   const foundationSlice = buildFoundationSlice(hermesHome)
-  const hermesWorkspaceDir = (process.env.DSH_HOME || join(homedir(), '.dsh')) + '/hermes-workspace'
+  // v0.6.0 (D1) fix: join() instead of string concatenation - the old form
+  // produced a mixed-separator path ("C:\\Users\\...\\.dsh/hermes-workspace") that
+  // leaked into SessionHeader.cwd and, worse, into the on-disk project-directory
+  // name used by the jsonl session backend.
+  const hermesWorkspaceDir = join(process.env.DSH_HOME || join(homedir(), '.dsh'), 'hermes-workspace')
   const importer = ctx.sessions ? createImporter({ ctx, hermesHome, workspaceDir: hermesWorkspaceDir }) : null
   const personaLoader = { loadPersona: (h, opts) => loadPersona(h || hermesHome, opts) }
   const consultClient = createConsultClient({ hermesHome })
@@ -203,6 +236,9 @@ export function apply(ctx) {
   // v0.3.1 F2 - file rotation for the outbox (heartbeat/usage/memory-suggest/session-mirror).
   const outboxRotation = createOutboxRotation({ hermesHome })
   // v0.3.2 F6 - Prometheus-compatible metrics registry.
+  // v0.6.0 (D1) - per-token rate-limit + daily token budget. Hot-reload via plugin restart.
+  // Set HERMES_LINK_RATE_LIMIT_RPM=0 (or _DAILY_TOKENS=0) to disable that axis.
+  buildRateLimiterFromEnv()
   const metrics = createMetricsRegistry()
   registerMetricsShape(metrics, { VERSION })
   // Wire audit + outbox + sse counter bridges
@@ -214,8 +250,21 @@ export function apply(ctx) {
   const sseBroker = createSseBroker({ ringSize: 1000, heartbeatMs: 15000 })
   globalThis.__dsh_hermes_link_broker__ = sseBroker
 
-  // v0.4.0 - opt-in automatic DSH session mirror (V4). Default OFF.
-  const sessionMirror = createSessionMirror({ hermesHome, outbox, sseBroker })
+  // v0.4.0 - automatic DSH session mirror (V4).
+  // v0.6.0 (B) - default policy is HERMES_LINK_MIRROR_POLICY=scoped: a session is
+  // auto-mirrored only when its cwd provably belongs to a real Hermes project,
+  // and 'off' restores the pre-v0.6.0 manual opt-in. `metrics` is injected so
+  // the policy decisions + echo/noise guard are observable; session-mirror.mjs
+  // guards every inc/set, so a registry shape mismatch cannot break mirroring.
+  const sessionMirror = createSessionMirror({ hermesHome, outbox, sseBroker, metrics })
+
+  // v0.6.0 (C1) - the reverse direction Hermes -> DSH: consume
+  // Hermes Home/outbox/hermes/*.json. docs/DSH-HERMES-LINK-PLAN.md:95 promised
+  // this directory ("Hermes 给 DSH 的主动通知") and no code ever read it, so
+  // every Hermes-side signal had to be polled for instead of pushed. Same
+  // verified shape as amend-watcher.mjs; idempotent per (source,id) across
+  // restarts (C3), and every file leaves the scan set one way or another.
+  const hermesOutbox = createHermesOutboxConsumer({ hermesHome, ctx, importer, broker: sseBroker, metrics })
 
   const continuations = openContinuations(auditStateDir(), {
     onChange: ({ kind, child_id, task_id, fields, entry }) => {
@@ -235,6 +284,12 @@ export function apply(ctx) {
   if (!ctx.sessions) {
     console.warn('[dsh-hermes-link v' + VERSION + '] ctx.sessions not in inject graph; /mcp/collab/import will 503 until dsh-session is mounted')
   }
+
+  // v0.6.0 (D5) fix #6: a duplicate workspace account makes dsh-workspace refuse to
+  // boot ("session 'X' is accounted by both workspace 'A' and 'B'") and it
+  // never self-heals. Sweep once shortly after load so a dirty workspace.json
+  // is repaired as soon as a boot gets far enough to load this plugin.
+  setTimeout(() => { pruneDuplicateMemberships(ctx).catch(() => {}) }, 4000)
 
   // 3. fs watcher 闂?emits 'change' for new stable request_dump files.
   let watcher
@@ -303,15 +358,22 @@ export function apply(ctx) {
     }
   })
 
-  // 5. v0.4.0 - V4 session-mirror hook, now opt-in per session.
-  //    Unlike v0.2.0/v0.2.1, nothing is mirrored unless the user called
-  //    `session_mirror action=enable` for this session. Automatic mirroring
-  //    always redacts secrets (services/redact.mjs).
+  // 5. v0.4.0 - V4 session-mirror hook. v0.6.0 (B): whether a session is
+  //    mirrored is decided by HERMES_LINK_MIRROR_POLICY (default 'scoped' =
+  //    auto-enable only when the session's cwd matches a real Hermes project;
+  //    'off' = only an explicit `session_mirror action=enable`; 'all' =
+  //    everything). Automatic mirroring always redacts secrets
+  //    (services/redact.mjs) and always applies the echo/noise guard
+  //    (services/mirror-policy.mjs).
   ctx.on('session/event', (session, event) => {
     try {
       const sid = (session && (session.id || session.sessionId)) || (event && event.session_id)
-      if (!sid || !sessionMirror.isEnabled(sid)) return
-      sessionMirror.handleEvent(sid, event)
+      // isEnabled(sid, { session }) lets the policy auto-enable an in-scope
+      // session on its first event (the Session carries header.cwd); passing the
+      // session on to handleEvent lets the echo guard see a hermes-imported
+      // agentPreset even when the id has no hermes- prefix.
+      if (!sid || !sessionMirror.isEnabled(sid, { session })) return
+      sessionMirror.handleEvent(sid, event, { session })
     } catch (e) {
       console.error('[dsh-hermes-link] session mirror hook failed:', e && e.message || e)
     }
@@ -361,6 +423,7 @@ export function apply(ctx) {
       outbox,
       sseBroker,
       sessionMirror,
+      hermesOutbox,
     })
   } catch (e) {
     console.error('[dsh-hermes-link] HTTP route registration failed:', e && e.message || e)
@@ -402,6 +465,7 @@ export function apply(ctx) {
     '  consult=on  watcher=' + (watcher ? 'on' : 'off') +
     '  continuables=' + continuations.count() +
     '  amend=' + (amendWatcher ? 'on' : 'off') +
+    '  hermes_outbox=' + (hermesOutbox ? 'on' : 'off') +
     '  heartbeat=on' +
     '  rotation=on' +
     '  autosync=' + (importer && typeof importer.sync === 'function' ? 'on' : 'off'))
@@ -409,6 +473,32 @@ export function apply(ctx) {
   // 11. v0.3.1 F2 - start the outbox file rotation timer (hourly; first run at +5s)
   try { outboxRotation.startInterval() } catch (e) {
     console.warn('[dsh-hermes-link] outbox-rotation init failed:', e && e.message || e)
+  }
+
+  // 11b. v0.6.0 (D/B6) - consult backlog sweep. Hourly, plus one early pass so a
+  // doctor run right after a restart already sees the backlog. Marks only; a
+  // ticket is never deleted (a late reply is still valid).
+  let consultSweep = null
+  try {
+    const sweep = (label) => {
+      try {
+        const r = consultClient.sweepStaleTickets({ apply: true })
+        if (r.expired.length > 0) {
+          const oldest = Math.round(Math.max(...r.expired.map((e) => e.age_ms || 0)) / 3_600_000)
+          console.warn('[dsh-hermes-link] consult backlog (' + label + '): ' + r.expired.length +
+            ' ticket(s) with no reply, oldest ' + oldest + 'h -- see /mcp/collab/doctor')
+          try { metrics.inc('hermes_link_consult_expired_total', { bucket: r.expired.some((e) => !e.already_marked) ? 'new' : 'known' }) } catch (_e) { /* never load-bearing */ }
+        }
+      } catch (e) {
+        console.warn('[dsh-hermes-link] consult backlog sweep failed:', e && e.message || e)
+      }
+    }
+    const early = setTimeout(() => sweep('startup'), 45_000)
+    early.unref?.()
+    consultSweep = setInterval(() => sweep('hourly'), 60 * 60 * 1000)
+    consultSweep.unref?.()
+  } catch (e) {
+    console.warn('[dsh-hermes-link] consult sweep init failed:', e && e.message || e)
   }
 
   // 12. v0.3.2 F6 - metric collector (gauges only; counters are incremented in-place).
@@ -462,6 +552,8 @@ export function apply(ctx) {
     if (outboxRotation && outboxRotation.stop) try { outboxRotation.stop() } catch {}
     if (outbox && outbox.stop) try { outbox.stop() } catch {}
     if (sessionMirror && sessionMirror.stop) try { sessionMirror.stop() } catch {}
+    if (hermesOutbox && hermesOutbox.dispose) try { hermesOutbox.dispose() } catch {}
+    if (consultSweep) try { clearInterval(consultSweep) } catch {}
     if (metricCollector && metricCollector.stop) try { metricCollector.stop() } catch {}
     if (continuations && continuations.close) try { continuations.close() } catch {}
   })
@@ -479,6 +571,7 @@ export function apply(ctx) {
     continuations,
     amendWatcher,
     sessionMirror,
+    hermesOutbox,
     metrics,
     version: VERSION,
   })

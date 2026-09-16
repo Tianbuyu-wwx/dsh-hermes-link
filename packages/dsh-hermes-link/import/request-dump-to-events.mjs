@@ -110,7 +110,6 @@ export function requestDumpToEvents(dump, baseTime = Date.now()) {
   // provider is always 'dsh-hermes-link' for imported history (the originating model is
   // captured in `model`; provider just names who produced the events in DSH terms).
   const provider = 'dsh-hermes-link'
-  const sys      = (body && body.system)
   const tools    = (body && body.tools) || []
   const messages = Array.isArray(body && body.messages) ? body.messages : []
   const error    = dump && dump.error
@@ -120,18 +119,36 @@ export function requestDumpToEvents(dump, baseTime = Date.now()) {
   const t0 = baseTime
   const mkTime = () => t0 + seq * 1000
 
-  // -- request/header (capture model + system + tools so deriveMessages works) --
+  // -- request/header (capture model + tools) --
+  //
+  // v0.6.0 (D1) fix: the header MUST NOT carry a 'system' field any more.
+  // DSH's v3 format retired it and the codec refuses the whole log outright:
+  //   dsh-session-format-v2-to-v3: "format v3 request/header rejects retired
+  //   header.system"  (asserted when Object.hasOwn(data.header, 'system'))
+  // Because create() succeeds but append() is then rejected, this used to make
+  // EVERY import fail at the append step. The system prompt is now derived
+  // history (a 'system/message' surface event), not epoch-header metadata; DSH
+  // composes the live system prompt from the agent preset for an imported
+  // session, so the recorded Hermes system prompt is intentionally not
+  // fabricated into a synthetic system/message event here. EpochHeader is
+  // exactly { config, adapterDefaults?, tools? }.
+  //
+  // v0.6.0 (D1) fix #2: OPTIONAL header fields must be OMITTED when empty, not
+  // sent empty. The same v3 codec rejects an empty array/object:
+  //   "format v3 request/header at seq 0 empty optional header fields must be
+  //    omitted"  (asserted when header.tools is [] or header.adapterDefaults is {})
+  // A Hermes dump carries no tools array when the session used none, so the old
+  // unconditional empty tools array failed every such import at append time.
+  const headerTools = tools.map((t) => toCleanJson({
+    name: t && t.name,
+    description: t && t.description,
+    input_schema: t && t.input_schema,
+  })).filter((t) => t && t.name)
   const headerData = {
     header: {
       config: { provider, model },
-      system: typeof sys === 'string'
-        ? sys
-        : (Array.isArray(sys) ? sys.map((b) => (b && b.text) || '').join('\n') : ''),
-      tools: tools.map((t) => toCleanJson({
-        name: t && t.name,
-        description: t && t.description,
-        input_schema: t && t.input_schema,
-      })),
+      // omitted entirely when empty (v3 canonical-payload rule above)
+      ...(headerTools.length > 0 ? { tools: headerTools } : {}),
     },
     reason: 'initial',
   }
@@ -253,10 +270,21 @@ export function requestDumpToEvents(dump, baseTime = Date.now()) {
         content: textBlocks,
         source: { provider, model },
       })
+      // v0.6.0 (D1) fix #4: assistant/message MUST carry a `stream` array.
+      // The v3 codec accepts the event without it (so append() succeeds), but
+      // dsh-session's SEED/LOAD validator rejects the stored log on read:
+      //   "seed assistant/message at index N has invalid settlement fields"
+      //   (assertAssistantSettlementShape requires Number.isSafeInteger(turn),
+      //    Number.isSafeInteger(step) and Array.isArray(data.stream))
+      // The canonical shape DSH itself emits (dsh-agent-loop) is
+      //   { turn, step, message, usage?, stream: live.stream }
+      // An imported history has no recorded provider stream, so an empty array
+      // is the honest representation: the settled `message` carries the content.
       events.push(makeSurfaceEvent('assistant/message', {
         turn: 1,
         step: stepAssistantCount,
         message,
+        stream: [],
       }, seq++, mkTime()))
       stepAssistantCount++
     } else if (msg.role === 'tool' || msg.role === 'function') {
@@ -355,17 +383,27 @@ function makeEvent(type, data, seq, time) {
 }
 
 function makeSurfaceEvent(type, data, seq, time, provenanceSeqs) {
-  // surface events require surfaceOp + sourceEventSeqs.
-  // - assistant/message: empty sourceEventSeqs is allowed (DSH invariant).
-  // - user/message + tool/result: must reference at least one earlier event.
-  // For a fresh seed we cite the request/header event (events[0]) since the entire
-  // history flows from that single header snapshot; turns of "earlier assistant
-  // messages" are reconstructed by the framework from the seed surface ordering.
-  return {
+  // surface events require a surfaceOp marker. sourceEventSeqs is OPTIONAL, but
+  // when present it must be a NON-EMPTY array of strictly earlier seqs - and for
+  // assistant/message it must be ABSENT entirely.
+  //
+  // v0.6.0 (D1) fix #3: this used to always emit `sourceEventSeqs: []`, on the
+  // belief that an empty array was acceptable for assistant/message. The v3
+  // codec disagrees and rejects the whole log at append time:
+  //   "format v3 assistant/message at seq N embeds its stream and cannot carry
+  //    sourceEventSeqs"   (dsh-session-format-v2-to-v3, thrown whenever
+  //    type === 'assistant/message' && sourceEventSeqs !== undefined)
+  // An assistant/message embeds its own stream, so provenance is carried by the
+  // stream rather than by sourceEventSeqs. user/message and tool/result must
+  // cite at least one earlier event and therefore still require the array.
+  const event = {
     type, seq, time, data,
     surfaceOp: 'append',
-    sourceEventSeqs: Array.isArray(provenanceSeqs) ? provenanceSeqs : [],
   }
+  if (type !== 'assistant/message' && Array.isArray(provenanceSeqs) && provenanceSeqs.length > 0) {
+    event.sourceEventSeqs = provenanceSeqs
+  }
+  return event
 }
 
 function inferProviderFromModel(model) {

@@ -18,6 +18,8 @@ import { randomBytes, randomUUID } from 'node:crypto'
 
 const DEFAULT_TIMEOUT_MS = 30_000
 const DEFAULT_POLL_MS    = 500
+/** B6 (v0.6.0): a ticket unanswered for this long is reported as backlog. */
+export const DEFAULT_TICKET_TTL_MS = 24 * 60 * 60 * 1000
 const TRUST_LEGACY       = process.env.HERMES_LINK_TRUST_LEGACY === '1'
 
 /**
@@ -126,7 +128,70 @@ export function createConsultClient({ hermesHome, timeoutMs = DEFAULT_TIMEOUT_MS
     try { return readdirSync(replyDir).filter((f) => f.endsWith('.json')) } catch { return [] }
   }
 
-  return { consult, writeResult, inboxDir, replyDir, resultDir, listReplyFiles }
+  /** Any reply file naming this ticket: <ticket>-<secret>.json or <ticket>.json. */
+  function findReply(ticket) {
+    let files = []
+    try { files = readdirSync(replyDir) } catch { return null }
+    for (const f of files) if (f === ticket + '.json' || f.startsWith(ticket + '-')) return f
+    return null
+  }
+
+  /**
+   * B6 (v0.6.0) - consult backlog sweep.
+   *
+   * A ticket Hermes never answered used to sit in inbox/dsh/consult/ forever
+   * with nothing anywhere reporting it: the audit found three 2026-08-21
+   * tickets still there three weeks later, and the only way to notice was to
+   * list the directory by hand. This sweep stamps a NON-DESTRUCTIVE
+   * `<ticket>.expired.json` marker beside a stale ticket, which makes the
+   * backlog explicit, countable (hermes_link_consult_expired_total) and
+   * reportable by the doctor. The ticket itself is never deleted -- a late
+   * reply is still a valid reply, and consumeReply() still accepts it.
+   *
+   * @param {object} [opts]
+   * @param {number} [opts.ttlMs]
+   * @param {boolean} [opts.apply] false = report only (the doctor's mode)
+   * @param {number} [opts.now]
+   * @returns {{scanned:number, open:number, replied:number, stale:object[], expired:object[]}}
+   */
+  function sweepStaleTickets({ ttlMs = DEFAULT_TICKET_TTL_MS, apply = true, now = Date.now() } = {}) {
+    const out = { scanned: 0, open: 0, replied: 0, stale: [], expired: [] }
+    let entries = []
+    try { entries = readdirSync(inboxDir, { withFileTypes: true }) } catch { return out }
+    for (const e of entries) {
+      if (!e.isFile() || !e.name.endsWith('.json') || e.name.endsWith('.expired.json')) continue
+      out.scanned++
+      const payload = readJsonSafe(join(inboxDir, e.name))
+      const ticket = payload && payload.ticket ? String(payload.ticket) : null
+      const ts = payload && Number.isFinite(payload.ts)
+        ? payload.ts
+        : (() => { const m = /^(\d{10,})/.exec(e.name); return m ? Number(m[1]) : null })()
+      const ageMs = Number.isFinite(ts) ? now - ts : null
+      if (ticket && findReply(ticket)) { out.replied++; continue }
+      if (ageMs == null || ageMs <= ttlMs) { out.open++; continue }
+      const entry = { file: e.name, ticket, age_ms: ageMs }
+      out.stale.push(entry)
+      const marker = join(inboxDir, (ticket || e.name.replace(/\.json$/, '')) + '.expired.json')
+      if (existsSync(marker)) { out.expired.push({ ...entry, marker, already_marked: true }); continue }
+      if (!apply) { out.expired.push({ ...entry, marker, would_write: true }); continue }
+      try {
+        atomicWriteJson(marker, {
+          ticket,
+          ts: now,
+          source: 'dsh',
+          kind: 'consult-expired',
+          expired_at: now,
+          age_ms: ageMs,
+          ticket_file: e.name,
+          note: 'no reply within ttl; ticket kept so a late reply is still accepted',
+        })
+        out.expired.push({ ...entry, marker, already_marked: false })
+      } catch (_e) { /* best-effort: a failed marker must not break the plugin */ }
+    }
+    return out
+  }
+
+  return { consult, writeResult, inboxDir, replyDir, resultDir, listReplyFiles, sweepStaleTickets, findReply }
 }
 
 function ensureDir(d) {
@@ -137,6 +202,15 @@ function atomicWriteJson(path, obj) {
   const tmp = path + '.tmp'
   writeFileSync(tmp, JSON.stringify(obj, null, 2))
   renameSync(tmp, path)
+}
+
+// BOM-tolerant: Windows tooling (PowerShell Set-Content, Notepad) writes UTF-8
+// with a BOM and JSON.parse refuses it -- same live finding as the outbox consumer.
+function readJsonSafe(path) {
+  try {
+    const text = readFileSync(path, 'utf8')
+    return JSON.parse(text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text)
+  } catch { return null }
 }
 
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)) }

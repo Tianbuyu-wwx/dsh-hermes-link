@@ -11,7 +11,8 @@ import schema from '../dispatch-spec.schema.json' with { type: 'json' }
 import { readAuditLines, auditPath as _auditPath } from '../services/audit.mjs'
 import { buildDispatchStatus, readChildSessionTail, filterAuditRecords, readAuditRecords } from '../services/dispatch-status.mjs'
 import { buildDispatchDryRun } from '../services/dispatch-dry-run.mjs'
-import { mcpError, mcpResult } from './_util.mjs'
+import { mcpError, mcpResult, incMetric } from './_util.mjs'
+import { getRateLimiter, tokenKey } from '../services/rate-limit.mjs'
 import { handleDispatchTask } from './dispatch-task.mjs'
 import {
   handleDispatchFollowup,
@@ -20,7 +21,46 @@ import {
   handleDispatchGet,
 } from './dispatch-control.mjs'
 
-const VERSION = '0.5.0'
+const VERSION = '0.6.0'
+
+// ---------------------------------------------------------------------------
+// v0.6.0 (D1) - per-token rate-limit gate. Called ONCE per tools/call from
+// handleRpc: the single limiter.check() covers both the sliding minute window
+// and the daily token charge for 'dispatch_task'. When the caller is
+// unauthenticated (no HERMES_LINK_TOKEN configured or bearer header missing)
+// the gate is bypassed and the bypass is counted on
+// hermes_link_rate_limit_skipped_total so operators can still see how many
+// requests would have been rejected.
+// ---------------------------------------------------------------------------
+// v0.6.0 (D1) fix: telemetry is best-effort (shared guard in http/_util.mjs).
+// services/metrics.mjs deliberately THROWS on inc() of an unregistered metric,
+// so EVERY metric update on the request path - rate-limit counters included -
+// goes through incMetric(). A metrics-shape mismatch must never turn a valid
+// request into E_INTERNAL.
+function rateLimitGate(id, endpoint, deps, tokenCount) {
+  const bearerKey = deps && deps.bearerKey
+  if (!bearerKey) {
+    incMetric(deps, 'hermes_link_rate_limit_skipped_total', { endpoint })
+    return null
+  }
+  const limiter = getRateLimiter()
+  if (!limiter) return null
+  // v0.6.0 (D1) fix: bucket on the sha256-derived short key, never the raw
+  // credential (services/rate-limit.mjs tokenKey(); 16 hex chars).
+  const key = tokenKey(bearerKey)
+  if (!key) return null
+  const decision = limiter.check({ key, endpoint, tokenCount: tokenCount || 0 })
+  if (decision.allowed) return null
+  incMetric(deps, 'hermes_link_rate_limited_total', { endpoint, scope: decision.scope })
+  return mcpError(id, 'E_RATE_LIMITED', `${decision.scope} bucket exhausted for ${endpoint}`, {
+    scope: decision.scope,
+    endpoint,
+    current: decision.current,
+    limit: decision.limit,
+    retry_after_ms: decision.retryAfterMs,
+  })
+}
+
 
 export async function handleRpc(ctx, body, deps) {
   const id     = body && body.id
@@ -55,8 +95,30 @@ export async function handleRpc(ctx, body, deps) {
   if (method === 'tools/call') {
     const name = params && params.name
     const args = (params && params.arguments) || {}
-    if (deps.metrics) deps.metrics.inc('hermes_link_dispatch_total', { mode: args.mode === 'continuable' ? 'continuable' : 'one-shot', status: 'started' })
+    incMetric(deps, 'hermes_link_dispatch_total', { mode: args.mode === 'continuable' ? 'continuable' : 'one-shot', status: 'started' })
+    // v0.6.0 D1: per-token rate-limit gate - EXACTLY ONE check() per request.
+    // The minute-window slot and the daily-token charge are combined into that
+    // single call: RateLimiter.check() appends to the sliding minute window on
+    // every allowed call, so a second check() would consume two quota slots per
+    // dispatch and halve effective throughput.
+    // The dry-run estimate is computed first so dispatch_task can pass its real
+    // tokenCount. When the spec is invalid the estimate is unavailable, so the
+    // single gate call falls back to the token-less behaviour (tokenCount 0) and
+    // the spec error is reported afterwards - never via a second check().
+    let dispatchDry = null;
     if (name === 'dispatch_task') {
+      dispatchDry = buildDispatchDryRun(args, { ctx, foundationSlice: deps.foundationSlice });
+    }
+    const gateTokenCount = (dispatchDry && dispatchDry.ok)
+      ? (dispatchDry.estimated_prompt_tokens || 0) + (dispatchDry.estimated_max_output_tokens || 0)
+      : 0;
+    const rl = rateLimitGate(id, name, deps, gateTokenCount);
+    if (rl) return rl;
+    if (name === 'dispatch_task') {
+      if (!dispatchDry.ok) return mcpError(id, dispatchDry.error_code, dispatchDry.hint);
+      if (dispatchDry.budget && dispatchDry.budget.max_total_tokens != null && dispatchDry.estimated_total_tokens > dispatchDry.budget.max_total_tokens) {
+        return mcpError(id, 'E_TOKEN_BUDGET_EXCEEDED', 'total_tokens > max_total_tokens');
+      }
       const out = await handleDispatchTask(ctx, args, deps)
       if (out._error) return out._error
       return mcpResult(id, out)
@@ -64,13 +126,13 @@ export async function handleRpc(ctx, body, deps) {
     if (name === 'dispatch_probe') {
       return handleProbe(ctx, id, args)
     }
-    if (deps.metrics) deps.metrics.inc('hermes_link_followup_total', { status: 'started' })
+    incMetric(deps, 'hermes_link_followup_total', { status: 'started' })
     if (name === 'dispatch_followup') {
       const out = await handleDispatchFollowup(ctx, args, deps)
       if (out._error) return out._error
       return mcpResult(id, out)
     }
-    if (deps.metrics) deps.metrics.inc('hermes_link_interrupt_total', { status: 'started' })
+    incMetric(deps, 'hermes_link_interrupt_total', { status: 'started' })
     if (name === 'dispatch_interrupt') {
       const out = await handleDispatchInterrupt(ctx, args, deps)
       if (out._error) return out._error
@@ -87,7 +149,7 @@ export async function handleRpc(ctx, body, deps) {
       return mcpResult(id, out)
     }
     if (name === 'get_dispatch') {
-      if (deps.metrics) deps.metrics.inc('hermes_link_dispatch_total', { mode: 'read', status: 'audit' })
+      incMetric(deps, 'hermes_link_dispatch_total', { mode: 'read', status: 'audit' })
       // v0.3.1 F4: enhanced with task_id/kind/since_ts/until_ts filters +
       // continuable_children enrichment when available.
       const limit = Number(args.limit) || 20
@@ -119,7 +181,7 @@ export async function handleRpc(ctx, body, deps) {
       return mcpResult(id, { content: [{ type: 'text', text: filtered.length ? JSON.stringify(filtered, null, 2) : '(empty)' }] })
     }
     if (name === 'dispatch_status') {
-      if (deps.metrics) deps.metrics.inc('hermes_link_dispatch_total', { mode: 'read', status: 'status' })
+      incMetric(deps, 'hermes_link_dispatch_total', { mode: 'read', status: 'status' })
       // v0.3.1 F4: live continuable children snapshot + audit_recent + token snapshot
       const taskIdFilter = typeof args.task_id === 'string' ? args.task_id : null
       const includeAudit = Number.isInteger(args.include_audit_recent) ? args.include_audit_recent : 5
@@ -131,7 +193,7 @@ export async function handleRpc(ctx, body, deps) {
       return mcpResult(id, status)
     }
     if (name === 'dispatch_tail') {
-      if (deps.metrics) deps.metrics.inc('hermes_link_dispatch_total', { mode: 'read', status: 'tail' })
+      incMetric(deps, 'hermes_link_dispatch_total', { mode: 'read', status: 'tail' })
       // v0.3.1 F4: last N session events from a live child agent
       const childId = typeof args.child_id === 'string' ? args.child_id : ''
       if (!childId) return mcpError(id, 'E_INVALID_SPEC', 'child_id required')
@@ -144,7 +206,7 @@ export async function handleRpc(ctx, body, deps) {
     }
     if (name === 'dispatch_dry_run') {
       // v0.3.3 F5: pre-flight estimator (no sub-agent spawned)
-      if (deps.metrics) deps.metrics.inc('hermes_link_dispatch_total', { mode: 'dry-run', status: 'requested' })
+      incMetric(deps, 'hermes_link_dispatch_total', { mode: 'dry-run', status: 'requested' })
       const result = buildDispatchDryRun(args, { ctx, foundationSlice: deps.foundationSlice })
       if (!result.ok) {
         return mcpError(id, result.error_code, result.hint)
@@ -166,9 +228,9 @@ export async function handleRpc(ctx, body, deps) {
         metadata: { transport: 'sse', url, since_seq: sinceSeq, timeout_ms: timeoutMs, note: 'GET is canonical; this tool only describes it.' },
       })
     }
-    return mcpError(id, 'E_UNKNOWN_TOOL', 'unknown tool: ' + name)
+    return mcpError(id, 'E_UNKNOWN_TOOL', name)
   }
-  return mcpError(id, 'E_UNKNOWN_METHOD', 'unknown method: ' + method)
+  return mcpError(id, 'E_UNKNOWN_METHOD', method)
 }
 
 function buildToolsList() {
@@ -322,7 +384,7 @@ function buildToolsList() {
 
 function handleProbe(ctx, id, args) {
   const probeName = args && typeof args.skill === 'string' && args.skill ? args.skill : ''
-  if (!probeName) return mcpError(id, 'E_INVALID_SPEC', 'invalid spec: missing required field: skill')
+  if (!probeName) return mcpError(id, 'E_INVALID_SPEC', 'missing required field: skill')
   let names = null
   try {
     let view = null

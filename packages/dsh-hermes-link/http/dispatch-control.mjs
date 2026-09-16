@@ -18,11 +18,11 @@ const VERSION = '0.4.0'
 export async function handleDispatchFollowup(ctx, args, deps) {
   const { continuations, outbox, sseBroker } = deps
   const childId = args.child_id
-  if (!childId) return { _error: mcpError(null, 'E_INVALID_SPEC', 'invalid spec: child_id required') }
+  if (!childId) return { _error: mcpError(null, 'E_INVALID_SPEC', 'child_id required') }
   const entry = continuations ? continuations.get(childId) : null
-  if (!entry) return { _error: mcpError(null, 'E_UNKNOWN_CHILD', 'unknown child_id; not in registry') }
+  if (!entry) return { _error: mcpError(null, 'E_UNKNOWN_CHILD', 'not in registry') }
   if (!Array.isArray(args.content) || args.content.length === 0) {
-    return { _error: mcpError(null, 'E_INVALID_SPEC', 'invalid spec: content (ContentBlock[]) required') }
+    return { _error: mcpError(null, 'E_INVALID_SPEC', 'content (ContentBlock[]) required') }
   }
   const liveParent = ctx.agents.get(entry.parent_agent_id) || pickParentAgent(ctx)
   if (!liveParent) return { _error: mcpError(null, 'E_NO_LIVE_AGENT', 'no live parent agent available for followup') }
@@ -126,9 +126,9 @@ export async function handleDispatchFollowup(ctx, args, deps) {
 export async function handleDispatchInterrupt(ctx, args, deps) {
   const { continuations, sseBroker } = deps
   const childId = args.child_id
-  if (!childId) return { _error: mcpError(null, 'E_INVALID_SPEC', 'invalid spec: child_id required') }
+  if (!childId) return { _error: mcpError(null, 'E_INVALID_SPEC', 'child_id required') }
   const entry = continuations ? continuations.get(childId) : null
-  if (!entry) return { _error: mcpError(null, 'E_UNKNOWN_CHILD', 'unknown child_id') }
+  if (!entry) return { _error: mcpError(null, 'E_UNKNOWN_CHILD', 'delete:see note') }
   const agent = ctx.agents.get(childId)
   if (!agent) {
     if (continuations) continuations.update(childId, { status: 'orphan', stop_reason: 'interrupted_not_live' })
@@ -176,7 +176,7 @@ export async function handleDispatchList(ctx, args, deps) {
 export async function handleDispatchGet(ctx, args, deps) {
   const { continuations } = deps
   const childId = args.child_id
-  if (!childId) return { _error: mcpError(null, 'E_INVALID_SPEC', 'invalid spec: child_id required' ) }
+  if (!childId) return { _error: mcpError(null, 'E_INVALID_SPEC', 'child_id required') }
   const entry = continuations ? continuations.get(childId) : null
   const agent = ctx.agents.get(childId)
   if (!agent) {

@@ -1,4 +1,4 @@
-﻿// services/error-codes.mjs
+// services/error-codes.mjs
 //
 // v0.3.0 (E9) - centralized error code registry for dsh-hermes-link.
 // v0.5.0 (B1) - +E_TOKEN_BUDGET_EXCEEDED for pre-flight / real-dispatch budget gates.
@@ -55,6 +55,11 @@ export const ErrorCodes = {
     code: -32021,
     message: 'token budget exceeded',
     hint: 'call dispatch_dry_run with the same args to see estimated vs max budget; raise max_prompt_tokens/max_total_tokens or trim the prompt',
+  },
+  E_RATE_LIMITED: {
+    code: -32022,
+    message: 'rate limited',
+    hint: 'see retry_after_ms in data; back off, throttle upstream, or ask an operator to raise HERMES_LINK_RATE_LIMIT_RPM / _DAILY_TOKENS for your token',
   },
 
   // ---- 326xx / 327xx: standard JSON-RPC ----

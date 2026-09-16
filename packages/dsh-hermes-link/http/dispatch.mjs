@@ -13,10 +13,11 @@
 //   - dispatch-control.mjs   闂?dispatch_followup / interrupt / list / get
 //   - _util.mjs              闂?mcpError / mcpResult / clampInt / readAllStream / send*
 
-import { appendAudit, readAuditLines } from '../services/audit.mjs'
+import { appendAudit, readAuditLines, dshHome } from '../services/audit.mjs'
+import { runDoctor } from '../services/doctor.mjs'
 
 
-import { mcpError, mcpResult, clampInt, readAllStream, sendJson, send } from './_util.mjs'
+import { mcpError, mcpResult, clampInt, readAllStream, sendJson, send, incMetric } from './_util.mjs'
 import { handleRpc } from './jsonrpc-handlers.mjs'
 import {
   handleDispatchTask,
@@ -30,7 +31,7 @@ import {
   pickParentAgent,
 } from './dispatch-task.mjs'
 
-export const VERSION = '0.5.0'
+export const VERSION = '0.6.0'
 const BEARER_TOKEN = process.env.HERMES_LINK_TOKEN || ''
 
 // Re-exports for backward compat (tests / external consumers).
@@ -53,14 +54,24 @@ export { mcpError, mcpResult, readAllStream, sendJson, send } from './_util.mjs'
 // -----------------------------------------------------------------------------
 
 function authFail(res) {
-  return sendJson(res, 401, mcpError(null, 'E_AUTH_REQUIRED', 'unauthorized: missing or invalid Authorization: Bearer <token>'))
+  return sendJson(res, 401, mcpError(null, 'E_AUTH_REQUIRED'))
+}
+
+// v0.6.0 (D1) fix: single source of truth for the Bearer comparison, so auth
+// gating and rate-limit bucketing can never drift apart (auth passing while
+// bucketing silently falls back to anonymous). Exact match on
+// 'Bearer ' + BEARER_TOKEN (case-sensitive); returns the configured token on
+// success and '' when BEARER_TOKEN is unset or the header does not match.
+function matchBearerToken(req) {
+  if (!BEARER_TOKEN) return ''
+  const headers = (req && req.headers) || {}
+  const h = headers.authorization || headers.Authorization || ''
+  return h === 'Bearer ' + BEARER_TOKEN ? BEARER_TOKEN : ''
 }
 
 function checkAuth(req, res) {
   if (!BEARER_TOKEN) return null
-  const headers = (req && req.headers) || {}
-  const h = headers.authorization || headers.Authorization || ''
-  if (h === 'Bearer ' + BEARER_TOKEN) return null
+  if (matchBearerToken(req)) return null
   return authFail(res)
 }
 
@@ -77,7 +88,7 @@ export function register(ctx, deps) {
   // v0.3.0 F1 - SSE sseBroker is created in index.mjs and passed via deps
   // (so amend-watcher.mjs can share the same singleton via globalThis).
   const sseBroker = deps.sseBroker
-  const { hermesHome, importer, personaLoader, consultClient, foundationSlice, sessionMirror } = deps
+  const { hermesHome, importer, personaLoader, consultClient, foundationSlice, sessionMirror, hermesOutbox } = deps
 
   // 1. JSON-RPC envelope (POST /mcp/collab) 闂?delegates to jsonrpc-handlers.mjs.
   webServer.register({
@@ -92,21 +103,25 @@ export function register(ctx, deps) {
         const raw = await readAllStream(req)
         if (!raw) return sendJson(res, 400, mcpError(null, 'E_INVALID_REQUEST', 'missing body'))
         try { body = JSON.parse(raw) }
-        catch (e) { return sendJson(res, 400, mcpError(null, 'E_PARSE_ERROR', 'parse error: ' + e.message)) }
+        catch (e) { return sendJson(res, 400, mcpError(null, 'E_PARSE_ERROR', e.message)) }
       } else if (method === 'GET') {
         body = { jsonrpc: '2.0', id: 0, method: 'ping' }
       } else {
         return sendJson(res, 405, mcpError(null, 'E_INVALID_REQUEST', 'method not allowed: ' + method))
       }
       try {
+        // Raw token is kept in the plumbing (deps.bearerKey); it is hashed via
+        // services/rate-limit.mjs tokenKey() before it becomes a bucket key.
+        const bearerKey = matchBearerToken(req)
         const out = await handleRpc(ctx, body, {
           ...deps,
           dispatcherCount,
+          bearerKey,
         })
         if (out === null) return send(res, 204, '')
         return sendJson(res, 200, out)
       } catch (e) {
-        return sendJson(res, 500, mcpError(body && body.id, 'E_INTERNAL', 'internal: ' + (e && e.message || e)))
+        return sendJson(res, 500, mcpError(body && body.id, 'E_INTERNAL', e && e.message || String(e)))
       }
     },
   })
@@ -233,9 +248,60 @@ export function register(ctx, deps) {
       if (!sessionMirror) return sendJson(res, 503, { error: 'session mirror service not available' })
       const url = new URL(req.url || '/', 'http://localhost')
       const sessionId = url.searchParams.get('session_id')
-      if (sessionId) return sendJson(res, 200, sessionMirror.status(sessionId))
+      if (sessionId) {
+        return sendJson(res, 200, {
+          ...sessionMirror.status(sessionId),
+          // v0.6.0: the policy's verdict for this session, so a refused mirror is
+          // explainable (out_of_scope / no_cwd / policy_off / echo_session ...).
+          decision: sessionMirror.decisionFor ? sessionMirror.decisionFor(sessionId) : null,
+        })
+      }
       const sessions = sessionMirror.listStatus()
-      return sendJson(res, 200, { count: sessions.length, sessions })
+      return sendJson(res, 200, {
+        count: sessions.length,
+        sessions,
+        // v0.6.0: without these two, "count: 0" cannot be told apart from "the
+        // scope test refuses every session" (the live state on 2026-09-16).
+        policy: sessionMirror.policyStatus ? sessionMirror.policyStatus() : null,
+        decisions: sessionMirror.decisionLog ? sessionMirror.decisionLog() : [],
+      })
+    },
+  })
+
+  // 3c. v0.6.0 (C1) - Hermes -> DSH notification consumer (outbox/hermes/).
+  // This is the surface that makes the reverse channel verifiable: which file
+  // was consumed, which was rejected and why, and what is waiting for a retry.
+  webServer.register({
+    kind: 'exact',
+    path: '/mcp/collab/hermes-outbox/status',
+    handler: async (req, res) => {
+      const denied = checkAuth(req, res); if (denied) return denied
+      if (!hermesOutbox) return sendJson(res, 503, { error: 'hermes outbox consumer not available' })
+      return sendJson(res, 200, { dirs: hermesOutbox.dirs, stats: hermesOutbox.stats() })
+    },
+  })
+
+  // 3d. v0.6.0 (D) - runtime doctor. Same module the CLI runs, plus the live
+  // in-process policy/consumer state the filesystem cannot show. This is the
+  // probe that answers "is ANY channel silently dead right now?".
+  webServer.register({
+    kind: 'exact',
+    path: '/mcp/collab/doctor',
+    handler: async (req, res) => {
+      const denied = checkAuth(req, res); if (denied) return denied
+      try {
+        const report = await runDoctor({
+          hermesHome,
+          dshHome: dshHome(),
+          live: {
+            mirrorPolicy: sessionMirror && sessionMirror.policyStatus ? sessionMirror.policyStatus() : null,
+            outboxStats: hermesOutbox && hermesOutbox.stats ? hermesOutbox.stats() : null,
+          },
+        })
+        return sendJson(res, 200, report)
+      } catch (e) {
+        return sendJson(res, 500, { error: String(e && e.message || e) })
+      }
     },
   })
 
@@ -262,7 +328,7 @@ export function register(ctx, deps) {
       const status = result.status === 'created' || result.status === 'already_imported' ? 200
                    : result.status === 'not_found' ? 404
                    : 500
-      if (deps.metrics) deps.metrics.inc('hermes_link_import_total', { status: result.status })
+      incMetric(deps, 'hermes_link_import_total', { status: result.status })
       appendAudit({ kind: 'import', hermesSessionId, status: result.status, ts: Date.now() })
       return sendJson(res, status, result)
     },
@@ -351,7 +417,7 @@ export function register(ctx, deps) {
       const status = result.status === 'replied' ? 200
                    : result.status === 'pending' ? 202
                    : 500
-      if (deps.metrics) deps.metrics.inc('hermes_link_consult_total', { status: result.status })
+      incMetric(deps, 'hermes_link_consult_total', { status: result.status })
       appendAudit({ kind: 'consult', status: result.status, ticket: result.ticket || null, elapsed_ms: Date.now() - startedAt, ts: Date.now() })
       if (deps.outbox && result.status === 'replied') {
         deps.outbox.appendUsage({ kind: 'consult', status: 'replied', ticket: result.ticket, elapsed_ms: Date.now() - startedAt })
@@ -388,6 +454,6 @@ export function register(ctx, deps) {
     },
   })
 
-  console.log('[dsh-hermes-link v' + VERSION + '] routes registered: /mcp/collab (+followup/interrupt/list/get/probe)  /mcp/collab/health  /mcp/collab/sessions  /mcp/collab/session-stream  /mcp/collab/session-mirror/status  /mcp/collab/import  /mcp/collab/import-all  /mcp/collab/persona  /mcp/collab/consult  /mcp/collab/memory-suggest')
+  console.log('[dsh-hermes-link v' + VERSION + '] routes registered: /mcp/collab (+followup/interrupt/list/get/probe)  /mcp/collab/health  /mcp/collab/sessions  /mcp/collab/session-stream  /mcp/collab/session-mirror/status  /mcp/collab/hermes-outbox/status  /mcp/collab/import  /mcp/collab/import-all  /mcp/collab/persona  /mcp/collab/consult  /mcp/collab/memory-suggest')
 }
 

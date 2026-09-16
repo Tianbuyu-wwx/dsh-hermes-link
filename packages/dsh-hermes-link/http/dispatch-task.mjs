@@ -31,7 +31,7 @@ export function dispatcherCount() { return dispatchers.size }
 export async function handleDispatchTask(ctx, args, deps) {
   const { consultClient, foundationSlice, continuations, outbox, sseBroker } = deps
   const err = validateSpec(args)
-  if (err) return { _error: mcpError(null, 'E_INVALID_SPEC', 'invalid spec: ' + err) }
+  if (err) return { _error: mcpError(null, 'E_INVALID_SPEC', err) }
 
   const parent = pickParentAgent(ctx)
   if (!parent) {
@@ -40,7 +40,7 @@ export async function handleDispatchTask(ctx, args, deps) {
 
   const taskId = args.task_id
   if (dispatchers.has(taskId)) {
-    return { _error: mcpError(null, 'E_DUPLICATE_TASK_ID', 'duplicate task_id; already running: ' + taskId) }
+    return { _error: mcpError(null, 'E_DUPLICATE_TASK_ID', 'already running: ' + taskId) }
   }
   dispatchers.set(taskId, { startedAt: Date.now(), status: 'running' })
 

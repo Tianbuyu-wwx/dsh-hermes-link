@@ -1,5 +1,22 @@
 # @tianbuyu-wwx/dsh-hermes-link
 
+## 0.6.0
+
+### Minor Changes
+
+- **Both sync directions now work end to end (audit phases A–D).**
+  - **Hermes → DSH import** migrated to the DSH 0.1.5 handle-based persistence API (`stat`/`list` + the write handle `create()` returns: `append`/`flush`/`close`). Failures no longer degrade to `already_imported`, imported history is anchored in one workspace (`HERMES_LINK_IMPORT_WORKSPACE`, with `HERMES_LINK_IMPORT_PER_PROJECT=1` restoring per-project inference), and a Windows cwd that is not fully qualified is never handed to DSH.
+  - **Imported sessions get a live model route.** Imports now append a `model/selection` event pointing at the deployment's own route (`ctx.agentDefaultModel`). DSH reads a session's current model from its last `request/header`, and the synthetic `dsh-hermes-link` provider recorded there is served by no adapter — which blocked the whole composer (model *and* agent preset unchangeable). Existing sessions: `node scripts/repair-imported-model-selection.mjs --apply`; override the route with `HERMES_LINK_IMPORT_MODEL=provider/model[#effort]`.
+  - **Session mirror that is actually reachable.** `HERMES_LINK_MIRROR_POLICY=off|scoped|all` (default `scoped`), plus `HERMES_LINK_MIRROR_PROJECTS` and the plugin-owned `<DSH_HOME>/dsh-hermes-link/mirror-projects.json` for local paths whose Hermes project key is stale or missing (re-read live — no restart). `GET /mcp/collab/session-mirror/status` now returns the resolved policy and per-session decisions, so "why is nothing mirrored?" is answerable. Mirror lines carry `{ts, cursor, source, origin_session_id, event}`; resume with `GET /mcp/collab/session-stream?session_id=<sid>&since_seq=<cursor>`.
+  - **Hermes → DSH notification channel (new).** `Hermes Home/outbox/hermes/**/*.json` is consumed with the verified amend-watcher shape (fs.watch + debounce + safety poll): `kind:"import"` runs the importer, `notify`/`ping` publish on the `hermes-outbox` SSE channel, every file leaves the scan set (executed → `done/`, redelivery → `duplicate-*`, echo/malformed/unsupported/failed → prefixed), and `(source,id)` is remembered across restarts. Status: `GET /mcp/collab/hermes-outbox/status`.
+  - **Runtime doctor + consult TTL.** `npm run doctor` (or `GET /mcp/collab/doctor`) measures heartbeat freshness, mirror liveness, consult backlog with per-ticket age, amend writability and outbox state — plus `--pin-scan` for imported-session model pins. Consult tickets unanswered past 24h get a non-destructive `<ticket>.expired.json` marker, counted by `hermes_link_consult_expired_total`.
+
+### Patch Changes
+
+- Per-token rate limiting and a daily token budget for `dispatch_task` (one `check()` per request, guarded metrics), plus a real-tokenizer path for `dispatch_dry_run`/`dispatch_task` budgets.
+- Telemetry can no longer break a request path: `http/_util.mjs` exports guarded `incMetric`/`setMetric` (the registry throws on unregistered names), with a permanent regression gate in `scripts/test-telemetry-resilience.mjs`.
+- Housekeeping tools: `scripts/prune-empty-workspaces.mjs` (must run with DSH stopped), `scripts/repair-imported-model-selection.mjs`, `scripts/hermes-link-doctor.mjs`.
+
 ## 0.5.0
 
 ### Patch Changes
