@@ -51,7 +51,10 @@ else skip('index.mjs VERSION')
 const changelogPath = join(root, 'CHANGELOG.md')
 if (existsSync(changelogPath)) {
   const changelogTxt = readFileSync(changelogPath, 'utf8')
-  const m3 = changelogTxt.match(/##\s*\[([^\]]+)\]\s*[鈥?]/)
+  // ASCII-safe: the previous character class carried literal en/em dashes that
+  // did not survive every editor round-trip, so this check silently SKIPPED
+  // (a skipped check is not a passing check). Match the version bracket only.
+  const m3 = changelogTxt.match(/^##\s*\[([^\]]+)\]/m)
   if (m3) check('packages/dsh-hermes-link/CHANGELOG.md latest entry', m3[1], truth)
   else skip('packages/dsh-hermes-link/CHANGELOG.md latest entry')
 } else {

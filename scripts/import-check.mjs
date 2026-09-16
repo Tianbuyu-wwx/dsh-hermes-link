@@ -38,6 +38,7 @@ const modules = [
   'packages/dsh-hermes-link/services/outbox.mjs',
 'packages/dsh-hermes-link/services/redact.mjs',
   'packages/dsh-hermes-link/services/session-mirror.mjs',
+  'packages/dsh-hermes-link/services/mirror-policy.mjs',
   'packages/dsh-hermes-link/services/continuations.mjs',
   'packages/dsh-hermes-link/services/amend-watcher.mjs',
   'packages/dsh-hermes-link/services/audit.mjs',

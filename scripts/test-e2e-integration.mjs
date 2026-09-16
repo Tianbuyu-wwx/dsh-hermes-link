@@ -24,10 +24,15 @@ import { strict as assert } from 'node:assert'
 import http from 'node:http'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { dirname, join } from 'node:path'
-import { mkdtempSync } from 'node:fs'
+import { mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
+// B3 fix: expected version is derived from the package manifest instead of a
+// hardcoded literal, so a version bump cannot silently break this suite.
+const EXPECTED_VERSION = JSON.parse(
+  readFileSync(join(root, 'packages/dsh-hermes-link/package.json'), 'utf8')
+).version
 const dispatchUrl = pathToFileURL(join(root, 'packages/dsh-hermes-link/http/dispatch.mjs')).href
 const sseBrokerUrl = pathToFileURL(join(root, 'packages/dsh-hermes-link/services/sse-broker.mjs')).href
 const metricsUrl = pathToFileURL(join(root, 'packages/dsh-hermes-link/services/metrics.mjs')).href
@@ -83,6 +88,11 @@ async function makeServer({ bearerToken = '', enableAuth = false } = {}) {
     ['hermes_link_outbox_session_events_total', []],
     ['hermes_link_audit_appends_total', []],
     ['hermes_link_continuables_registered_total', []],
+    // v0.6.0 (D1) rate-limit counters - must mirror index.mjs
+    // registerMetricsShape() exactly, otherwise the handler's inc() throws on
+    // an unregistered metric and the whole JSON-RPC surface 500s.
+    ['hermes_link_rate_limited_total', ['endpoint', 'scope']],
+    ['hermes_link_rate_limit_skipped_total', ['endpoint']],
   ]
   for (const [name, labels] of COUNTERS) metrics.registerCounter(name, '', labels)
   const GAUGES = [
@@ -217,7 +227,7 @@ await t('e2e: /mcp/collab/health returns 200 with version + auth status', async 
     assert.equal(res.headers.get('content-type'), 'application/json; charset=utf-8')
     const body = await res.json()
     assert.equal(body.ok, true)
-    assert.equal(body.version, '0.5.0')
+    assert.equal(body.version, EXPECTED_VERSION)
     assert.equal(body.auth, 'open')
     assert.ok(body.sse_broker)
     assert.ok(body.sse_broker.channels === 0)
@@ -249,7 +259,7 @@ await t('e2e: /mcp/collab (GET) responds to ping with version', async () => {
     const body = await res.json()
     assert.equal(body.jsonrpc, '2.0')
     assert.ok(body.result)
-    assert.equal(body.result.version, '0.5.0')
+    assert.equal(body.result.version, EXPECTED_VERSION)
     assert.equal(body.result.ok, true)
   } finally { await s.close() }
 })

@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // scripts/test-session-mirror.mjs
-// Unit tests for v0.4.0 opt-in automatic DSH session mirroring:
-//   - default is OFF
+// Unit tests for v0.4.0/v0.6.0 automatic DSH session mirroring:
+//   - nothing is mirrored without an enable (v0.6.0 default policy is 'scoped',
+//     which only auto-enables a session whose cwd matches a real Hermes project;
+//     these unit tests never supply a cwd, so the state stays OFF)
 //   - enable writes future events to the mirror JSONL with redaction
 //   - disable stops future writes
 //   - enable(backfill) mirrors existing events
@@ -31,11 +33,18 @@ function makeDirs() {
   const dshHome = mkdtempSync(join(tmpdir(), 'dsh-hermes-link-mirror-state-'))
   const old = process.env.DSH_HOME
   process.env.DSH_HOME = dshHome
+  // v0.6.0 (B): pin the mirror policy for this suite. The cases below assert the
+  // documented DEFAULT ('scoped' = nothing is auto-mirrored without a matching
+  // cwd), so an ambient HERMES_LINK_MIRROR_POLICY=all in the developer's shell
+  // must not change what they assert.
+  const oldPolicy = process.env.HERMES_LINK_MIRROR_POLICY
+  delete process.env.HERMES_LINK_MIRROR_POLICY
   return {
     hermesHome,
     dshHome,
     cleanup() {
       if (old === undefined) delete process.env.DSH_HOME; else process.env.DSH_HOME = old
+      if (oldPolicy === undefined) delete process.env.HERMES_LINK_MIRROR_POLICY; else process.env.HERMES_LINK_MIRROR_POLICY = oldPolicy
       try { rmSync(hermesHome, { recursive: true, force: true }) } catch {}
       try { rmSync(dshHome, { recursive: true, force: true }) } catch {}
     },
@@ -50,7 +59,7 @@ const secretEvent = () => ({
 
 const cleanEvent = () => ({ type: 'assistant/message', seq: 8, data: { content: [{ type: 'text', text: 'hello' }] } })
 
-t('default OFF: handleEvent writes nothing before enable', () => {
+t('no policy trigger: handleEvent writes nothing before an explicit enable', () => {
   const env = makeDirs()
   try {
     const ob = createOutbox({ hermesHome: env.hermesHome })
@@ -58,7 +67,18 @@ t('default OFF: handleEvent writes nothing before enable', () => {
     assert.equal(sm.isEnabled('sess-1'), false)
     const status = sm.status('sess-1')
     assert.equal(status.enabled, false)
-    assert.equal(status.default_off, true)
+    // v0.6.0 (B) - ONE assertion had to change because the default flipped.
+    // 'default_off' is now a statement about the resolved POLICY, not about this
+    // particular session: under the new default ('scoped') some sessions are
+    // mirrored with no user action at all, so keeping `assert.equal(default_off,
+    // true)` would assert something false about the service. It is replaced by
+    // the resolved policy PLUS the per-session truth, and every behavioural
+    // assertion in this case (isEnabled false, enabled false, no file written)
+    // is unchanged - nothing was loosened. The 'off' policy still reports
+    // default_off=true, asserted in scripts/test-mirror-policy.mjs.
+    assert.equal(status.policy, 'scoped')
+    assert.equal(status.default_off, false)
+    assert.equal(sm.policyStatus().policy, 'scoped')
     sm.handleEvent('sess-1', secretEvent())
     ob.flushNow()
     const mirror = join(env.hermesHome, 'inbox', 'dsh', 'session-mirror', 'sess-1.jsonl')
