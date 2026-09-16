@@ -1,5 +1,11 @@
 # @tianbuyu-wwx/dsh-hermes-link
 
+## 0.6.1
+
+### Patch Changes
+
+- **The doctor and the model-pin repair tool now ship with the package.** `bin/hermes-link-doctor.mjs` and `bin/repair-imported-model-selection.mjs` are exposed as the `hermes-link-doctor` and `hermes-link-repair-model-pins` bins, so an npm install can run `npx hermes-link-doctor` (or `npx hermes-link-repair-model-pins --apply`) without cloning the repository. The repository's `scripts/hermes-link-doctor.mjs` and `scripts/repair-imported-model-selection.mjs` remain as thin wrappers; `GET /mcp/collab/doctor` is still the in-process surface.
+
 ## 0.6.0
 
 ### Minor Changes

@@ -47,6 +47,14 @@ const m2 = indexTxt.match(/VERSION\s*=\s*['"]([^'"]+)['"]/)
 if (m2) check('index.mjs VERSION', m2[1], truth)
 else skip('index.mjs VERSION')
 
+// 3b. http/jsonrpc-handlers.mjs VERSION (the version Hermes sees on the wire).
+// Added in v0.6.1: this constant drifted to a stale release while dispatch.mjs
+// and index.mjs moved, and only the e2e suite noticed (nothing checked it).
+const jsonrpcTxt = readFileSync(join(root, 'packages/dsh-hermes-link/http/jsonrpc-handlers.mjs'), 'utf8')
+const m2b = jsonrpcTxt.match(/const VERSION\s*=\s*['"]([^'"]+)['"]/)
+if (m2b) check('http/jsonrpc-handlers.mjs VERSION', m2b[1], truth)
+else skip('http/jsonrpc-handlers.mjs VERSION')
+
 // 4. CHANGELOG.md latest entry
 const changelogPath = join(root, 'CHANGELOG.md')
 if (existsSync(changelogPath)) {

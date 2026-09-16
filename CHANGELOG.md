@@ -24,6 +24,14 @@ These commits existed and the work shipped through subsequent published versions
 
 ---
 
+## [0.6.1] — 2026-09-16
+
+### Changed
+
+- **The doctor and the imported-session repair tool are packaged.** They now ship inside `@tianbuyu-wwx/dsh-hermes-link` as the `hermes-link-doctor` and `hermes-link-repair-model-pins` bins, so npm users can run `npx hermes-link-doctor` / `npx hermes-link-repair-model-pins --apply` instead of checking out the repository. The repository's `scripts/hermes-link-doctor.mjs` and `scripts/repair-imported-model-selection.mjs` stay as thin wrappers.
+
+---
+
 ## [0.6.0] — 2026-09-16
 
 > The release that closes the 2026-09-15 audit (`docs/audit-v0.6.0-buglist-and-sync-plan.md`): both
