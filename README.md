@@ -61,7 +61,7 @@ Earlier we ran this as three separate plugins (`hermes-foundation`, `hermes-ones
 | `load_hermes_project_memory` | cwd-scoped Hermes MEMORY.md loader (matches only this project's Hermes sessions) |
 | `consult_hermes` | ask Hermes a question (file-based async; reply must carry secret suffix since v0.2.2) |
 | `mirror_session_to_hermes` | opt-in V4 mirror with secret-pattern redaction (v0.2.2; cookies / JWTs / API keys / set-cookie / session_id redacted) |
-| `session_mirror` | v0.5.0 opt-in automatic mirror switch: `enable` / `disable` / `status` for current DSH session (redacted, default OFF) |
+| `session_mirror` | automatic mirror switch: `enable` / `disable` / `status` for the current DSH session (always redacted). Since v0.6.0 the default policy `HERMES_LINK_MIRROR_POLICY=scoped` auto-enables it for sessions whose cwd matches a real Hermes project; `disable` is a durable opt-out |
 | `hermes_inbox` / `hermes_inbox_append` | read / append to the shared conversation record (`~/.dsh/hermes-inbox/session.jsonl`) |
 | `hermes_clear_injected` | audit-only: count turns auto-injected by an older hermes-foundation/dsh-hermes-link version, point at "open a new session" |
 | `rotate_outbox_now` | v0.3.1 F2: force an immediate outbox file rotation pass (size-based usage.jsonl / session-mirror rotation + age-based heartbeat / memory-suggest archive + purge) |
@@ -74,8 +74,18 @@ Earlier we ran this as three separate plugins (`hermes-foundation`, `hermes-ones
 - **Import format compatibility**: the converter accepts both Anthropic-style content blocks and OpenAI-compatible request dumps (`assistant.content` string + `assistant.tool_calls[]` + `role: 'tool'` results), so Hermes AI replies and tool calls are preserved in imported DSH sessions.
 - **heartbeat** (60s), **usage** (per-task), **memory-suggest** all run in the background.
 - **amend watcher** (H4 nonce-bound) delivers mid-task amendments from Hermes to running continuable children.
-- **session mirror** is opt-in per session (v0.5.0). Once `session_mirror action=enable` is called, every new DSH event is redacted and written to `Hermes Home/inbox/dsh/session-mirror/<sid>.jsonl`; Hermes can also subscribe to `GET /mcp/collab/session-stream?session_id=<sid>` for real-time SSE.
+- **Hermes→DSH notification consumer** (v0.6.0 C1): `Hermes Home/outbox/hermes/**/*.json` is now read (fs.watch + safety poll, the amend-watcher shape). `kind:"import"` runs the importer, `notify`/`ping` publish on the `hermes-outbox` SSE channel, and every file leaves the scan set — executed files move to `done/`, redeliveries are archived as `duplicate-*` (the notification `id` is remembered across restarts), and malformed/unsupported/failed files are parked with a prefix instead of being rescanned forever. Status: `GET /mcp/collab/hermes-outbox/status`.
+- **session mirror** is policy-scoped by default (v0.6.0): `HERMES_LINK_MIRROR_POLICY` = `off` | `scoped` (default) | `all`. Under `scoped` a session is mirrored automatically only when its `header.cwd` matches a real Hermes project (`state.db` `sessions.cwd` / `git_repo_root`, or the same git worktree root); an unrelated project stays OFF (`HERMES_LINK_MIRROR_PROJECTS` lists local paths that stay in scope when Hermes' recorded project key is stale). Every mirrored event is redacted and written to `Hermes Home/inbox/dsh/session-mirror/<sid>.jsonl` as `{ts, cursor, source, origin_session_id, event}` — keep the last line's `cursor` and resume the SSE feed with `since_seq=<cursor>` instead of rescanning; Hermes can also subscribe to `GET /mcp/collab/session-stream?session_id=<sid>` for real-time SSE. The echo/noise guard always skips `hermes-*` / `hermes-imported` sessions (no transcript echo back to Hermes) and pure lifecycle/bookkeeping events, and an explicit `session_mirror action=disable` is durable.
 - **Hermes Home auto-detect**: `HERMES_HOME` env → `%LOCALAPPDATA%\hermes` on Windows → `~/.local/share/hermes` on POSIX.
+
+### Diagnostics — `npm run doctor` (v0.6.0 D)
+
+Every silently broken channel this project has hit was invisible to source reading: three consult tickets three weeks stale, a `session-mirror/` directory holding only `archive/`, 145 imported sessions whose model selection no adapter could serve. The doctor measures instead of assumes:
+
+- **filesystem probe** (in a repository checkout: `npm run doctor`, or `node scripts/hermes-link-doctor.mjs`): heartbeat freshness (is the plugin actually alive?), resolved mirror policy + **whether enabled mirrors are still growing**, consult backlog with per-ticket age, amend-directory writability, the Hermes→DSH outbox state, and — behind `--pin-scan` — whether every imported session still ends in a routable `model/selection`.
+- **in-process probe**: `GET /mcp/collab/doctor` (this one ships inside the npm package) runs the same module inside DSH, adding the live policy/consumer state the filesystem cannot show.
+- Exit code 1 when a channel is broken (`--strict` also fails on warnings); `--json` for scripting.
+- The consult channel also gets a **TTL sweep** (hourly): a ticket with no reply past 24h is marked with a non-destructive `<ticket>.expired.json` beside it — countable via `hermes_link_consult_expired_total` — and the ticket itself is kept, so a late reply is still accepted.
 
 ### Security boundaries
 
@@ -88,6 +98,8 @@ Earlier we ran this as three separate plugins (`hermes-foundation`, `hermes-ones
 | Hermes state.db poisoned cwd → `C:\Windows\System32` | `isSafeCwd()` rejects 17 system roots + null byte + >1024 chars | v0.2.3 |
 | Mirror filename >200 chars triggers `ENAMETOOLONG` silent failure | sha1(12 hex) tail truncation with preserved uniqueness | v0.2.3 |
 | Mirror leaks cookie / set-cookie / session_id | redact regex list expanded to 10+ secret shapes | v0.2.3 |
+| DSH session of project A mirrored into project B's Hermes inbox | mirror policy defaults to `scoped`: auto-enable requires a provable cwd / git-repo-root match against Hermes `state.db`; an invalid policy value falls back to `scoped`, never `all` | v0.6.0 |
+| Hermes-imported session mirrored back into Hermes (transcript echo) | echo/noise guard: `hermes-*` ids and the `hermes-imported` agentPreset are never auto-enabled and never written, even when explicitly enabled; lifecycle/bookkeeping event types are skipped | v0.6.0 |
 | Imported sessions resume-unusable (`turn:0` events fail DSH persistence validator) | turn envelope rewritten to start at 1; corrupt artifacts auto-removed and rebuilt | v0.2.4 |
 
 See [docs/security-model.md](docs/security-model.md) for the full layered model.
@@ -170,8 +182,8 @@ Then in DSH:
                                           │   │   ├─ watcher             fs-poll Hermes Home/sessions/ │
                                           │   │   ├─ personaLoader       SOUL / MEMORY / config        │
                                           │   │   ├─ consultClient       file-based Hermes consult      │
-                                          │   │   ├─ outbox              D3/D6/D7 + V4 mirror (opt-in)  │
-│   │   ├─ sessionMirror      V4 opt-in auto mirror (redacted + SSE)   │
+                                          │   │   ├─ outbox              D3/D6/D7 + V4 mirror (policy)  │
+│   │   ├─ sessionMirror      V4 policy auto mirror (redacted + SSE)   │
                                           │   │   ├─ continuations       continuable child registry     │
                                           │   │   ├─ amendWatcher        H4 nonce-bound delivery        │
                                           │   │   ├─ audit               D4 audit JSONL                 │
@@ -209,6 +221,8 @@ See [docs/](docs/) for component-level details.
 | `HERMES_HOME` | auto-detected (`%LOCALAPPDATA%\hermes` on Windows, `~/.local/share/hermes` on POSIX) | Hermes data root |
 | `HERMES_LINK_TOKEN` | unset | When set, every `/mcp/collab*` (except `/health`) requires `Authorization: Bearer <token>` |
 | `HERMES_LINK_TRUST_LEGACY` | unset (`0`) | When set (`1`), legacy `<ticket>.json` consult-reply is accepted alongside the v0.2.2 `<ticket>-<secret>.json` |
+| `HERMES_LINK_MIRROR_PROJECTS` | unset | `;`/`,`-separated LOCAL paths that are in scope whatever Hermes' `state.db` says. Needed when a project directory was renamed or moved after Hermes last ran there (its recorded key goes stale and the `scoped` test then fails closed forever), or when the Hermes rows carry `cwd=null` |
+| `HERMES_LINK_MIRROR_POLICY` | `scoped` | DSH→Hermes session-mirror policy: `off` = only an explicit `session_mirror action=enable` (pre-v0.6.0 behaviour), `scoped` = auto-mirror only sessions whose cwd matches a real Hermes project (same `state.db` `cwd` / `git_repo_root` / git worktree root), `all` = every session. Redaction is always on and the echo/noise guard always applies. An invalid value warns and falls back to `scoped` (never `all`) |
 
 ---
 

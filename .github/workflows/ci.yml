@@ -67,6 +67,27 @@ jobs:
       - name: Extended pure tests (SSE / outbox rotation / status / metrics / dry-run / workspace infer)
         run: npm run test:extended
 
+      - name: Rate-limit tests (v0.6.0 D1 per-token gate + daily token budget)
+        run: npm run test:rate-limit
+
+      - name: Telemetry-resilience tests (metrics must never break the request path)
+        run: npm run test:telemetry
+
+      - name: Import-migration tests (real DSH v3 codec + real jsonl backend)
+        run: npm run test:import-migration
+
+      - name: Seed-load validation (real dsh-session loader must accept converter output)
+        run: npm run test:seed-load
+
+      - name: Workspace account dedupe (duplicate workspace.json accounts must be repaired)
+        run: npm run test:workspace-accounts
+
+      - name: cwd platform paths (a cwd must be a workspace-addressable path)
+        run: npm run test:cwd-paths
+
+      - name: Mirror policy tests (HERMES_LINK_MIRROR_POLICY + echo/noise guard)
+        run: npm run test:mirror-policy
+
       - name: E2E integration tests (HTTP surface + routes)
         run: npm run test:e2e
 
@@ -74,7 +95,7 @@ jobs:
         run: npm run test:docs
 
   import-check:
-    name: 22-module import-check (host must provide @deepseek-ai/*)
+    name: 23-module import-check (host must provide @deepseek-ai/*)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

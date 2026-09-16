@@ -24,6 +24,27 @@ These commits existed and the work shipped through subsequent published versions
 
 ---
 
+## [0.6.0] — 2026-09-16
+
+> The release that closes the 2026-09-15 audit (`docs/audit-v0.6.0-buglist-and-sync-plan.md`): both
+> sync directions work, and the failures that used to be invisible are now measured.
+
+### Added
+
+- **Hermes → DSH notification channel** (`Hermes Home/outbox/hermes/`): the directory the design promised and no code ever read. `kind:"import"` drives the importer, `notify`/`ping` publish on SSE, every file is archived into `done/` with an outcome prefix and never rescanned, and `(source,id)` is idempotent across restarts.
+- **Runtime doctor**: `npm run doctor` and `GET /mcp/collab/doctor` measure heartbeat freshness, whether enabled mirrors are still advancing, consult backlog with per-ticket age, amend writability and outbox state (`--pin-scan` adds imported-session model pins).
+- **Scoped session mirror** (default on, per project): `HERMES_LINK_MIRROR_POLICY`, `HERMES_LINK_MIRROR_PROJECTS` and the plugin-owned `mirror-projects.json` cover the case where Hermes' recorded project key is stale after a rename/move. `session-mirror/status` reports the policy and every decision; mirror lines carry `cursor`/`source`/`origin_session_id` so Hermes can resume with `since_seq` instead of rescanning.
+- **Consult TTL**: a ticket with no reply past 24h gets a non-destructive `.expired.json` marker (counted by `hermes_link_consult_expired_total`); the ticket is kept so a late reply is still accepted.
+
+### Fixed
+
+- **Hermes → DSH import was silently dead**: the importer called the DSH persistence API that 0.1.5 removed. It now uses `stat`/`list` plus the write handle `create()` returns, and an API failure is reported as `import_failed` instead of degrading to `already_imported`.
+- **Imported conversations could not change model or mode**: every import recorded the synthetic provider `dsh-hermes-link`, which no adapter serves, so DSH considered the session's model unroutable and blocked its composer. Imports now pin a `model/selection` at the deployment's own route, and `scripts/repair-imported-model-selection.mjs` repairs sessions imported before the fix.
+- **The mirror refused every session without saying so**: the scope test keys a project off the `cwd` a *Hermes* session ran in, so a renamed directory (or the `cwd = null` rows recent Hermes versions write) left the mirror permanently off while `/status` reported `count: 0`. The policy, the explicit project list and the new diagnostics close that gap.
+- Windows/macOS path handling: mixed-separator and non-fully-qualified cwds no longer leak into `SessionHeader.cwd`, and empty workspace registrations are pruned by a tool instead of a hand edit.
+
+---
+
 ## [0.4.0] — 2026-08-26
 
 ### Added
