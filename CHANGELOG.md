@@ -24,6 +24,15 @@ These commits existed and the work shipped through subsequent published versions
 
 ---
 
+## [0.6.7] — 2026-09-18
+
+### Fixed
+
+- **Notifications no longer die on a "not yet".** The Hermes bridge notifies at every turn end, but the `request_dump` the importer reads is written later (a cron session ended 23:32, its dump landed 23:52). Three quick attempts parked the notification as `failed-*` with `not_found` and the session stayed invisible in DSH. The consumer now retries until both the attempt budget and a wall-clock window (`retryWindowMs`, default 30 minutes) are spent; older state files with a bare attempt count are upgraded in place.
+- **Cron sessions were never imported by the "new dump" watcher.** The dump filename was parsed with a lazy "shortest id" pattern, so a cron session id (which already ends in `_<YYYYMMDD>_<HHMMSS>`) was truncated to `cron_<job>`, and the watcher asked for a session that does not exist. Both the watcher's parser and the converter's filename fallback are now anchored at the end of the name; malformed names return `null` rather than a guess.
+
+---
+
 ## [0.6.6] — 2026-09-17
 
 ### Fixed

@@ -52,6 +52,19 @@ const FS_WATCH_FALLBACK_MS = 5000  // slow safety-net poll even when fs.watch is
 /** Retries before a failing notification is parked in done/ as failed-*. */
 export const DEFAULT_MAX_ATTEMPTS = 3
 
+/**
+ * How long a failing notification may keep retrying before it is parked.
+ *
+ * WHY (live evidence 2026-09-18): the Hermes bridge notifies on every turn end,
+ * but the `request_dump` the importer needs is written later -- the cron session
+ * `..._233221` ended around 23:32 and its dump only appeared at 23:52. Three
+ * attempts inside ~10s therefore parked the notification as `failed-*` with
+ * `not_found`, and that session stayed invisible in DSH until a second
+ * notification arrived. Attempts alone are the wrong knob: `not_found` is a
+ * "not yet", not a "never".
+ */
+export const DEFAULT_RETRY_WINDOW_MS = 30 * 60 * 1000
+
 /** Kinds this build knows how to execute. Anything else is archived loudly. */
 export const SUPPORTED_KINDS = Object.freeze(['import', 'notify', 'ping'])
 
@@ -115,7 +128,7 @@ export function validateNotification(raw) {
  * @param {number} [deps.maxAttempts]
  * @returns {{dispose: Function, scanOnce: Function, handleFile: Function, stats: Function, dirs: object}}
  */
-export function createHermesOutboxConsumer({ hermesHome, ctx, importer, broker, metrics, env, autoStart = true, maxAttempts = DEFAULT_MAX_ATTEMPTS } = {}) {
+export function createHermesOutboxConsumer({ hermesHome, ctx, importer, broker, metrics, env, autoStart = true, maxAttempts = DEFAULT_MAX_ATTEMPTS, retryWindowMs = DEFAULT_RETRY_WINDOW_MS } = {}) {
   if (metrics && typeof metrics.inc === 'function') metricsSink = metrics
   const outboxDir = join(hermesHome, 'outbox', 'hermes')
   const doneDir = join(outboxDir, 'done')
@@ -238,21 +251,31 @@ export function createHermesOutboxConsumer({ hermesHome, ctx, importer, broker, 
       appendAudit({ ts: Date.now(), source: 'hermes-outbox', action: 'consumed', kind: notification.kind, id: notification.id, result: outcome.result || null })
       return { outcome: 'executed', target }
     }
-    const attempts = (state.attempts[name] || 0) + 1
-    state.attempts[name] = attempts
+    // Attempt records are {n, first}; older state files stored a bare number.
+    const previous = state.attempts[name]
+    const record = typeof previous === 'number'
+      ? { n: previous, first: Date.now() }
+      : (isPlainObject(previous) ? previous : { n: 0, first: Date.now() })
+    record.n = (record.n || 0) + 1
+    state.attempts[name] = record
     persist()
     lastError = outcome.error || 'unknown failure'
     counters.failed++
     incMetric('hermes_link_hermes_outbox_total', { kind: notification.kind, result: 'failed' })
-    if (attempts >= maxAttempts) {
+    // Park only when BOTH budgets are spent: enough attempts AND enough wall-clock
+    // time for the producer to catch up (a Hermes dump can land 20 minutes later).
+    const outOfAttempts = record.n >= maxAttempts
+    const outOfTime = Date.now() - (record.first || Date.now()) >= retryWindowMs
+    if (outOfAttempts && outOfTime) {
       delete state.attempts[name]
       persist()
       counters.archived++
       const target = archive(full, name, 'failed')
-      appendAudit({ ts: Date.now(), source: 'hermes-outbox', action: 'give_up', kind: notification.kind, id: notification.id, attempts, error: lastError })
+      appendAudit({ ts: Date.now(), source: 'hermes-outbox', action: 'give_up', kind: notification.kind, id: notification.id, attempts: record.n, error: lastError })
       return { outcome: 'failed_parked', reason: lastError, target }
     }
-    console.warn('[dsh-hermes-link] hermes-outbox delivery failed (' + attempts + '/' + maxAttempts + '), keeping file for retry:', name, '-', lastError)
+    console.warn('[dsh-hermes-link] hermes-outbox delivery failed (' + record.n + '/' + maxAttempts +
+      ' attempts, retrying for up to ' + Math.round(retryWindowMs / 60000) + 'm), keeping file for retry:', name, '-', lastError)
     return { outcome: 'failed_retry', reason: lastError, target: null }
   }
 

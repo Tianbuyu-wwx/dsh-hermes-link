@@ -1,5 +1,12 @@
 # @tianbuyu-wwx/dsh-hermes-link
 
+## 0.6.7
+
+### Patch Changes
+
+- **A failing notification now has a time budget, not just an attempt budget.** Live evidence: the Hermes bridge notifies on every turn end, but the `request_dump` the importer needs is written *later* — the cron session `..._233221` ended around 23:32 and its dump appeared at 23:52. Three attempts inside ~10s parked the notification as `failed-*` with `not_found`, and the session stayed invisible in DSH until a second notification arrived. `not_found` is a "not yet", not a "never": the consumer now keeps retrying until BOTH the attempt budget and a wall-clock window (`retryWindowMs`, default 30 minutes) are spent, and legacy numeric attempt records from older state files are upgraded rather than dropped.
+- **Fixed: cron sessions were never imported by the "new dump" watcher.** `request_dump_<sid>_<YYYYMMDD>_<HHMMSS>_<micro>.json` was parsed with a lazy "shortest id" pattern, so a cron session -- whose id already ends in `_<YYYYMMDD>_<HHMMSS>` -- came out as `cron_<job>` instead of `cron_<job>_<stamp>`. The watcher then asked the importer for a session id that does not exist, so every cron session had to arrive through the startup sync or a Hermes-side notification. Both parsers (the watcher's and the converter's filename fallback) are now anchored at the END of the name, where the dump stamp always sits, and malformed names return `null` instead of a guess.
+
 ## 0.6.6
 
 ### Patch Changes

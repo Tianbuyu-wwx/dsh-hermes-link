@@ -69,6 +69,7 @@ const makeConsumer = (env, extra = {}) => createHermesOutboxConsumer({
   broker: extra.broker,
   metrics: extra.metrics,
   maxAttempts: extra.maxAttempts,
+  retryWindowMs: extra.retryWindowMs,
 })
 const doneNames = (env) => { try { return readdirSync(env.doneDir) } catch { return [] } }
 const fakeImporter = (results) => {
@@ -277,7 +278,7 @@ await t('transient failure: retried in place, then parked as failed-* after maxA
   const env = makeEnv()
   try {
     const importer = fakeImporter(['import_failed'])
-    const c = makeConsumer(env, { importer, maxAttempts: 2 })
+    const c = makeConsumer(env, { importer, maxAttempts: 2, retryWindowMs: 0 })   // no time budget: park as soon as attempts run out
     const p = writeNotification(env.outboxDir, 'f1.json', { id: 'f-1', kind: 'import', session_id: 's-7' })
 
     await c.scanOnce()
@@ -298,7 +299,7 @@ await t('transient failure: retried in place, then parked as failed-* after maxA
 await t('import with no importer mounted fails loudly and keeps retries bounded', async () => {
   const env = makeEnv()
   try {
-    const c = makeConsumer(env, { maxAttempts: 1 })
+    const c = makeConsumer(env, { maxAttempts: 1, retryWindowMs: 0 })
     writeNotification(env.outboxDir, 'n1.json', { id: 'no-imp', kind: 'import', session_id: 's-8' })
     await c.scanOnce()
     assert.match(c.stats().last_error, /importer unavailable/)
@@ -415,6 +416,51 @@ await t('consumer: a file that vanished before it could be read is not an error'
     assert.equal(r.outcome, 'gone')
     assert.equal(c.stats().last_error, null, 'a benign race must not stick in last_error')
     assert.equal(c.stats().gone, 1)
+    c.dispose()
+  } finally { env.cleanup() }
+})
+
+await t('retry window: attempts alone no longer park a "not yet" failure', async () => {
+  const env = makeEnv()
+  try {
+    const importer = fakeImporter(['import_failed'])
+    // maxAttempts 1 + a 30-minute budget: one failure must NOT park the file.
+    const c = makeConsumer(env, { importer, maxAttempts: 1, retryWindowMs: 30 * 60 * 1000 })
+    const p = writeNotification(env.outboxDir, 'w1.json', { id: 'w-1', kind: 'import', session_id: 's-w' })
+    await c.scanOnce()
+    assert.equal(existsSync(p), true, 'the dump may still be on its way')
+    assert.equal(c.stats().pending_retries, 1)
+    assert.equal(c.stats().failed, 1)
+    assert.equal(doneNames(env).length, 0)
+    c.dispose()
+
+    // Same file, but the record says the wait started an hour ago: now it parks.
+    const statePath = join(env.dshHome, 'dsh-hermes-link', 'hermes-outbox-consumed.json')
+    const state = JSON.parse(readFileSync(statePath, 'utf8'))
+    state.attempts['w1.json'] = { n: 5, first: Date.now() - 60 * 60 * 1000 }
+    writeFileSync(statePath, JSON.stringify(state), 'utf8')
+
+    const c2 = makeConsumer(env, { importer, maxAttempts: 1, retryWindowMs: 30 * 60 * 1000 })
+    await c2.scanOnce()
+    assert.equal(existsSync(p), false, 'both budgets spent -> parked')
+    assert.ok(doneNames(env).some((n) => n.startsWith('failed-')), 'parked as failed-*')
+    assert.equal(c2.stats().pending_retries, 0)
+    c2.dispose()
+  } finally { env.cleanup() }
+})
+
+await t('retry window: an old numeric attempt record is still understood', async () => {
+  const env = makeEnv()
+  try {
+    const importer = fakeImporter(['import_failed'])
+    mkdirSync(join(env.dshHome, 'dsh-hermes-link'), { recursive: true })
+    writeFileSync(join(env.dshHome, 'dsh-hermes-link', 'hermes-outbox-consumed.json'),
+      JSON.stringify({ version: 1, consumed: {}, attempts: { 'old.json': 2 } }), 'utf8')
+    writeNotification(env.outboxDir, 'old.json', { id: 'old-1', kind: 'import', session_id: 's-old' })
+    const c = makeConsumer(env, { importer, maxAttempts: 3, retryWindowMs: 30 * 60 * 1000 })
+    await c.scanOnce()
+    assert.equal(c.stats().pending_retries, 1, 'the legacy number is upgraded, not dropped')
+    assert.equal(c.stats().archived, 0, 'and it does not park on the first failure')
     c.dispose()
   } finally { env.cleanup() }
 })

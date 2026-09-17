@@ -417,9 +417,12 @@ function inferProviderFromModel(model) {
   return 'unknown'
 }
 
-function extractSessionIdFromPath(path) {
-  // request_dump_<sid>_<ts>.json  → sid is the segment between the first and second _
-  const m = /request_dump_([^_]+(?:_[^_]+)*?)_\d{8}_\d{6}/.exec(path)
+export function extractSessionIdFromPath(path) {
+  // request_dump_<sid>_<YYYYMMDD>_<HHMMSS>_<micro>.json -> <sid>, anchored at the
+  // END: a cron session id already ends in _<YYYYMMDD>_<HHMMSS>, so a lazy
+  // "shortest id" pattern truncated it to cron_<job> (v0.6.7 fix; the dump's own
+  // session_id still wins when the JSON is readable).
+  const m = /request_dump_(.+)_\d{8}_\d{6}_\d+\.json$/.exec(String(path || ''))
   return m ? m[1] : null
 }
 

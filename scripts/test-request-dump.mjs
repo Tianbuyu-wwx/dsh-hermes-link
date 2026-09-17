@@ -342,6 +342,33 @@ t('case 12: OpenAI-style assistant plain string content -> assistant/message tex
 
 // ----------------------------------------------------------------------------
 
+// -- v0.6.7: the session id must survive cron ids (which already end in a stamp) --
+import { extractSessionIdFromName } from '../packages/dsh-hermes-link/services/hermes-session-watcher.mjs'
+import { extractSessionIdFromPath } from '../packages/dsh-hermes-link/import/request-dump-to-events.mjs'
+
+t('id parse: a plain dump name', () => {
+  const name = 'request_dump_20260917_210243_8b4d09_20260917_210633_897956.json'
+  assert.equal(extractSessionIdFromName(name), '20260917_210243_8b4d09')
+  assert.equal(extractSessionIdFromPath('C:/x/' + name), '20260917_210243_8b4d09')
+})
+
+t('id parse: a cron dump name keeps its own timestamp segment', () => {
+  const name = 'request_dump_cron_8dea6b8b9359_20260917_233221_20260917_235226_554196.json'
+  // the bug truncated this to 'cron_8dea6b8b9359', so the watcher asked the
+  // importer for a session that does not exist and cron sessions never arrived
+  // through the "new dump" path.
+  assert.equal(extractSessionIdFromName(name), 'cron_8dea6b8b9359_20260917_233221')
+  assert.equal(extractSessionIdFromPath('C:/x/' + name), 'cron_8dea6b8b9359_20260917_233221')
+})
+
+t('id parse: malformed names are rejected, not guessed', () => {
+  assert.equal(extractSessionIdFromName('request_dump_broken.json'), null)
+  assert.equal(extractSessionIdFromName('other_file_20260101_010101_1.json'), null)
+  assert.equal(extractSessionIdFromName(''), null)
+  assert.equal(extractSessionIdFromPath('request_dump_nostamp.json'), null)
+})
+
+console.log('')
 console.log('')
 console.log(`Total: ${passed + failed}  Passed: ${passed}  Failed: ${failed}`)
 process.exit(failed === 0 ? 0 : 1)

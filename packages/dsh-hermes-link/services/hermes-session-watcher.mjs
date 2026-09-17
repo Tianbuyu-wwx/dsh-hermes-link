@@ -90,7 +90,20 @@ export function createWatcher(sessionsDir) {
   return ee
 }
 
-function extractSessionIdFromName(name) {
-  const m = /^request_dump_([^_]+(?:_[^_]+)*?)_\d{8}_\d{6}_/.exec(name)
+/**
+ * `request_dump_<sid>_<YYYYMMDD>_<HHMMSS>_<micro>.json` -> `<sid>`.
+ *
+ * v0.6.7 - the old lazy pattern (`([^_]+(?:_[^_]+)*?)_\d{8}_\d{6}_`) stopped at the
+ * FIRST timestamp-shaped segment, so a cron session -- whose id already ends in
+ * `_<YYYYMMDD>_<HHMMSS>` (`cron_<job>_20260917_233221`) -- parsed as just
+ * `cron_<job>`. The watcher then asked the importer for a session id that does
+ * not exist, and no cron session was ever imported by the "new dump" path; they
+ * only appeared via the startup sync or a Hermes-side notification.
+ *
+ * Anchored at the END instead: the dump stamp is always the last three numeric
+ * segments before `.json`, so a greedy id is unambiguous.
+ */
+export function extractSessionIdFromName(name) {
+  const m = /^request_dump_(.+)_\d{8}_\d{6}_\d+\.json$/.exec(String(name || ''))
   return m ? m[1] : null
 }
