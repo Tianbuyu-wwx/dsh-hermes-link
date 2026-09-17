@@ -192,7 +192,16 @@ export function createHermesOutboxConsumer({ hermesHome, ctx, importer, broker, 
   async function handleFile(full, name) {
     let raw
     try { raw = JSON.parse(stripBom(readFileSync(full, 'utf8'))) } catch (e) {
-      lastError = String(e && e.message || e)
+      const message = String((e && e.message) || e)
+      // A file that vanished between listing and reading was already taken by a
+      // concurrent scan (the debounce, the safety poll and the start-up pass can
+      // overlap). That is not an error and must not stick in last_error -- it
+      // used to raise a doctor warning for a benign race.
+      if ((e && e.code === 'ENOENT') || /ENOENT/.test(message)) {
+        counters.gone = (counters.gone || 0) + 1
+        return { outcome: 'gone', reason: 'file disappeared before it could be read', target: null }
+      }
+      lastError = message
       counters.archived++
       const target = archive(full, name, 'malformed')
       incMetric('hermes_link_hermes_outbox_total', { kind: 'unknown', result: 'malformed' })
@@ -264,8 +273,23 @@ export function createHermesOutboxConsumer({ hermesHome, ctx, importer, broker, 
     return out
   }
 
+  let scanning = false
+
   async function scanOnce() {
     if (stopped) return { scanned: 0 }
+    // One scan at a time: the fs.watch debounce, the safety poll and the start-up
+    // pass used to overlap, which produced ENOENT races on files another pass had
+    // already archived.
+    if (scanning) return { scanned: 0, skipped: 'scan_in_progress' }
+    scanning = true
+    try {
+      return await scanPass()
+    } finally {
+      scanning = false
+    }
+  }
+
+  async function scanPass() {
     const files = listNotificationFiles()
     counters.scanned += files.length
     lastAt = Date.now()

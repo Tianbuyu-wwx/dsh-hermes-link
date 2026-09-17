@@ -1,5 +1,20 @@
 # @tianbuyu-wwx/dsh-hermes-link
 
+## 0.6.3
+
+### Minor Changes
+
+- **The reverse channel finally has a producer.** `Hermes Home/outbox/hermes/` was promised by `docs/DSH-HERMES-LINK-PLAN.md` and the DSH-side consumer shipped in 0.6.0 — but nothing on the Hermes side ever wrote a file, so the channel sat idle (a consumer with no producer looks exactly like "nothing to do"). `npx hermes-link-install-hermes-plugin` installs `hermes-plugin/dsh-outbox` into `<Hermes Home>/plugins/dsh-outbox/`, the documented out-of-tree plugin location, where it registers `on_session_end` and the `/dsh-notify <message>` slash command:
+  - one `import` notification per Hermes **turn end** → DSH imports/refreshes that session immediately instead of waiting for its own dump watcher;
+  - a `notify` when a turn failed or was interrupted (also published on DSH's `hermes-outbox` SSE channel);
+  - a `producer_ready` ping at load, so "no notifications" can be told apart from "no producer".
+  Hermes must be **restarted** after installing (plugins are discovered at start-up); `GET /mcp/collab/doctor` reports whether the producer is present.
+
+### Patch Changes
+
+- **Consumer hardening**: scans can no longer overlap (the fs.watch debounce, the safety poll and the start-up pass used to race), and a notification that vanishes between listing and reading is counted as `gone` instead of sticking into `last_error` and raising a doctor warning for a benign race.
+- **New doctor check `hermes_producer`**, plus the installer hardening it exposed (`copyFileSync` + a post-copy existence check).
+
 ## 0.6.2
 
 ### Patch Changes

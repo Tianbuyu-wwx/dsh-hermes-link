@@ -5,7 +5,7 @@
 [![Node >=20](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](package.json)
 [![dsh-plugin](https://img.shields.io/badge/dsh--plugin-blue)](https://github.com/dsh-market/awesome-dsh-plugin)
 
-> 当前版本：v0.6.2
+> 当前版本：v0.6.3
 > **Hermes Agent** 与 **DeepSeek Harness (DSH)** 的双向桥接：Hermes 通过 `POST /mcp/collab` JSON-RPC 派任务（一次性或可持续），DSH 启动子 agent 执行、返回真实测量的 token，并允许你**把任意 Hermes 会话作为原生 DSH 会话继续**。
 
 [English README](README.md) | 中文

@@ -24,6 +24,19 @@ These commits existed and the work shipped through subsequent published versions
 
 ---
 
+## [0.6.3] — 2026-09-17
+
+### Added
+
+- **A producer for the reverse channel.** The Hermes-side plugin `hermes-plugin/dsh-outbox` (installed with `npx hermes-link-install-hermes-plugin`) writes the `outbox/hermes/` notifications the DSH consumer has been reading since 0.6.0: one `import` per Hermes turn end, a `notify` for failed/interrupted turns, a `producer_ready` ping at load, and `/dsh-notify <message>` for a human-driven message. It is copied to `<Hermes Home>/plugins/dsh-outbox/`; **restart Hermes** afterwards so the plugin is discovered.
+- **`hermes_producer` doctor check** — reports whether the Hermes half is installed, so an idle channel is never mistaken for an idle system.
+
+### Fixed
+
+- **Overlapping consumer scans raced each other**: the fs.watch debounce, the safety poll and the start-up pass could process the same notification, and the loser reported `ENOENT` into `last_error`, which then surfaced as a doctor warning. Scans are now serialized and a vanished file is counted as `gone`.
+
+---
+
 ## [0.6.2] — 2026-09-17
 
 ### Added

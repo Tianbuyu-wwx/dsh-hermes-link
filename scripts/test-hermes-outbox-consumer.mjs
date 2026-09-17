@@ -16,6 +16,7 @@
 //        nested task-event dir / non-json ignored / mirror cursor+provenance.
 
 import { strict as assert } from 'node:assert'
+import { spawnSync } from 'node:child_process'
 import { mkdtempSync, mkdirSync, writeFileSync, readdirSync, existsSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -328,6 +329,55 @@ await t('mirror lines carry cursor + source + origin_session_id (the resume cont
     assert.equal(lines[1].event.seq, 42, 'the raw event is still there for existing readers')
     assert.ok(lines[1].cursor >= lines[0].cursor, 'cursor never goes backwards within a file')
     assert.equal(typeof lines[0].ts, 'number')
+  } finally { env.cleanup() }
+})
+
+// -----------------------------------------------------------------------------
+// The Hermes-side producer: installer + the contract it must keep
+// -----------------------------------------------------------------------------
+
+await t('producer: the installer copies the plugin into <hermes home>/plugins', async () => {
+  const env = makeEnv()
+  try {
+    const home = join(env.dshHome, 'fake-hermes-home')
+    mkdirSync(home, { recursive: true })
+    const installer = join(root, 'packages', 'dsh-hermes-link', 'bin', 'hermes-link-install-hermes-plugin.mjs')
+    // stdio:'ignore' keeps this sandbox-friendly (piped child stdio is blocked here).
+    const r = spawnSync(process.execPath, [installer, '--hermes-home', home], { stdio: 'ignore' })
+    assert.equal(r.status, 0, 'installer exited ' + r.status)
+    assert.equal(existsSync(join(home, 'plugins', 'dsh-outbox', 'plugin.yaml')), true)
+    assert.equal(existsSync(join(home, 'plugins', 'dsh-outbox', '__init__.py')), true)
+
+    const dry = spawnSync(process.execPath, [installer, '--hermes-home', join(env.dshHome, 'nope')], { stdio: 'ignore' })
+    assert.equal(dry.status, 2, 'a missing Hermes home is a usage error, not a silent success')
+  } finally { env.cleanup() }
+})
+
+await t('producer: the plugin keeps the contract DSH consumes', () => {
+  const dir = join(root, 'packages', 'dsh-hermes-link', 'hermes-plugin', 'dsh-outbox')
+  const yaml = readFileSync(join(dir, 'plugin.yaml'), 'utf8')
+  const py = readFileSync(join(dir, '__init__.py'), 'utf8')
+  assert.match(yaml, /^name:\s*dsh-outbox$/m)
+  assert.match(yaml, /on_session_end/, 'the manifest must declare the hook it registers')
+  assert.match(py, /def register\(ctx\)/)
+  assert.match(py, /register_hook\("on_session_end"/)
+  assert.match(py, /register_command\("dsh-notify"/)
+  // bare UTF-8 (never a BOM -- JSON.parse on the DSH side refuses one) + atomic drop
+  assert.match(py, /encode\("utf-8"\)/)
+  assert.doesNotMatch(py, /utf-8-sig/, 'utf-8-sig writes a BOM')
+  assert.match(py, /os\.replace\(/, 'notifications must appear atomically')
+  for (const kind of ['import', 'notify']) assert.match(py, new RegExp('"' + kind + '"'), 'kind ' + kind + ' is part of the protocol')
+})
+
+await t('consumer: a file that vanished before it could be read is not an error', async () => {
+  const env = makeEnv()
+  try {
+    const c = makeConsumer(env, { importer: fakeImporter() })
+    const r = await c.handleFile(join(env.outboxDir, 'never-existed.json'), 'never-existed.json')
+    assert.equal(r.outcome, 'gone')
+    assert.equal(c.stats().last_error, null, 'a benign race must not stick in last_error')
+    assert.equal(c.stats().gone, 1)
+    c.dispose()
   } finally { env.cleanup() }
 })
 

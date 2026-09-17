@@ -235,6 +235,21 @@ export async function runDoctor({ hermesHome, dshHome, live = null, now = Date.n
     checks.push(ok('hermes_outbox', 'Hermes->DSH outbox', outboxDetail))
   }
 
+  // ---- 5b. the Hermes-side producer (the other half of the reverse channel) --
+  // A consumer with no producer looks exactly like "nothing to do": this is the
+  // check that tells the two apart.
+  const producerDir = join(hermesHome, 'plugins', 'dsh-outbox')
+  const producerInstalled = existsSync(join(producerDir, 'plugin.yaml')) && existsSync(join(producerDir, '__init__.py'))
+  const produced = doneFiles.length + waiting.length
+  if (producerInstalled) {
+    checks.push(ok('hermes_producer', 'Hermes producer plugin', 'installed at ' + producerDir + '; ' + produced + ' notification file(s) seen (pending + archived)'))
+  } else {
+    checks.push(warn('hermes_producer', 'Hermes producer plugin',
+      'not installed (' + producerDir + ' missing)',
+      'run: npx hermes-link-install-hermes-plugin (then restart Hermes) -- without it nothing writes outbox/hermes/, so the reverse channel stays idle',
+      { data: { plugin_dir: producerDir, produced_files: produced } }))
+  }
+
   // ---- 6. optional: imported sessions whose model route is unavailable ------
   if (typeof scanImportedPins === 'function' && dshHome) {
     try {

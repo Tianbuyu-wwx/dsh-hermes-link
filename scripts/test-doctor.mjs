@@ -192,6 +192,24 @@ await t('outbox: pending retries and a last_error are both surfaced', async () =
   } finally { f.cleanup() }
 })
 
+await t('producer: an absent Hermes-side plugin is a warning with the install hint', async () => {
+  const f = fixture()
+  try {
+    let r = await runDoctor({ hermesHome: f.hermesHome, dshHome: f.dshHome })
+    let c = check(r, 'hermes_producer')
+    assert.equal(c.status, 'warn')
+    assert.match(c.hint, /hermes-link-install-hermes-plugin/)
+
+    mkdirSync(join(f.hermesHome, 'plugins', 'dsh-outbox'), { recursive: true })
+    writeFileSync(join(f.hermesHome, 'plugins', 'dsh-outbox', 'plugin.yaml'), 'name: dsh-outbox\n', 'utf8')
+    writeFileSync(join(f.hermesHome, 'plugins', 'dsh-outbox', '__init__.py'), 'def register(ctx): pass\n', 'utf8')
+    r = await runDoctor({ hermesHome: f.hermesHome, dshHome: f.dshHome })
+    c = check(r, 'hermes_producer')
+    assert.equal(c.status, 'ok')
+    assert.match(c.detail, /installed at/)
+  } finally { f.cleanup() }
+})
+
 await t('imported model pins: injected scan drives the relapse check', async () => {
   const f = fixture()
   try {

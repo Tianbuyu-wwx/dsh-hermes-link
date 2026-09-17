@@ -1,6 +1,6 @@
 ---
 name: dsh-hermes-link
-description: Hermes ↔ DSH bidirectional link. Use when the user wants to import a Hermes session into DSH, load Hermes persona (SOUL + config), load Hermes memory scoped to the current working directory, dispatch a task to a DSH sub-agent (one-shot or continuable), amend a running sub-agent, push a result to / consult Hermes from DSH, or see Hermes's conversation record in DSH. The plugin targets v0.6.2: it does NOT auto-inject Hermes turns into the current session (v0.3.6), it mirrors DSH sessions to Hermes ONLY for cwds that provably match a real Hermes project (HERMES_LINK_MIRROR_POLICY, default scoped since v0.6.0; off = manual opt-in, all = every session; hermes-* and noise events are always skipped), and it does NOT auto-load Hermes MEMORY.md (v0.2.3); every other cross-project channel remains explicit opt-in only.
+description: Hermes ↔ DSH bidirectional link. Use when the user wants to import a Hermes session into DSH, load Hermes persona (SOUL + config), load Hermes memory scoped to the current working directory, dispatch a task to a DSH sub-agent (one-shot or continuable), amend a running sub-agent, push a result to / consult Hermes from DSH, or see Hermes's conversation record in DSH. The plugin targets v0.6.3: it does NOT auto-inject Hermes turns into the current session (v0.3.6), it mirrors DSH sessions to Hermes ONLY for cwds that provably match a real Hermes project (HERMES_LINK_MIRROR_POLICY, default scoped since v0.6.0; off = manual opt-in, all = every session; hermes-* and noise events are always skipped), and it does NOT auto-load Hermes MEMORY.md (v0.2.3); every other cross-project channel remains explicit opt-in only.
 when_to_use: |
   The dsh-hermes-link plugin connects DSH to a Hermes Agent installation. DSH-side
   tools (callable from this session):
@@ -168,6 +168,12 @@ Each mirror line is `{"ts":<ms>,"cursor":<dsh event seq>,"source":"dsh","origin_
 `origin_session_id` let either side skip whatever it wrote itself.
 
 ### File protocols (Hermes Home/outbox/hermes/) — v0.6.0 (C1)
+
+Producer (v0.6.3): `npx hermes-link-install-hermes-plugin` copies `hermes-plugin/dsh-outbox` into
+`<Hermes Home>/plugins/dsh-outbox/` — the documented out-of-tree plugin location — where it registers
+`on_session_end` (one `import` per Hermes turn end, plus a `notify` when the turn failed or was
+interrupted) and the `/dsh-notify <message>` slash command. Hermes must be restarted after installing
+(plugins are discovered at start-up). `GET /mcp/collab/doctor` reports whether it is present.
 
 | Path | Direction | Purpose |
 |---|---|---|

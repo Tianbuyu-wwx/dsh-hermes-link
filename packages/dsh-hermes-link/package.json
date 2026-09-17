@@ -1,6 +1,6 @@
 {
   "name": "@tianbuyu-wwx/dsh-hermes-link",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "description": "Bidirectional bridge between Hermes Agent and DeepSeek Harness. Hermes dispatches focused tasks via JSON-RPC over POST /mcp/collab (one-shot or continuable, nonce-bound amend, secret-bound consult reply); DSH lets you continue Hermes sessions as native DSH sessions in the sidebar.",
   "type": "module",
   "main": "./index.mjs",
@@ -12,11 +12,13 @@
   },
   "bin": {
     "hermes-link-doctor": "bin/hermes-link-doctor.mjs",
-    "hermes-link-repair-model-pins": "bin/repair-imported-model-selection.mjs"
+    "hermes-link-repair-model-pins": "bin/repair-imported-model-selection.mjs",
+    "hermes-link-install-hermes-plugin": "bin/hermes-link-install-hermes-plugin.mjs"
   },
   "files": [
     "index.mjs",
     "bin",
+    "hermes-plugin",
     "cordis.patch.yml",
     "skills",
     "import",
