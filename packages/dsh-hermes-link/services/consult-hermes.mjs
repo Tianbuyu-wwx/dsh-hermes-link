@@ -12,7 +12,7 @@
 // two-segment filenames (`<ticket>.json` without the secret) are rejected
 // by default; set `HERMES_LINK_TRUST_LEGACY=1` to accept them too.
 
-import { mkdirSync, writeFileSync, existsSync, readFileSync, readdirSync, unlinkSync, renameSync } from 'node:fs'
+import { mkdirSync, writeFileSync, existsSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { randomBytes, randomUUID } from 'node:crypto'
 
@@ -191,7 +191,68 @@ export function createConsultClient({ hermesHome, timeoutMs = DEFAULT_TIMEOUT_MS
     return out
   }
 
-  return { consult, writeResult, inboxDir, replyDir, resultDir, listReplyFiles, sweepStaleTickets, findReply }
+  /**
+   * v0.6.2 - is the consult channel actually alive?
+   *
+   * The audit found three tickets that had been sitting unanswered for three
+   * weeks, and every later `consult_hermes` call still waited its full timeout
+   * (15s) before reporting "pending" -- the user paid 15 seconds per attempt to
+   * discover what the filesystem already knew. This reads the same evidence the
+   * doctor does and classifies the channel.
+   *
+   * Evidence used: open tickets (age <= ttl), stale tickets (age > ttl, no reply
+   * yet), the newest reply file on disk, and the expiry markers the sweep leaves.
+   * A reply file is DELETED when a consult consumes it, so "no reply files" is
+   * only meaningful together with "stale tickets exist".
+   *
+   * @returns {{verdict:'healthy'|'degraded'|'dead', open:number, stale:number, expired_markers:number, oldest_stale_ms:number|null, last_reply_at:number|null, note:string}}
+   */
+  function channelHealth({ now = Date.now(), ttlMs = DEFAULT_TICKET_TTL_MS, deadAfterMs = 3 * 24 * 60 * 60 * 1000 } = {}) {
+    let entries = []
+    try { entries = readdirSync(inboxDir, { withFileTypes: true }) } catch { entries = [] }
+    let open = 0
+    let stale = 0
+    let markers = 0
+    let oldest = null
+    for (const e of entries) {
+      if (!e.isFile() || !e.name.endsWith('.json')) continue
+      if (e.name.endsWith('.expired.json')) { markers++; continue }
+      const payload = readJsonSafe(join(inboxDir, e.name))
+      const ts = payload && Number.isFinite(payload.ts)
+        ? payload.ts
+        : (() => { const m = /^(\d{10,})/.exec(e.name); return m ? Number(m[1]) : null })()
+      const ageMs = Number.isFinite(ts) ? now - ts : null
+      const ticket = payload && payload.ticket ? String(payload.ticket) : null
+      if (ticket && findReply(ticket)) { open++; continue }
+      if (ageMs != null && ageMs > ttlMs) {
+        stale++
+        if (oldest == null || ageMs > oldest) oldest = ageMs
+      } else open++
+    }
+    let lastReplyAt = null
+    let replies = []
+    try { replies = readdirSync(replyDir, { withFileTypes: true }) } catch { replies = [] }
+    for (const r of replies) {
+      if (!r.isFile() || !r.name.endsWith('.json')) continue
+      try {
+        const st = statSync(join(replyDir, r.name))
+        if (lastReplyAt == null || st.mtimeMs > lastReplyAt) lastReplyAt = st.mtimeMs
+      } catch (_e) { /* skip */ }
+    }
+    const replyIsRecent = lastReplyAt != null && (now - lastReplyAt) <= deadAfterMs
+    const verdict = stale > 0 ? (replyIsRecent ? 'degraded' : 'dead') : 'healthy'
+    const note = verdict === 'healthy'
+      ? open + ' open ticket(s), no backlog'
+      : verdict === 'degraded'
+        ? stale + ' stale ticket(s), but Hermes replied within ' + Math.round(deadAfterMs / 3600000) + 'h'
+        : stale + ' stale ticket(s) and no reply for ' + (lastReplyAt == null
+            ? 'any recorded time'
+            : Math.round((now - lastReplyAt) / 3600000) + 'h') +
+          ' -- the Hermes gateway/poller is probably not consuming ' + inboxDir
+    return { verdict, open, stale, expired_markers: markers, oldest_stale_ms: oldest, last_reply_at: lastReplyAt, note }
+  }
+
+  return { consult, writeResult, inboxDir, replyDir, resultDir, listReplyFiles, sweepStaleTickets, findReply, channelHealth }
 }
 
 function ensureDir(d) {
@@ -206,6 +267,31 @@ function atomicWriteJson(path, obj) {
 
 // BOM-tolerant: Windows tooling (PowerShell Set-Content, Notepad) writes UTF-8
 // with a BOM and JSON.parse refuses it -- same live finding as the outbox consumer.
+/**
+ * v0.6.2 - how long should a consult wait, given the channel's health?
+ *
+ * A dead channel must not cost the caller the full timeout every single time.
+ * An EXPLICIT timeout_ms is the user overriding that judgement, so it is always
+ * honoured; the default path is trimmed to `deadChannelTimeoutMs`.
+ *
+ * @param {object} args
+ * @param {{verdict: string, note: string}} args.health
+ * @param {number} args.requestedMs
+ * @param {boolean} args.explicit  caller passed timeout_ms
+ * @param {number} [args.deadChannelTimeoutMs]
+ * @returns {{timeoutMs: number, warning: string|null}}
+ */
+export function planConsultTimeout({ health, requestedMs, explicit, deadChannelTimeoutMs = 2000 } = {}) {
+  const requested = Number.isInteger(requestedMs) && requestedMs > 0 ? requestedMs : 15000
+  if (!health || health.verdict !== 'dead' || explicit) return { timeoutMs: requested, warning: null }
+  return {
+    timeoutMs: Math.min(requested, deadChannelTimeoutMs),
+    warning: 'consult channel looks DEAD (' + health.note + '): waiting only ' +
+      Math.min(requested, deadChannelTimeoutMs) + 'ms instead of ' + requested +
+      'ms. Pass timeout_ms explicitly to override, or start the Hermes gateway.',
+  }
+}
+
 function readJsonSafe(path) {
   try {
     const text = readFileSync(path, 'utf8')

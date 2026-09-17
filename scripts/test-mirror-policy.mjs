@@ -778,6 +778,52 @@ t('diagnostics: decisionFor/decisionLog report a clean cwd, not the packed key',
   } finally { env.cleanup() }
 })
 
+t('scope file: add-project writes bare UTF-8 and applies to the next event', () => {
+  const env = makeDirs()
+  try {
+    seedStateDb(env.hermesHome, [])
+    const ob = createOutbox({ hermesHome: env.hermesHome })
+    const sm = createSessionMirror({ hermesHome: env.hermesHome, outbox: ob, env: { [POLICY_ENV_VAR]: 'scoped' } })
+    assert.equal(sm.isEnabled('sess-w', { cwd: env.otherDir }), false)
+
+    const added = sm.addProject(env.otherDir)
+    assert.equal(added.ok, true)
+    assert.deepEqual(added.projects, [env.otherDir], 'the user\'s spelling is preserved')
+
+    const bytes = readFileSync(join(env.dshHome, 'dsh-hermes-link', 'mirror-projects.json'))
+    assert.notEqual(bytes[0], 0xEF, 'the plugin must never write a BOM itself')
+
+    assert.equal(sm.isEnabled('sess-w', { cwd: env.otherDir }), true, 'the change applies without a restart')
+
+    // idempotent + case/separator-insensitive
+    sm.addProject(env.otherDir.toUpperCase())
+    assert.equal(sm.listProjects().file_raw.length, 1)
+    assert.equal(sm.listProjects().merged.length, 1)
+
+    const removed = sm.removeProject(env.otherDir.toUpperCase())
+    assert.equal(removed.ok, true)
+    assert.deepEqual(sm.listProjects().file, [])
+    assert.deepEqual(sm.listProjects().file_raw, [])
+    ob.flushNow()
+  } finally { env.cleanup() }
+})
+
+t('scope file: add-project merges with HERMES_LINK_MIRROR_PROJECTS', () => {
+  const env = makeDirs()
+  try {
+    seedStateDb(env.hermesHome, [])
+    const ob = createOutbox({ hermesHome: env.hermesHome })
+    const sm = createSessionMirror({ hermesHome: env.hermesHome, outbox: ob, env: { [POLICY_ENV_VAR]: 'scoped', [MIRROR_PROJECTS_ENV_VAR]: env.projectDir } })
+    sm.addProject(env.otherDir)
+    const p = sm.listProjects()
+    assert.deepEqual(p.env, [foldCwd(env.projectDir)])
+    assert.deepEqual(p.file, [foldCwd(env.otherDir)])
+    assert.equal(p.merged.length, 2)
+    assert.equal(sm.isEnabled('sess-merge', { cwd: env.otherDir }), true)
+    ob.flushNow()
+  } finally { env.cleanup() }
+})
+
 console.log('')
 console.log('Total: ' + (passed + failed) + '  Passed: ' + passed + '  Failed: ' + failed)
 process.exit(failed === 0 ? 0 : 1)

@@ -4,6 +4,7 @@
 // Returns the answer when Hermes replies in time; otherwise a pending hint.
 
 import { defineTool } from '@deepseek-ai/dsh-tools'
+import { planConsultTimeout } from '../services/consult-hermes.mjs'
 
 export function createConsultHermesTool({ consultClient }) {
   return defineTool({
@@ -34,20 +35,27 @@ export function createConsultHermesTool({ consultClient }) {
     },
     async execute(args) {
       if (!consultClient) return '[consult_hermes unavailable]'
-      const timeoutMs = Number.isInteger(args.timeout_ms)
-        ? Math.min(Math.max(args.timeout_ms, 1000), 120000)
-        : 15000
+      const explicit = Number.isInteger(args.timeout_ms)
+      const requestedMs = explicit ? Math.min(Math.max(args.timeout_ms, 1000), 120000) : 15000
+      // v0.6.2 pre-flight: do not pay the full timeout when the channel is known
+      // to be dead (three tickets sat unanswered for three weeks while every call
+      // still waited 15s). An explicit timeout_ms is the user's override.
+      let health = null
+      try { if (typeof consultClient.channelHealth === 'function') health = consultClient.channelHealth({}) } catch (_e) { health = null }
+      const plan = planConsultTimeout({ health, requestedMs, explicit })
       const started = Date.now()
-      const result = await consultClient.consult(args.prompt, args.context || {}, timeoutMs)
+      const result = await consultClient.consult(args.prompt, args.context || {}, plan.timeoutMs)
       const elapsed = Date.now() - started
+      const warning = plan.warning ? '[consult_hermes channel warning] ' + plan.warning + '\n' : ''
       if (result.status === 'replied') {
         return 'Hermes reply (' + elapsed + 'ms):\n' + (result.reply || '(empty)')
       }
       if (result.status === 'pending') {
-        return '[consult_hermes pending] ' + (result.hint || 'Hermes did not reply in time') +
-          '\n(hint: start the Hermes gateway, or retry later — the ticket stays in the consult inbox.)'
+        return warning + '[consult_hermes pending] ' + (result.hint || 'Hermes did not reply in time') +
+          '\n(hint: start the Hermes gateway, or retry later — the ticket stays in the consult inbox.)' +
+          (health ? '\n(channel: ' + health.verdict + ' — ' + health.note + ')' : '')
       }
-      return '[consult_hermes error] ' + (result.error || result.status)
+      return warning + '[consult_hermes error] ' + (result.error || result.status)
     },
   })
 }

@@ -1,6 +1,6 @@
 ---
 name: dsh-hermes-link
-description: Hermes ↔ DSH bidirectional link. Use when the user wants to import a Hermes session into DSH, load Hermes persona (SOUL + config), load Hermes memory scoped to the current working directory, dispatch a task to a DSH sub-agent (one-shot or continuable), amend a running sub-agent, push a result to / consult Hermes from DSH, or see Hermes's conversation record in DSH. The plugin targets v0.6.1: it does NOT auto-inject Hermes turns into the current session (v0.3.6), it mirrors DSH sessions to Hermes ONLY for cwds that provably match a real Hermes project (HERMES_LINK_MIRROR_POLICY, default scoped since v0.6.0; off = manual opt-in, all = every session; hermes-* and noise events are always skipped), and it does NOT auto-load Hermes MEMORY.md (v0.2.3); every other cross-project channel remains explicit opt-in only.
+description: Hermes ↔ DSH bidirectional link. Use when the user wants to import a Hermes session into DSH, load Hermes persona (SOUL + config), load Hermes memory scoped to the current working directory, dispatch a task to a DSH sub-agent (one-shot or continuable), amend a running sub-agent, push a result to / consult Hermes from DSH, or see Hermes's conversation record in DSH. The plugin targets v0.6.2: it does NOT auto-inject Hermes turns into the current session (v0.3.6), it mirrors DSH sessions to Hermes ONLY for cwds that provably match a real Hermes project (HERMES_LINK_MIRROR_POLICY, default scoped since v0.6.0; off = manual opt-in, all = every session; hermes-* and noise events are always skipped), and it does NOT auto-load Hermes MEMORY.md (v0.2.3); every other cross-project channel remains explicit opt-in only.
 when_to_use: |
   The dsh-hermes-link plugin connects DSH to a Hermes Agent installation. DSH-side
   tools (callable from this session):
@@ -123,6 +123,8 @@ DSH-side plugin that makes Hermes Agent and DeepSeek Harness a single, bidirecti
 | `hermes_inbox` | Read the shared conversation record (`tail`/`format` params). |
 | `hermes_inbox_append` | Append a turn to the shared record so Hermes sees it next session-start. |
 | `hermes_clear_injected` | Audit-only: report how many Hermes turns were auto-injected into THIS session by an older dsh-hermes-link / hermes-foundation version, and point the user at "open a new session" (DSH Session.events are append-only / deep-frozen and cannot be retroactively removed). |
+| `hermes_link_doctor` | v0.6.2: run the runtime self-check from inside the session (heartbeat freshness, whether enabled mirrors still advance, consult backlog with ages, amend writability, outbox state). Same module as `npx hermes-link-doctor` and `GET /mcp/collab/doctor`; `json=true` returns the raw report. |
+| `session_mirror` (scope actions) | v0.6.2: `action=projects` / `add-project` / `remove-project` (`path=<dir>`) edit the plugin-owned scope file `<DSH_HOME>/dsh-hermes-link/mirror-projects.json`, which keeps local paths in scope when the project key Hermes recorded is stale. Written as bare UTF-8 and applied to the NEXT event — no restart. |
 
 ## HTTP (Hermes-side)
 
@@ -141,7 +143,7 @@ DSH-side plugin that makes Hermes Agent and DeepSeek Harness a single, bidirecti
   for a continuable task. Query params: `task_id` (required), `since_seq`
   (default 0), `timeout_ms` (default 0 = no auto-close). Bearer auth same as main routes.
 - `dispatch_subscribe` JSON-RPC tool — discovery helper that returns the SSE URL.
-- `GET /mcp/collab/metrics` (v0.3.4 F6) — Prometheus text exposition format (text/plain; version=0.0.4). Returns 21 counters + 9 gauges (v0.6.0 adds `hermes_link_mirror_policy_auto_enabled_total`, `hermes_link_mirror_policy_auto_skipped_total`, `hermes_link_mirror_events_skipped_total` and the `hermes_link_mirror_policy_info` gauge). Bearer auth same as main routes. Suitable for Prometheus / Grafana Agent scraping at 15s intervals.
+- `GET /mcp/collab/metrics` (v0.3.4 F6) — Prometheus text exposition format (text/plain; version=0.0.4). Returns 23 counters + 9 gauges (v0.6.0 adds `hermes_link_mirror_policy_auto_enabled_total`, `hermes_link_mirror_policy_auto_skipped_total`, `hermes_link_mirror_events_skipped_total` and the `hermes_link_mirror_policy_info` gauge). Bearer auth same as main routes. Suitable for Prometheus / Grafana Agent scraping at 15s intervals.
 - `dispatch_dry_run` JSON-RPC tool (v0.3.4 F5) — pre-flight estimator. Returns estimated prompt/output tokens + would_block_on + warnings. Heuristic (chars/4). Use before dispatch_task to validate token budgets and surface unknown skills without spawning a sub-agent.
 - Auth: when env `HERMES_LINK_TOKEN` is set, all `/mcp/collab*` routes except
   `/health` require `Authorization: Bearer <token>`.

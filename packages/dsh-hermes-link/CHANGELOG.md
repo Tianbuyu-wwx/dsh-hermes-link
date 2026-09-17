@@ -1,5 +1,16 @@
 # @tianbuyu-wwx/dsh-hermes-link
 
+## 0.6.2
+
+### Patch Changes
+
+- **`hermes_link_doctor` tool** — the runtime self-check is now callable from inside a DSH session, not only from a shell or curl. Same module behind `npx hermes-link-doctor`, `GET /mcp/collab/doctor` and the tool.
+- **Consult pre-flight** — `consult_hermes` checks the channel before waiting. With a backlog and no reply for days (the state the audit found: three tickets, three weeks) it waits 2s instead of the full 15s and says why, instead of making every caller rediscover a dead channel. An explicit `timeout_ms` still wins.
+- **The mirror scope is editable the safe way** — `session_mirror` gains `action=projects|add-project|remove-project` (`path=<dir>`), writing `<DSH_HOME>/dsh-hermes-link/mirror-projects.json` as bare UTF-8 and applying it to the next event without a restart. Hand-writing that file is what produced the BOM that silently disabled the mirror.
+- **Fixed: `GET /mcp/collab/metrics` returned 503 in production** — `index.mjs` never passed the metrics registry into the HTTP layer, and the e2e suite builds its own deps so CI stayed green. A wiring guard now asserts that every `deps.*` the HTTP layer reads is provided by the production call.
+- **Fixed: the mirror scope file is BOM-tolerant**, and a file that exists but cannot be parsed is reported (`policyStatus().projects_file_error` + a doctor warning) instead of being silently ignored.
+- **Fixed: decision diagnostics** no longer glue the packed config revision onto the reported `cwd`.
+
 ## 0.6.1
 
 ### Patch Changes

@@ -66,13 +66,14 @@ import { createLoadHermesPersonaTool } from './tools/load-hermes-persona.mjs'
 import { createConsultHermesTool } from './tools/consult-hermes.mjs'
 import { createMirrorSessionToHermesTool } from './tools/mirror-session-to-hermes.mjs'
 import { createSessionMirrorControlTool } from './tools/session-mirror-control.mjs'
+import { createDoctorTool } from './tools/doctor.mjs'
 import { createLoadHermesProjectMemoryTool } from './tools/load-hermes-project-memory.mjs'
 import { createRotateOutboxNowTool } from './tools/rotate-outbox-now.mjs'
 import { createDispatchStatusTool } from './tools/dispatch-status.mjs'
 
 const skillDir = fileURLToPath(new URL('./skills/dsh-hermes-link', import.meta.url))
 const MAX_FOUNDATION_SLICE_CHARS = 4096
-const VERSION = '0.6.1'
+const VERSION = '0.6.2'
 
 // -----------------------------------------------------------------------------
 // v0.3.2 F6 - register the canonical metric shape so the wire format is
@@ -405,7 +406,10 @@ export function apply(ctx) {
       ctx.tools.register(createLoadHermesProjectMemoryTool({ hermesHome }))
       ctx.tools.register(createRotateOutboxNowTool({ outboxRotation }))
       ctx.tools.register(createDispatchStatusTool({ continuations, ctx }))
-      console.log('[dsh-hermes-link v' + VERSION + '] tools registered: list_hermes_sessions, import_hermes_session, load_hermes_persona, consult_hermes, mirror_session_to_hermes, session_mirror, load_hermes_project_memory, rotate_outbox_now, dispatch_status')
+      // v0.6.2 - the doctor, callable from the session (same module as the CLI
+      // and the /mcp/collab/doctor route).
+      ctx.tools.register(createDoctorTool({ hermesHome, sessionMirror, hermesOutbox }))
+      console.log('[dsh-hermes-link v' + VERSION + '] tools registered: list_hermes_sessions, import_hermes_session, load_hermes_persona, consult_hermes, mirror_session_to_hermes, session_mirror, load_hermes_project_memory, rotate_outbox_now, dispatch_status, hermes_link_doctor')
     }
   } catch (e) {
     console.error('[dsh-hermes-link v' + VERSION + '] tool registration failed:', e && e.message || e)

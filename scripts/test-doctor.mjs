@@ -17,7 +17,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
 const pkg = join(root, 'packages', 'dsh-hermes-link')
 const { runDoctor, renderDoctor, DOCTOR_TTLS } = await import(pathToFileURL(join(pkg, 'services', 'doctor.mjs')).href)
-const { createConsultClient, DEFAULT_TICKET_TTL_MS } = await import(pathToFileURL(join(pkg, 'services', 'consult-hermes.mjs')).href)
+const { createConsultClient, DEFAULT_TICKET_TTL_MS, planConsultTimeout } = await import(pathToFileURL(join(pkg, 'services', 'consult-hermes.mjs')).href)
 
 let passed = 0, failed = 0
 async function t(name, fn) {
@@ -220,6 +220,61 @@ await t('report shape: summary, ok flag, renderer, and the amend probe', async (
     assert.match(text, /ok, .* warn, .* fail/)
     assert.ok(DOCTOR_TTLS.heartbeatMs > 0 && DEFAULT_TICKET_TTL_MS === 24 * 60 * 60 * 1000)
   } finally { f.cleanup() }
+})
+
+await t('consult health: a stale backlog with no reply is DEAD, a reply makes it degraded', async () => {
+  const f = fixture()
+  try {
+    const client = createConsultClient({ hermesHome: f.hermesHome })
+    const oldTs = Date.now() - 26 * 24 * 3600 * 1000
+    writeJson(join(client.inboxDir, oldTs + '-t-a.json'), { ticket: 't-a', ts: oldTs, kind: 'consult' })
+
+    let h = client.channelHealth()
+    assert.equal(h.verdict, 'dead')
+    assert.equal(h.stale, 1)
+    assert.match(h.note, /gateway/)
+
+    // A reply on disk answers THAT ticket: it stops being backlog, so the channel
+    // is healthy again (the reply is simply not consumed yet).
+    writeJson(join(client.replyDir, 't-a-abcdef0123456789.json'), { answer: 'ok' })
+    h = client.channelHealth()
+    assert.equal(h.verdict, 'healthy')
+    assert.equal(h.stale, 0)
+    assert.equal(typeof h.last_reply_at, 'number')
+
+    // Degraded is the middle state: an older ticket still unanswered while Hermes
+    // demonstrably answered something recently.
+    const olderTs = Date.now() - 30 * 24 * 3600 * 1000
+    writeJson(join(client.inboxDir, olderTs + '-t-b.json'), { ticket: 't-b', ts: olderTs, kind: 'consult' })
+    writeJson(join(client.inboxDir, Date.now() + '-t-c.json'), { ticket: 't-c', ts: Date.now(), kind: 'consult' })
+    writeJson(join(client.replyDir, 't-c-abcdef0123456789.json'), { answer: 'fresh answer' })
+    h = client.channelHealth()
+    assert.equal(h.verdict, 'degraded')
+    assert.equal(h.stale, 1)
+  } finally { f.cleanup() }
+})
+
+await t('consult health: an empty inbox is healthy', async () => {
+  const f = fixture()
+  try {
+    const client = createConsultClient({ hermesHome: f.hermesHome })
+    const h = client.channelHealth()
+    assert.equal(h.verdict, 'healthy')
+    assert.equal(h.stale, 0)
+    assert.equal(h.last_reply_at, null)
+  } finally { f.cleanup() }
+})
+
+await t('consult timeout plan: a dead channel waits 2s, an explicit timeout still wins', () => {
+  const dead = { verdict: 'dead', note: 'three stale tickets' }
+  const healthy = { verdict: 'healthy', note: 'nothing pending' }
+  assert.equal(planConsultTimeout({ health: dead, requestedMs: 15000, explicit: false }).timeoutMs, 2000)
+  assert.match(planConsultTimeout({ health: dead, requestedMs: 15000, explicit: false }).warning, /DEAD/)
+  assert.equal(planConsultTimeout({ health: dead, requestedMs: 15000, explicit: true }).timeoutMs, 15000, 'the caller overrides the judgement')
+  assert.equal(planConsultTimeout({ health: dead, requestedMs: 1000, explicit: false }).timeoutMs, 1000, 'never longer than requested')
+  assert.equal(planConsultTimeout({ health: healthy, requestedMs: 15000, explicit: false }).timeoutMs, 15000)
+  assert.equal(planConsultTimeout({ health: healthy, requestedMs: 15000, explicit: false }).warning, null)
+  assert.equal(planConsultTimeout({}).timeoutMs, 15000)
 })
 
 console.log('')

@@ -24,6 +24,22 @@ These commits existed and the work shipped through subsequent published versions
 
 ---
 
+## [0.6.2] — 2026-09-17
+
+### Added
+
+- **`hermes_link_doctor`** — the runtime self-check as a session tool (same module as `npx hermes-link-doctor` and `GET /mcp/collab/doctor`), so "it just does not work" can be answered where the user already is.
+- **`session_mirror action=projects|add-project|remove-project`** — the official way to edit the mirror scope file; bare UTF-8 by construction and picked up on the next event without a restart.
+- **Consult pre-flight** — a channel with a backlog and no recent reply is reported up front and probed with a 2s wait instead of 15s (an explicit `timeout_ms` still wins).
+
+### Fixed
+
+- **`GET /mcp/collab/metrics` served 503 from the day it shipped**: `index.mjs` never passed the metrics registry into the HTTP layer, and the e2e suite builds its own deps, so CI stayed green while production served "# metrics registry not initialized". A new wiring guard asserts that every `deps.*` the HTTP layer reads is provided by the production call.
+- **A BOM in `mirror-projects.json` silently disabled the mirror** (Windows tooling writes UTF-8 BOMs; `JSON.parse` refuses them and the failure was swallowed). Now tolerated, and an unparsable scope file is surfaced by `policyStatus()` and the doctor.
+- **Decision diagnostics** carried the packed config revision inside the reported `cwd`.
+
+---
+
 ## [0.6.1] — 2026-09-16
 
 ### Changed

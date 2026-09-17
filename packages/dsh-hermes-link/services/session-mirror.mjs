@@ -61,7 +61,7 @@ export function createSessionMirror({ hermesHome, outbox, sseBroker, metrics, ma
   //      EVENT, without restarting DSH at all.
   const projectsFile = join(stateDir(), 'mirror-projects.json')
   const envProjects = parseMirrorProjects(env || process.env)
-  let projectsFileCache = { mtimeMs: -1, revision: 0, list: [] }
+  let projectsFileCache = { mtimeMs: -1, revision: 0, list: [], raw: [], error: null }
 
   function projectsFromFile() {
     let mtimeMs = -1
@@ -76,11 +76,12 @@ export function createSessionMirror({ hermesHome, outbox, sseBroker, metrics, ma
       // A file that DISAPPEARS (or one whose error clears) must bump the revision
       // so cached decisions stop applying.
       if (projectsFileCache.mtimeMs !== -1 || projectsFileCache.error) {
-        projectsFileCache = { mtimeMs: -1, revision: projectsFileCache.revision + 1, list: [], error: null }
+        projectsFileCache = { mtimeMs: -1, revision: projectsFileCache.revision + 1, list: [], raw: [], error: null }
       }
       return projectsFileCache
     }
     let list = []
+    const raw = []
     let error = null
     try {
       // BOM-tolerant. Windows tooling (PowerShell `Set-Content -Encoding utf8`,
@@ -91,8 +92,13 @@ export function createSessionMirror({ hermesHome, outbox, sseBroker, metrics, ma
       // already bit the outbox consumer, consult sweep and doctor.
       const stripped = text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text
       const parsed = JSON.parse(stripped)
-      const raw = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.projects) ? parsed.projects : [])
-      for (const p of raw) { const folded = foldCwd(p); if (folded && !list.includes(folded)) list.push(folded) }
+      const declared = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.projects) ? parsed.projects : [])
+      for (const p of declared) {
+        const folded = foldCwd(p)
+        if (!folded || list.includes(folded)) continue
+        list.push(folded)
+        raw.push(String(p).trim())      // keep the user's spelling for round-trips
+      }
     } catch (e) {
       error = String((e && e.message) || e)
       // A broken config must be VISIBLE, never a silent no-op: warn once per change.
@@ -100,8 +106,60 @@ export function createSessionMirror({ hermesHome, outbox, sseBroker, metrics, ma
         MIRROR_PROJECTS_ENV_VAR + ' only; the mirror scope is NOT what the file says')
     }
     if (mtimeMs === projectsFileCache.mtimeMs && error === projectsFileCache.error) return projectsFileCache
-    projectsFileCache = { mtimeMs, revision: projectsFileCache.revision + 1, list, error }
+    projectsFileCache = { mtimeMs, revision: projectsFileCache.revision + 1, list, raw, error }
     return projectsFileCache
+  }
+
+  /**
+   * v0.6.2 - the official way to edit the scope file.
+   *
+   * Until now the only way to add a project was to hand-write JSON next to the
+   * plugin's state, and the first attempt at that produced a UTF-8 BOM which
+   * JSON.parse refused -- the mirror stayed off with the file sitting right
+   * there. These helpers write bare UTF-8 (no BOM by construction), keep the
+   * user's own spelling of each path, and bump the decision-cache revision so
+   * the change applies to the NEXT EVENT without a restart.
+   */
+  function writeProjectsFile(paths) {
+    const payload = { projects: paths }
+    mkdirSync(stateDir(), { recursive: true })
+    writeFileSync(projectsFile, JSON.stringify(payload, null, 2) + '\n', 'utf8')
+    // Force a re-read even when the millisecond mtime is unchanged, and bump the
+    // revision so every cached decision is re-evaluated.
+    projectsFileCache = { mtimeMs: -1, revision: projectsFileCache.revision + 1, list: [], raw: [], error: null }
+    return projectsFromFile()
+  }
+
+  /** Scope summary: env list, file list (folded + as written) and the merge. */
+  function listProjects() {
+    const fromFile = projectsFromFile()
+    return {
+      file_path: projectsFile,
+      env: [...envProjects],
+      file: [...fromFile.list],
+      file_raw: [...fromFile.raw],
+      merged: currentExtraProjects(),
+      file_error: fromFile.error || null,
+      revision: fromFile.revision,
+    }
+  }
+
+  /** Add one path to the scope file (idempotent, case/separator-insensitive). */
+  function addProject(path) {
+    const raw = String(path == null ? '' : path).trim()
+    if (!foldCwd(raw)) return { ok: false, error: 'a project path is required', ...listProjects() }
+    const current = projectsFromFile().raw.slice()
+    if (!current.some((p) => foldCwd(p) === foldCwd(raw))) current.push(raw)
+    const written = writeProjectsFile(current)
+    return { ok: true, added: raw, projects: written.raw, ...listProjects() }
+  }
+
+  /** Remove one path from the scope file (no-op when absent). */
+  function removeProject(path) {
+    const folded = foldCwd(String(path == null ? '' : path).trim())
+    const current = projectsFromFile().raw.filter((p) => foldCwd(p) !== folded)
+    const written = writeProjectsFile(current)
+    return { ok: true, removed: folded, projects: written.raw, ...listProjects() }
   }
 
   /** Merged, folded in-scope list (env first, then the plugin-owned file). */
@@ -466,6 +524,9 @@ export function createSessionMirror({ hermesHome, outbox, sseBroker, metrics, ma
     policyStatus,
     decisionFor,
     decisionLog,
+    listProjects,
+    addProject,
+    removeProject,
     stop,
   }
 }
