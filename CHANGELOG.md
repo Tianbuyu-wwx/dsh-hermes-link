@@ -24,6 +24,15 @@ These commits existed and the work shipped through subsequent published versions
 
 ---
 
+## [0.6.10] — 2026-09-18
+
+### Added
+
+- **`npx dsh-hermes-link-setup`** — the one-command onboarding: inspect the Hermes home and `config.yaml`, install/refresh the Hermes-side bridge, enable it via the Hermes CLI when reachable (otherwise print the exact command), probe the running DSH plugin, and finish with the restarts still owed. `--dry-run` / `--json` supported. Measured effect: first-time wiring goes from six manual steps to one command plus a restart.
+- `services/setup.mjs` (pure decision table) + `services/hermes-plugin-install.mjs` (the shared copy path, with the two Windows traps encoded) + `scripts/test-setup.mjs` (7 cases).
+
+---
+
 ## [0.6.9] — 2026-09-18
 
 ### Added

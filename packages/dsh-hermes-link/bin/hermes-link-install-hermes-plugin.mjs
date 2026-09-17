@@ -5,9 +5,12 @@
 // installation: it writes the outbox/hermes notifications DSH has been reading
 // since v0.6.0 AND answers the consult tickets DSH has been writing since v0.2.0.
 //
-// The plugin is copied to <Hermes Home>/plugins/dsh-link/ — the documented
+// The plugin is copied to <Hermes Home>/plugins/dsh-link/ -- the documented
 // out-of-tree plugin location ($HERMES_HOME/plugins/, later-wins discovery).
 // Hermes loads plugins at start-up, so it must be restarted afterwards.
+//
+// v0.6.10: the copy itself moved to services/hermes-plugin-install.mjs so the
+// setup wizard shares it; this stays the low-level, scriptable entry point.
 //
 // USAGE
 //   npx hermes-link-install-hermes-plugin             # install
@@ -16,59 +19,54 @@
 //
 // EXIT: 0 installed (or already current), 2 = bad usage / Hermes home not found.
 
-import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { existsSync } from 'node:fs'
+import { dirname } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { join } from 'node:path'
+
+const here = dirname(fileURLToPath(import.meta.url))
+const pkgRoot = dirname(here)
+const { detectHermesHome, installHermesPlugin, inspectInstalledPlugin } =
+  await import(pathToFileURL(join(pkgRoot, 'services', 'hermes-plugin-install.mjs')).href)
 
 const args = process.argv.slice(2)
 const has = (f) => args.includes(f)
 const argOf = (f, d) => { const i = args.indexOf(f); return i !== -1 && args[i + 1] !== undefined ? args[i + 1] : d }
 
-/** Same precedence the plugin and the DSH side use. */
-function detectHermesHome() {
-  if (process.env.HERMES_HOME) return process.env.HERMES_HOME
-  if (process.platform === 'win32') return join(process.env.LOCALAPPDATA || join(homedir(), 'AppData', 'Local'), 'hermes')
-  return join(process.env.XDG_DATA_HOME || join(homedir(), '.local', 'share'), 'hermes')
-}
-
 const home = argOf('--hermes-home', detectHermesHome())
 const dryRun = has('--dry-run')
-const pkgRoot = dirname(dirname(fileURLToPath(import.meta.url)))
-const src = join(pkgRoot, 'hermes-plugin', 'dsh-link')
-const dest = join(home, 'plugins', 'dsh-link')
 
-if (!existsSync(src)) {
-  console.error('the packaged plugin is missing: ' + src)
-  process.exit(2)
-}
 if (!existsSync(home)) {
   console.error('no Hermes home at ' + home + ' (pass --hermes-home <dir> or set HERMES_HOME)')
   process.exit(2)
 }
 
-const files = readdirSync(src).filter((f) => statSync(join(src, f)).isFile())
+let plan
+try {
+  plan = installHermesPlugin({ hermesHome: home, pkgRoot, dryRun })
+} catch (e) {
+  console.error(e && e.message || String(e))
+  process.exit(2)
+}
+
 console.log('hermes home : ' + home)
-console.log('plugin src  : ' + src)
-console.log('plugin dest : ' + dest)
-console.log('files       : ' + files.join(', '))
+console.log('plugin dest : ' + plan.dest)
+console.log('files       : ' + plan.files.join(', '))
 if (dryRun) {
   console.log('')
   console.log('DRY RUN - nothing written. Re-run without --dry-run to install.')
   process.exit(0)
 }
 
-mkdirSync(dest, { recursive: true })
-// copyFileSync, not cpSync: cpSync's override path needs the destination entry to
-// already exist on Windows and fails with a confusing ESRCH when it does not.
-for (const f of files) copyFileSync(join(src, f), join(dest, f))
-const missing = files.filter((f) => !existsSync(join(dest, f)))
-if (missing.length > 0) {
-  console.error('copy reported success but these files are missing: ' + missing.join(', '))
+if (plan.missing.length > 0) {
+  console.error('copy reported success but these files are missing: ' + plan.missing.join(', '))
   process.exit(1)
 }
+
+const state = inspectInstalledPlugin({ hermesHome: home, pkgRoot })
 console.log('')
-console.log('installed ' + files.length + ' file(s).')
+console.log('installed ' + plan.copied.length + ' file(s), plugin version ' + (state.version || 'unknown') + '.')
 console.log('NEXT: restart Hermes (plugins are discovered at start-up), then verify with')
 console.log('  curl http://127.0.0.1:3080/mcp/collab/hermes-outbox/status   # DSH side counters')
 console.log('  dir "%LOCALAPPDATA%\\hermes\\outbox\\hermes"                  # produced notifications')
+console.log('  npx hermes-link-status                                        # one-glance health')

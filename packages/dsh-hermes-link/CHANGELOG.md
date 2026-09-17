@@ -1,5 +1,12 @@
 # @tianbuyu-wwx/dsh-hermes-link
 
+## 0.6.10
+
+### Minor Changes
+
+- **`npx dsh-hermes-link-setup`: onboarding is one command.** Wiring the bridge up used to be six steps spread across the README — copy the Hermes plugin, enable it there, restart Hermes, restart DSH, verify, troubleshoot — and two of them being skipped silently is exactly what the 2026-09-15 audit found. The wizard inspects the Hermes home and `config.yaml`, installs or refreshes the plugin, enables it through the Hermes CLI when one is reachable (otherwise it prints the exact command), probes the running DSH plugin, and ends with the short list only a human can do: the restarts. `--dry-run` prints the plan without touching anything; `--json` for scripts.
+- The copy step moved to `services/hermes-plugin-install.mjs`, shared by the wizard and `hermes-link-install-hermes-plugin` (one copy path, one set of guards), and the planner lives in `services/setup.mjs` as pure functions so the whole decision table is tested without a real Hermes install (`scripts/test-setup.mjs`, 7 cases).
+
 ## 0.6.9
 
 ### Minor Changes
