@@ -243,6 +243,10 @@ export function createHermesOutboxConsumer({ hermesHome, ctx, importer, broker, 
       outcome = { ok: false, error: String(e && e.message || e) }
     }
     if (outcome.ok) {
+      // A sticky last_error made the doctor warn forever about a failure that had
+      // already been resolved (live: ten parked `not_found` notifications kept
+      // "[warn] Hermes->DSH outbox" on screen long after imports worked again).
+      lastError = null
       state.consumed[key] = Date.now()
       persist()
       counters.executed++

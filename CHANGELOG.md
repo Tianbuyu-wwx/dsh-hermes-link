@@ -24,6 +24,15 @@ These commits existed and the work shipped through subsequent published versions
 
 ---
 
+## [0.6.8] — 2026-09-18
+
+### Fixed
+
+- **The Hermes bridge announced sessions the importer could not read** (sub-agent sessions from a fan-out, none with a `request_dump`), so the consumer parked ten notifications as `failed-*` with `not_found` and the doctor kept warning about a channel that was working. The import notification is now gated on the dump existing; the DSH-side watcher, the startup sync and the v0.6.7 retry window cover everything else. Plugin **0.3.0** — reinstall and start a new Hermes session to load it.
+- A resolved failure no longer keeps `last_error` (and the doctor's warn) on screen forever.
+
+---
+
 ## [0.6.7] — 2026-09-18
 
 ### Fixed

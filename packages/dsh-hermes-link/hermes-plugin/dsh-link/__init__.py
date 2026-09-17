@@ -58,7 +58,7 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
-PLUGIN_VERSION = "0.2.0"
+PLUGIN_VERSION = "0.3.0"
 PLUGIN_NAME = "dsh-link"
 PRODUCER = PLUGIN_NAME
 
@@ -148,6 +148,24 @@ def write_notification(kind: str, *, session_id: Optional[str] = None,
         return None
 
 
+def has_dump(session_id: str) -> bool:
+    """Is there a `request_dump_<sid>_*.json` for this session yet?
+
+    The DSH importer works from those dumps and nothing else, so announcing a
+    session without one can only fail. Live evidence (2026-09-18): a fan-out at
+    00:20:43 spawned sub-agent sessions, each turn end produced an `import`
+    notification, none of them had (or would get) a dump, and the consumer parked
+    ten of them as `failed-*` with `not_found` -- a permanent warning for
+    something that was never importable. Sessions whose dump only appears later
+    are still covered by the DSH-side watcher and startup sync.
+    """
+    try:
+        directory = _hermes_home() / "sessions"
+        return any(directory.glob("request_dump_%s_*.json" % session_id))
+    except Exception:
+        return False
+
+
 def _on_session_end(session_id: str = "", task_id: str = "", turn_id: Any = None,
                     completed: bool = False, failed: bool = False, interrupted: bool = False,
                     turn_exit_reason: str = "", model: str = "", platform: str = "",
@@ -168,8 +186,13 @@ def _on_session_end(session_id: str = "", task_id: str = "", turn_id: Any = None
     }
     stamp = "turn:%s" % (turn_id if turn_id is not None else int(time.time() * 1000))
     if failed or interrupted:
+        # Surface the failure on DSH's SSE channel; a notify needs no dump (it
+        # carries the failure itself).
         write_notification("notify", session_id=session_id, payload=payload, unique=stamp)
-    write_notification("import", session_id=session_id, payload=payload, unique=stamp)
+    # Only announce sessions the importer can actually read (see has_dump): a
+    # notification for a session without a dump is a guaranteed `not_found`.
+    if has_dump(session_id):
+        write_notification("import", session_id=session_id, payload=payload, unique=stamp)
 
 
 # ---------------------------------------------------------------------------

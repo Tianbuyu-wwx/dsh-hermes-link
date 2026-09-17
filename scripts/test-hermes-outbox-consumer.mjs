@@ -373,6 +373,11 @@ await t('bridge: the Hermes plugin keeps both contracts DSH depends on', () => {
   // the consult half: answer tickets through the host LLM facade and leave the
   // durable marker DSH relies on once the reply file has been consumed
   assert.match(py, /register_command\("dsh-consult"/)
+  // v0.6.8: an import notification is only written when the importer can read the
+  // session (a dump exists) -- otherwise every turn of a sub-agent session parks a
+  // guaranteed `not_found` in done/.
+  assert.match(py, /def has_dump\(session_id: str\)/)
+  assert.match(py, /if has_dump\(session_id\):/)
   assert.match(py, /ctx\.llm\.complete\(/)
   assert.match(py, /reply_secret/)
   assert.match(py, /\.["']?\)?\s*%\s*ticket_id|answered\.json/, 'the answered marker is written next to the ticket')
@@ -461,6 +466,21 @@ await t('retry window: an old numeric attempt record is still understood', async
     await c.scanOnce()
     assert.equal(c.stats().pending_retries, 1, 'the legacy number is upgraded, not dropped')
     assert.equal(c.stats().archived, 0, 'and it does not park on the first failure')
+    c.dispose()
+  } finally { env.cleanup() }
+})
+
+await t('last_error clears once a notification succeeds again', async () => {
+  const env = makeEnv()
+  try {
+    const importer = fakeImporter(['import_failed', 'created'])
+    const c = makeConsumer(env, { importer, maxAttempts: 5, retryWindowMs: 60 * 60 * 1000 })
+    writeNotification(env.outboxDir, 'l1.json', { id: 'l-1', kind: 'import', session_id: 's-l' })
+    await c.scanOnce()
+    assert.match(c.stats().last_error, /boom/, 'the failure is reported')
+    await c.scanOnce()
+    assert.equal(c.stats().last_error, null, 'a resolved failure must not keep the doctor warning')
+    assert.equal(c.stats().executed, 1)
     c.dispose()
   } finally { env.cleanup() }
 })

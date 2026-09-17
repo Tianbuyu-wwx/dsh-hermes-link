@@ -1,5 +1,12 @@
 # @tianbuyu-wwx/dsh-hermes-link
 
+## 0.6.8
+
+### Patch Changes
+
+- **The Hermes bridge no longer announces sessions the importer cannot read.** Live evidence (2026-09-18 00:20): a fan-out spawned sub-agent sessions, every turn end produced an `import` notification, none of them had — or would get — a `request_dump`, and the consumer parked ten of them as `failed-*` with `not_found`, leaving a permanent `[warn] Hermes->DSH outbox` for something that was never importable. The plugin now writes the import notification only when `<Hermes Home>/sessions/request_dump_<sid>_*.json` exists; sessions whose dump lands later are covered by the DSH-side watcher and the startup sync, and short races by the v0.6.7 retry window. **Plugin version 0.3.0** — reinstall with `npx hermes-link-install-hermes-plugin` and start a new Hermes session (or restart it) to load it.
+- **Fixed: a sticky `last_error`.** One resolved failure kept the doctor's `[warn] Hermes->DSH outbox` on screen forever; it is cleared by the next successful execution.
+
 ## 0.6.7
 
 ### Patch Changes
