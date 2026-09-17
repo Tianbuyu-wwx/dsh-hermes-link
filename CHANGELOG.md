@@ -24,6 +24,17 @@ These commits existed and the work shipped through subsequent published versions
 
 ---
 
+## [0.6.9] — 2026-09-18
+
+### Added
+
+- **`hermes_link_status`** — the one-glance status: one line per channel, the counters since load, and the next action when something is off. The doctor answers "is anything broken?"; this answers "is it working and what do I do?", which is the question people actually ask.
+- **Consult token accounting** — answers the Hermes model returns carry their token usage; it is now booked into `hermes_link_consult_tokens_total{kind}` so the cost of asking is visible.
+- **`npx hermes-link-consult-admin [--purge-expired [--apply]]`** — inbox status plus the opt-in cleanup for abandoned tickets (the TTL sweep never deletes, by design). Clearing the three from the audit took the doctor to `9 ok, 0 warn, 0 fail`.
+- **`docs/ux-plan-v0.7.md`** — the UX plan: five user-visible pain scenarios, the P0–P2 plan with acceptance criteria, and the metrics that prove it worked.
+
+---
+
 ## [0.6.8] — 2026-09-18
 
 ### Fixed

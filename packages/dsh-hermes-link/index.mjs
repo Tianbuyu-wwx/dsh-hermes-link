@@ -68,13 +68,14 @@ import { createConsultHermesTool } from './tools/consult-hermes.mjs'
 import { createMirrorSessionToHermesTool } from './tools/mirror-session-to-hermes.mjs'
 import { createSessionMirrorControlTool } from './tools/session-mirror-control.mjs'
 import { createDoctorTool } from './tools/doctor.mjs'
+import { createStatusTool } from './tools/status.mjs'
 import { createLoadHermesProjectMemoryTool } from './tools/load-hermes-project-memory.mjs'
 import { createRotateOutboxNowTool } from './tools/rotate-outbox-now.mjs'
 import { createDispatchStatusTool } from './tools/dispatch-status.mjs'
 
 const skillDir = fileURLToPath(new URL('./skills/dsh-hermes-link', import.meta.url))
 const MAX_FOUNDATION_SLICE_CHARS = 4096
-const VERSION = '0.6.8'
+const VERSION = '0.6.9'
 
 // -----------------------------------------------------------------------------
 // v0.3.2 F6 - register the canonical metric shape so the wire format is
@@ -92,6 +93,10 @@ function registerMetricsShape(metrics, { VERSION }) {
     'Total dispatch_interrupt invocations by terminal status', ['status'])
   metrics.registerCounter('hermes_link_consult_total',
     'Total consult_hermes invocations by terminal status', ['status'])
+  // v0.6.9 - what the answers cost: the Hermes plugin records the model's token
+  // usage in the reply, and the client books it here as it consumes one.
+  metrics.registerCounter('hermes_link_consult_tokens_total',
+    'Consult answer tokens by direction', ['kind'])
   metrics.registerCounter('hermes_link_import_total',
     'Total import_hermes_session invocations by terminal status', ['status'])
   metrics.registerCounter('hermes_link_amend_total',
@@ -233,7 +238,7 @@ export function apply(ctx) {
   const hermesWorkspaceDir = join(process.env.DSH_HOME || join(homedir(), '.dsh'), 'hermes-workspace')
   const importer = ctx.sessions ? createImporter({ ctx, hermesHome, workspaceDir: hermesWorkspaceDir }) : null
   const personaLoader = { loadPersona: (h, opts) => loadPersona(h || hermesHome, opts) }
-  const consultClient = createConsultClient({ hermesHome })
+  const consultClient = createConsultClient({ hermesHome, metrics })
   const outbox = createOutbox({ hermesHome })
   // v0.3.1 F2 - file rotation for the outbox (heartbeat/usage/memory-suggest/session-mirror).
   const outboxRotation = createOutboxRotation({ hermesHome })
@@ -413,6 +418,9 @@ export function apply(ctx) {
       // v0.6.2 - the doctor, callable from the session (same module as the CLI
       // and the /mcp/collab/doctor route).
       ctx.tools.register(createDoctorTool({ hermesHome, sessionMirror, hermesOutbox, metrics }))
+      // v0.6.9 - the one-glance status: the doctor's checks condensed into what a
+      // person (or the agent) actually asks: is it working, and what do I do next?
+      ctx.tools.register(createStatusTool({ hermesHome, sessionMirror, hermesOutbox, consultClient, metrics, importer }))
       console.log('[dsh-hermes-link v' + VERSION + '] tools registered: list_hermes_sessions, import_hermes_session, load_hermes_persona, consult_hermes, mirror_session_to_hermes, session_mirror, load_hermes_project_memory, rotate_outbox_now, dispatch_status, hermes_link_doctor')
     }
   } catch (e) {

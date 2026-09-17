@@ -1,5 +1,14 @@
 # @tianbuyu-wwx/dsh-hermes-link
 
+## 0.6.9
+
+### Minor Changes
+
+- **`hermes_link_status`: the one-glance answer.** The doctor is a check list (eleven probes, built for scripts); people ask a different question — "is it working, and what do I do next?". The new tool renders one line per channel (Hermes notifications, session import, session mirror, consult), the counters since plugin load, and the actions to take when something is off; `json=true` returns the same object for machines. The logic lives in `services/status.mjs` as pure functions, so the tool and the tests render identically.
+- **Consult answers are now accounted for.** The Hermes plugin already recorded the model's token usage in its reply; the client books it into `hermes_link_consult_tokens_total{kind}` as it consumes the reply, and the status/doctor surfaces show it — "what does asking Hermes cost me?" finally has an answer.
+- **`npx hermes-link-consult-admin`** — consult inbox status, plus the opt-in cleanup the TTL sweep deliberately never did: `--purge-expired` (dry run) removes only tickets that are past the TTL, have no reply, AND already carry an `.expired.json` marker (`--apply` to delete). Used here to clear the three tickets the 2026-09-15 audit found: the doctor then reported `9 ok, 0 warn, 0 fail` for the first time.
+- `docs/ux-plan-v0.7.md` — the user-experience plan: five scenarios users complain about, the P0→P2 work with acceptance criteria, and the metrics that say whether it worked.
+
 ## 0.6.8
 
 ### Patch Changes

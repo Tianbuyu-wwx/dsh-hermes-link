@@ -28,7 +28,7 @@ const TRUST_LEGACY       = process.env.HERMES_LINK_TRUST_LEGACY === '1'
  * @param {number} [deps.timeoutMs]
  * @param {number} [deps.pollMs]
  */
-export function createConsultClient({ hermesHome, timeoutMs = DEFAULT_TIMEOUT_MS, pollMs = DEFAULT_POLL_MS } = {}) {
+export function createConsultClient({ hermesHome, timeoutMs = DEFAULT_TIMEOUT_MS, pollMs = DEFAULT_POLL_MS, metrics = null } = {}) {
   const inboxDir    = join(hermesHome, 'inbox', 'dsh', 'consult')
   const replyDir    = join(hermesHome, 'inbox', 'dsh', 'consult-reply')
   const resultDir   = join(hermesHome, 'inbox', 'dsh', 'dispatch-result')
@@ -93,11 +93,23 @@ export function createConsultClient({ hermesHome, timeoutMs = DEFAULT_TIMEOUT_MS
     try {
       const raw = JSON.parse(readFileSync(path, 'utf8'))
       try { unlinkSync(path) } catch {}
+      // v0.6.9 - the Hermes side records what the answer cost; surface it so
+      // "what does consulting cost me?" has an answer. Accounting must never
+      // break a consult, so every step is guarded.
+      const usage = raw && raw.usage && typeof raw.usage === 'object' ? raw.usage : null
+      try {
+        if (metrics && usage) {
+          if (Number.isFinite(usage.input_tokens)) metrics.inc('hermes_link_consult_tokens_total', { kind: 'input' }, usage.input_tokens)
+          if (Number.isFinite(usage.output_tokens)) metrics.inc('hermes_link_consult_tokens_total', { kind: 'output' }, usage.output_tokens)
+        }
+      } catch (_e) { /* best-effort */ }
       return {
         status: 'replied',
         reply: raw.answer || raw.text || '',
         ticket,
         reply_kind: kind,
+        model: (raw && raw.model) || null,
+        usage,
       }
     } catch (e) {
       return { status: 'error', error: 'reply_parse_failed: ' + (e && e.message || e), ticket, reply_kind: kind }
@@ -275,7 +287,53 @@ export function createConsultClient({ hermesHome, timeoutMs = DEFAULT_TIMEOUT_MS
     return { verdict, open, stale, expired_markers: markers, answered_markers: answeredMarkers, oldest_stale_ms: oldest, last_reply_at: lastReplyAt, note }
   }
 
-  return { consult, writeResult, inboxDir, replyDir, resultDir, listReplyFiles, sweepStaleTickets, findReply, channelHealth }
+  /**
+   * v0.6.9 - remove the tickets the sweep has already classified as abandoned.
+   *
+   * `sweepStaleTickets` deliberately does NOT delete anything: a late reply must
+   * still be accepted, and the marker is what tells the health check "answered"
+   * from "abandoned". But abandoned tickets then sit in the inbox forever, keep
+   * the doctor's consult backlog warning on screen, and make every status read
+   * noisier. This is the explicit, opt-in cleanup: only tickets that are past the
+   * TTL, have no reply, AND already carry an `.expired.json` marker qualify --
+   * anything still waiting for a first reply is left alone.
+   *
+   * @param {{apply?: boolean, ttlMs?: number, now?: number}} [opts]
+   * @returns {{scanned:number, candidates:Array, purged:Array, skipped:Array, applied:boolean}}
+   */
+  function purgeExpiredTickets({ apply = false, ttlMs = DEFAULT_TICKET_TTL_MS, now = Date.now() } = {}) {
+    let entries = []
+    try { entries = readdirSync(inboxDir, { withFileTypes: true }) } catch { entries = [] }
+    const out = { scanned: 0, candidates: [], purged: [], skipped: [], applied: !!apply }
+    for (const e of entries) {
+      if (!e.isFile() || !e.name.endsWith('.json')) continue
+      if (e.name.endsWith('.expired.json') || e.name.endsWith('.answered.json')) continue
+      out.scanned++
+      const payload = readJsonSafe(join(inboxDir, e.name))
+      const ticket = payload && payload.ticket ? String(payload.ticket) : null
+      if (!ticket) { out.skipped.push({ file: e.name, reason: 'no_ticket_id' }); continue }
+      if (findReply(ticket)) { out.skipped.push({ file: e.name, reason: 'has_reply_or_marker' }); continue }
+      const ageMs = payload.ts ? now - Number(payload.ts) : null
+      if (ageMs != null && ageMs <= ttlMs) { out.skipped.push({ file: e.name, reason: 'still_open' }); continue }
+      const marker = ticket + '.expired.json'
+      let marked = false
+      try { marked = existsSync(join(inboxDir, marker)) } catch { marked = false }
+      if (!marked) { out.skipped.push({ file: e.name, reason: 'not_marked_expired' }); continue }
+      const entry = { file: e.name, ticket, marker, age_ms: ageMs }
+      out.candidates.push(entry)
+      if (!apply) continue
+      try {
+        unlinkSync(join(inboxDir, e.name))
+        try { unlinkSync(join(inboxDir, marker)) } catch (_e) { /* marker may be gone */ }
+        out.purged.push(entry)
+      } catch (err) {
+        out.skipped.push({ file: e.name, reason: 'unlink_failed: ' + (err && err.message || err) })
+      }
+    }
+    return out
+  }
+
+  return { consult, writeResult, inboxDir, replyDir, resultDir, listReplyFiles, sweepStaleTickets, purgeExpiredTickets, findReply, channelHealth }
 }
 
 function ensureDir(d) {

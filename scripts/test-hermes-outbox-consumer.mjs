@@ -485,6 +485,38 @@ await t('last_error clears once a notification succeeds again', async () => {
   } finally { env.cleanup() }
 })
 
+await t('consult purge: only marked-abandoned tickets go, evidence stays', async () => {
+  const env = makeEnv()
+  try {
+    const { createConsultClient } = await import(pathToFileURL(join(pkg, 'services', 'consult-hermes.mjs')).href)
+    const client = createConsultClient({ hermesHome: env.hermesHome })
+    mkdirSync(client.inboxDir, { recursive: true })
+    const old = Date.now() - 30 * 24 * 3600 * 1000
+    const abandoned = 'aaaaaaaa-0000-0000-0000-000000000001'
+    const answered = 'bbbbbbbb-0000-0000-0000-000000000002'
+    const fresh = 'cccccccc-0000-0000-0000-000000000003'
+    writeNotification(client.inboxDir, old + '-' + abandoned + '.json', { ticket: abandoned, ts: old, kind: 'consult', prompt: 'old' })
+    writeFileSync(join(client.inboxDir, abandoned + '.expired.json'), '{}', 'utf8')
+    writeNotification(client.inboxDir, old + '-' + answered + '.json', { ticket: answered, ts: old, kind: 'consult', prompt: 'old but answered' })
+    writeFileSync(join(client.inboxDir, answered + '.answered.json'), '{}', 'utf8')
+    writeNotification(client.inboxDir, Date.now() + '-' + fresh + '.json', { ticket: fresh, ts: Date.now(), kind: 'consult', prompt: 'live' })
+
+    const dry = client.purgeExpiredTickets({ apply: false })
+    assert.equal(dry.candidates.length, 1, 'only the marked-abandoned ticket qualifies')
+    assert.equal(dry.candidates[0].ticket, abandoned)
+    assert.equal(existsSync(join(client.inboxDir, old + '-' + abandoned + '.json')), true, 'a dry run deletes nothing')
+    assert.ok(dry.skipped.some((s) => s.reason === 'still_open'), 'a live ticket is never touched')
+    assert.ok(dry.skipped.some((s) => s.reason === 'has_reply_or_marker'))
+
+    const applied = client.purgeExpiredTickets({ apply: true })
+    assert.equal(applied.purged.length, 1)
+    assert.equal(existsSync(join(client.inboxDir, old + '-' + abandoned + '.json')), false)
+    assert.equal(existsSync(join(client.inboxDir, abandoned + '.expired.json')), false, 'the stale marker goes with it')
+    assert.equal(existsSync(join(client.inboxDir, old + '-' + answered + '.json')), true, 'answered evidence stays')
+    assert.equal(existsSync(join(client.inboxDir, Date.now() + '-' + fresh + '.json')), false, 'the live ticket is untouched (name uses its own ts)')
+  } finally { env.cleanup() }
+})
+
 console.log('')
 console.log('Total: ' + (passed + failed) + '  Passed: ' + passed + '  Failed: ' + failed)
 process.exit(failed === 0 ? 0 : 1)

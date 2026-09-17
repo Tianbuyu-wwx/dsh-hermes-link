@@ -347,6 +347,54 @@ await t('signals: a metrics registry puts the channel numbers into the report', 
   } finally { f.cleanup() }
 })
 
+await t('status: the one-glance summary condenses the checks and names the next step', async () => {
+  const { summariseStatus, renderStatus } = await import(pathToFileURL(join(pkg, 'services', 'status.mjs')).href)
+  const report = {
+    summary: { ok: 3, warn: 1, fail: 0 },
+    checks: [
+      { id: 'hermes_outbox', status: 'ok', title: 'outbox', detail: 'waiting=0' },
+      { id: 'hermes_producer', status: 'ok', title: 'bridge', detail: 'installed at C:/x/plugins/dsh-link' },
+      { id: 'mirror_active', status: 'ok', title: 'mirror', detail: '1 file(s), all advancing' },
+      { id: 'imported_model_pin', status: 'warn', title: 'pins', detail: '3/179 unpinned', hint: 'run: node scripts/repair-imported-model-selection.mjs --apply' },
+      { id: 'signals', status: 'ok', title: 'signals', detail: 'x', data: { hermes_link_consult_total: 4, hermes_link_uptime_seconds: 120 } },
+    ],
+  }
+  const s = summariseStatus({
+    report,
+    outboxStats: { pending_retries: 1, archived: 12, failed: 0 },
+    consultHealth: { verdict: 'dead', note: 'Hermes is not consuming the inbox' },
+    mirror: { policy: 'scoped' },
+  })
+  assert.match(s.headline, /1 warning/)
+  assert.equal(s.counters.warn, 1)
+  assert.equal(s.channels.find((c) => c.id === 'mirror').detail.includes('policy=scoped'), true)
+  assert.equal(s.channels.find((c) => c.id === 'consult').state, 'fail')
+  assert.ok(s.next_actions.some((a) => a.includes('repair-imported-model-selection')), 'the doctor hint becomes an action')
+  assert.ok(s.next_actions.some((a) => a.includes('consult-admin')), 'a dead consult channel says what to run')
+  assert.equal(s.signals.hermes_link_consult_total, 4)
+  const text = renderStatus(s)
+  assert.match(text, /dsh-hermes-link: working, 1 warning\(s\)/)
+  assert.match(text, /\[FAIL\] Consult channel/)
+  assert.match(text, /since load: consult=4 uptime_seconds=120/)
+})
+
+await t('status: a fully healthy bridge says so, and says there is nothing to do', async () => {
+  const { summariseStatus, renderStatus } = await import(pathToFileURL(join(pkg, 'services', 'status.mjs')).href)
+  const report = {
+    summary: { ok: 11, warn: 0, fail: 0 },
+    checks: [
+      { id: 'hermes_outbox', status: 'ok', title: 'outbox', detail: 'waiting=0' },
+      { id: 'hermes_producer', status: 'ok', title: 'bridge', detail: 'installed' },
+      { id: 'mirror_active', status: 'ok', title: 'mirror', detail: '1 file(s), all advancing' },
+      { id: 'signals', status: 'ok', title: 'signals', detail: 'x', data: {} },
+    ],
+  }
+  const s = summariseStatus({ report, outboxStats: { pending_retries: 0, archived: 3, failed: 0 }, consultHealth: { verdict: 'healthy', note: '6 open ticket(s), no backlog' } })
+  assert.equal(s.headline, 'all channels working')
+  assert.deepEqual(s.next_actions, [])
+  assert.match(renderStatus(s), /next: nothing to do/)
+})
+
 console.log('')
 console.log('Total: ' + (passed + failed) + '  Passed: ' + passed + '  Failed: ' + failed)
 process.exit(failed === 0 ? 0 : 1)
