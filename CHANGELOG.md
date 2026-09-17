@@ -24,6 +24,19 @@ These commits existed and the work shipped through subsequent published versions
 
 ---
 
+## [0.6.4] — 2026-09-17
+
+### Added
+
+- **Hermes answers consults now.** The Hermes-side bridge plugin (renamed `dsh-link`, it carries both directions) polls `inbox/dsh/consult/` and answers each pending ticket through `ctx.llm.complete(...)` — the host-owned facade, so the plugin never sees keys — writing `consult-reply/<ticket>-<secret>.json` and a durable `<ticket>.answered.json` marker. `/dsh-consult [n]` drains on demand; knobs under `plugins.entries.dsh-link.consult`.
+
+### Fixed
+
+- **The consult channel no longer reports itself dead after a successful answer**: a consumed reply file leaves no trace, so the health check now reads the answered marker. Three abandoned tickets from the audit read as `degraded` ("Hermes answered recently, these are abandoned") rather than `dead`, which had been trimming every new consult to a 2s timeout.
+- The consult TTL sweep counts an answered ticket once.
+
+---
+
 ## [0.6.3] — 2026-09-17
 
 ### Added

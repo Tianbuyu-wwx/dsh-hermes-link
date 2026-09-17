@@ -186,8 +186,11 @@ export async function runDoctor({ hermesHome, dshHome, live = null, now = Date.n
     // A ticket with a reply on disk is answered, however late: the reply is only
     // deleted when a consult consumes it, so an unconsumed late reply must not be
     // reported as backlog forever.
+    // A reply file is deleted when DSH consumes it, so the answered marker the
+    // Hermes-side plugin leaves behind is the durable evidence.
     const replied = entry.ticket
-      ? replies.some((r) => r === entry.ticket + '.json' || r.startsWith(entry.ticket + '-'))
+      ? replies.some((r) => r === entry.ticket + '.json' || r.startsWith(entry.ticket + '-')) ||
+        (safeList(consultDir, (e) => e.isFile() && e.name === entry.ticket + '.answered.json') || []).length > 0
       : false
     if (replied) repliedTickets.push(entry)
     else if (age != null && age > T.consultMs) staleTickets.push(entry)

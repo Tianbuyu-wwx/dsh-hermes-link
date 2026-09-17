@@ -345,28 +345,66 @@ await t('producer: the installer copies the plugin into <hermes home>/plugins', 
     // stdio:'ignore' keeps this sandbox-friendly (piped child stdio is blocked here).
     const r = spawnSync(process.execPath, [installer, '--hermes-home', home], { stdio: 'ignore' })
     assert.equal(r.status, 0, 'installer exited ' + r.status)
-    assert.equal(existsSync(join(home, 'plugins', 'dsh-outbox', 'plugin.yaml')), true)
-    assert.equal(existsSync(join(home, 'plugins', 'dsh-outbox', '__init__.py')), true)
+    assert.equal(existsSync(join(home, 'plugins', 'dsh-link', 'plugin.yaml')), true)
+    assert.equal(existsSync(join(home, 'plugins', 'dsh-link', '__init__.py')), true)
 
     const dry = spawnSync(process.execPath, [installer, '--hermes-home', join(env.dshHome, 'nope')], { stdio: 'ignore' })
     assert.equal(dry.status, 2, 'a missing Hermes home is a usage error, not a silent success')
   } finally { env.cleanup() }
 })
 
-await t('producer: the plugin keeps the contract DSH consumes', () => {
-  const dir = join(root, 'packages', 'dsh-hermes-link', 'hermes-plugin', 'dsh-outbox')
+await t('bridge: the Hermes plugin keeps both contracts DSH depends on', () => {
+  const dir = join(root, 'packages', 'dsh-hermes-link', 'hermes-plugin', 'dsh-link')
   const yaml = readFileSync(join(dir, 'plugin.yaml'), 'utf8')
   const py = readFileSync(join(dir, '__init__.py'), 'utf8')
-  assert.match(yaml, /^name:\s*dsh-outbox$/m)
+  assert.match(yaml, /^name:\s*dsh-link$/m)
   assert.match(yaml, /on_session_end/, 'the manifest must declare the hook it registers')
   assert.match(py, /def register\(ctx\)/)
   assert.match(py, /register_hook\("on_session_end"/)
   assert.match(py, /register_command\("dsh-notify"/)
   // bare UTF-8 (never a BOM -- JSON.parse on the DSH side refuses one) + atomic drop
   assert.match(py, /encode\("utf-8"\)/)
-  assert.doesNotMatch(py, /utf-8-sig/, 'utf-8-sig writes a BOM')
-  assert.match(py, /os\.replace\(/, 'notifications must appear atomically')
+  // Reading tolerates a BOM written by other tooling; WRITING must never add one.
+  assert.match(py, /read_text\(encoding="utf-8-sig"\)/, 'reads tolerate foreign BOMs')
+  assert.doesNotMatch(py, /write[^\n]*utf-8-sig/, 'writes must never add a BOM')
+  assert.match(py, /os\.replace\(/, 'files must appear atomically')
   for (const kind of ['import', 'notify']) assert.match(py, new RegExp('"' + kind + '"'), 'kind ' + kind + ' is part of the protocol')
+  // the consult half: answer tickets through the host LLM facade and leave the
+  // durable marker DSH relies on once the reply file has been consumed
+  assert.match(py, /register_command\("dsh-consult"/)
+  assert.match(py, /ctx\.llm\.complete\(/)
+  assert.match(py, /reply_secret/)
+  assert.match(py, /\.["']?\)?\s*%\s*ticket_id|answered\.json/, 'the answered marker is written next to the ticket')
+})
+
+await t('consult: an answered marker counts as answered after the reply is consumed', async () => {
+  const env = makeEnv()
+  try {
+    const { createConsultClient } = await import(pathToFileURL(join(pkg, 'services', 'consult-hermes.mjs')).href)
+    const client = createConsultClient({ hermesHome: env.hermesHome })
+    const ticket = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
+    const oldTs = Date.now() - 30 * 24 * 3600 * 1000
+    writeNotification(client.inboxDir, oldTs + '-' + ticket + '.json', { ticket, ts: oldTs, kind: 'consult', prompt: 'old' })
+    mkdirSync(client.inboxDir, { recursive: true })
+    writeFileSync(join(client.inboxDir, ticket + '.answered.json'), JSON.stringify({ ticket, kind: 'consult-answered' }), 'utf8')
+
+    const sweep = client.sweepStaleTickets({ apply: false })
+    assert.equal(sweep.stale.length, 0, 'an answered ticket is not backlog')
+    assert.equal(sweep.replied, 1)
+
+    const health = client.channelHealth()
+    assert.equal(health.verdict, 'healthy')
+    assert.equal(health.answered_markers, 1)
+    assert.equal(typeof health.last_reply_at, 'number')
+
+    // A separate abandoned ticket plus that recent answer = degraded, never dead.
+    const other = 'ffffffff-1111-2222-3333-444444444444'
+    writeNotification(client.inboxDir, oldTs + '-' + other + '.json', { ticket: other, ts: oldTs, kind: 'consult' })
+    const degraded = client.channelHealth()
+    assert.equal(degraded.verdict, 'degraded')
+    assert.equal(degraded.stale, 1)
+    assert.match(degraded.note, /abandoned ticket\(s\), but Hermes answered/)
+  } finally { env.cleanup() }
 })
 
 await t('consumer: a file that vanished before it could be read is not an error', async () => {

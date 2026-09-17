@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // bin/hermes-link-install-hermes-plugin.mjs
 //
-// Installs the Hermes-side producer (hermes-plugin/dsh-outbox) into a Hermes
-// installation, so Hermes actually writes the notifications that DSH's
-// outbox/hermes consumer has been reading since v0.6.0.
+// Installs the Hermes-side bridge (hermes-plugin/dsh-link) into a Hermes
+// installation: it writes the outbox/hermes notifications DSH has been reading
+// since v0.6.0 AND answers the consult tickets DSH has been writing since v0.2.0.
 //
-// The plugin is copied to <Hermes Home>/plugins/dsh-outbox/ — the documented
+// The plugin is copied to <Hermes Home>/plugins/dsh-link/ — the documented
 // out-of-tree plugin location ($HERMES_HOME/plugins/, later-wins discovery).
 // Hermes loads plugins at start-up, so it must be restarted afterwards.
 //
@@ -35,8 +35,8 @@ function detectHermesHome() {
 const home = argOf('--hermes-home', detectHermesHome())
 const dryRun = has('--dry-run')
 const pkgRoot = dirname(dirname(fileURLToPath(import.meta.url)))
-const src = join(pkgRoot, 'hermes-plugin', 'dsh-outbox')
-const dest = join(home, 'plugins', 'dsh-outbox')
+const src = join(pkgRoot, 'hermes-plugin', 'dsh-link')
+const dest = join(home, 'plugins', 'dsh-link')
 
 if (!existsSync(src)) {
   console.error('the packaged plugin is missing: ' + src)

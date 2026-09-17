@@ -1,0 +1,6 @@
+name: dsh-link
+version: 0.2.0
+description: "The Hermes half of the dsh-hermes-link bridge: writes Hermes->DSH notifications to Hermes Home/outbox/hermes/ (one per turn end, plus /dsh-notify) and answers DSH consult tickets from Hermes Home/inbox/dsh/consult/ with the host model (ctx.llm.complete), writing consult-reply/<ticket>-<secret>.json."
+author: "dsh-hermes-link"
+hooks:
+  - on_session_end

@@ -133,6 +133,11 @@ export function createConsultClient({ hermesHome, timeoutMs = DEFAULT_TIMEOUT_MS
     let files = []
     try { files = readdirSync(replyDir) } catch { return null }
     for (const f of files) if (f === ticket + '.json' || f.startsWith(ticket + '-')) return f
+    // The reply file is DELETED when a consult consumes it, so a consumed ticket
+    // would look unanswered forever (and the TTL sweep would keep marking it).
+    // Hermes' dsh-link plugin leaves <ticket>.answered.json behind for exactly
+    // this: it is the durable "this one was answered" evidence.
+    try { if (existsSync(join(inboxDir, ticket + '.answered.json'))) return ticket + '.answered.json' } catch (_e) { /* best-effort */ }
     return null
   }
 
@@ -160,6 +165,9 @@ export function createConsultClient({ hermesHome, timeoutMs = DEFAULT_TIMEOUT_MS
     try { entries = readdirSync(inboxDir, { withFileTypes: true }) } catch { return out }
     for (const e of entries) {
       if (!e.isFile() || !e.name.endsWith('.json') || e.name.endsWith('.expired.json')) continue
+      // A marker is evidence, not a ticket: counting it here would double-count the
+      // ticket it belongs to (findReply() already reports that one as replied).
+      if (e.name.endsWith('.answered.json')) continue
       out.scanned++
       const payload = readJsonSafe(join(inboxDir, e.name))
       const ticket = payload && payload.ticket ? String(payload.ticket) : null
@@ -217,6 +225,7 @@ export function createConsultClient({ hermesHome, timeoutMs = DEFAULT_TIMEOUT_MS
     for (const e of entries) {
       if (!e.isFile() || !e.name.endsWith('.json')) continue
       if (e.name.endsWith('.expired.json')) { markers++; continue }
+      if (e.name.endsWith('.answered.json')) { open++; continue }   // answered, awaiting no one
       const payload = readJsonSafe(join(inboxDir, e.name))
       const ts = payload && Number.isFinite(payload.ts)
         ? payload.ts
@@ -229,7 +238,11 @@ export function createConsultClient({ hermesHome, timeoutMs = DEFAULT_TIMEOUT_MS
         if (oldest == null || ageMs > oldest) oldest = ageMs
       } else open++
     }
+    // Evidence that Hermes ANSWERS, in both forms it leaves behind: an unconsumed
+    // reply file, and the durable <ticket>.answered.json marker the dsh-link plugin
+    // writes (a consumed reply is deleted, so the marker is the only lasting proof).
     let lastReplyAt = null
+    let answeredMarkers = 0
     let replies = []
     try { replies = readdirSync(replyDir, { withFileTypes: true }) } catch { replies = [] }
     for (const r of replies) {
@@ -239,17 +252,27 @@ export function createConsultClient({ hermesHome, timeoutMs = DEFAULT_TIMEOUT_MS
         if (lastReplyAt == null || st.mtimeMs > lastReplyAt) lastReplyAt = st.mtimeMs
       } catch (_e) { /* skip */ }
     }
-    const replyIsRecent = lastReplyAt != null && (now - lastReplyAt) <= deadAfterMs
-    const verdict = stale > 0 ? (replyIsRecent ? 'degraded' : 'dead') : 'healthy'
+    for (const e of entries) {
+      if (!e.isFile() || !e.name.endsWith('.answered.json')) continue
+      answeredMarkers++
+      try {
+        const st = statSync(join(inboxDir, e.name))
+        if (lastReplyAt == null || st.mtimeMs > lastReplyAt) lastReplyAt = st.mtimeMs
+      } catch (_e) { /* skip */ }
+    }
+    const answerIsRecent = lastReplyAt != null && (now - lastReplyAt) <= deadAfterMs
+    // Abandoned tickets (already marked expired, or simply old) must not keep the
+    // channel classified as dead once it demonstrably answers: that would make the
+    // consult pre-flight trim every future call to 2s forever.
+    const verdict = stale > 0 ? (answerIsRecent ? 'degraded' : 'dead') : 'healthy'
+    const ageText = lastReplyAt == null ? 'any recorded time' : Math.round((now - lastReplyAt) / 3600000) + 'h'
     const note = verdict === 'healthy'
       ? open + ' open ticket(s), no backlog'
       : verdict === 'degraded'
-        ? stale + ' stale ticket(s), but Hermes replied within ' + Math.round(deadAfterMs / 3600000) + 'h'
-        : stale + ' stale ticket(s) and no reply for ' + (lastReplyAt == null
-            ? 'any recorded time'
-            : Math.round((now - lastReplyAt) / 3600000) + 'h') +
+        ? stale + ' abandoned ticket(s), but Hermes answered ' + ageText + ' ago (markers: ' + answeredMarkers + ')'
+        : stale + ' stale ticket(s) and no answer for ' + ageText +
           ' -- the Hermes gateway/poller is probably not consuming ' + inboxDir
-    return { verdict, open, stale, expired_markers: markers, oldest_stale_ms: oldest, last_reply_at: lastReplyAt, note }
+    return { verdict, open, stale, expired_markers: markers, answered_markers: answeredMarkers, oldest_stale_ms: oldest, last_reply_at: lastReplyAt, note }
   }
 
   return { consult, writeResult, inboxDir, replyDir, resultDir, listReplyFiles, sweepStaleTickets, findReply, channelHealth }

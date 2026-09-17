@@ -1,5 +1,16 @@
 # @tianbuyu-wwx/dsh-hermes-link
 
+## 0.6.4
+
+### Minor Changes
+
+- **The Hermes-side bridge now answers consults too** (`hermes-plugin/dsh-link`, renamed from `dsh-outbox`). `consult_hermes` has been writing tickets into `inbox/dsh/consult/` since v0.2.0 and nothing on the Hermes side ever answered one — the audit found three tickets that had been sitting for three weeks. The plugin now runs a background poller that answers each pending ticket with `ctx.llm.complete(...)` (the host-owned LLM facade: the user's active model, no API keys in the plugin) and writes `consult-reply/<ticket>-<secret>.json` where the DSH client expects it, plus a durable `<ticket>.answered.json` marker. `/dsh-consult [n]` drains the queue on demand; tickets older than `ttl_hours` are left to DSH's own expiry sweep. Config: `plugins.entries.dsh-link.consult.{enabled,interval_seconds,ttl_hours,max_tokens,max_per_cycle,system_prompt}`.
+
+### Patch Changes
+
+- **The channel health check no longer cries dead once a reply has been consumed**: it reads the `<ticket>.answered.json` marker as answer evidence, so abandoned tickets (the three from the audit) report `degraded` — "Hermes answered recently, these are abandoned" — instead of `dead`, and the consult pre-flight stops trimming every future call to 2s.
+- The consult sweep counts an answered ticket once (the marker is evidence, not a second ticket).
+
 ## 0.6.3
 
 ### Minor Changes

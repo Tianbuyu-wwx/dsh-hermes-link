@@ -1,6 +1,6 @@
 ---
 name: dsh-hermes-link
-description: Hermes ↔ DSH bidirectional link. Use when the user wants to import a Hermes session into DSH, load Hermes persona (SOUL + config), load Hermes memory scoped to the current working directory, dispatch a task to a DSH sub-agent (one-shot or continuable), amend a running sub-agent, push a result to / consult Hermes from DSH, or see Hermes's conversation record in DSH. The plugin targets v0.6.3: it does NOT auto-inject Hermes turns into the current session (v0.3.6), it mirrors DSH sessions to Hermes ONLY for cwds that provably match a real Hermes project (HERMES_LINK_MIRROR_POLICY, default scoped since v0.6.0; off = manual opt-in, all = every session; hermes-* and noise events are always skipped), and it does NOT auto-load Hermes MEMORY.md (v0.2.3); every other cross-project channel remains explicit opt-in only.
+description: Hermes ↔ DSH bidirectional link. Use when the user wants to import a Hermes session into DSH, load Hermes persona (SOUL + config), load Hermes memory scoped to the current working directory, dispatch a task to a DSH sub-agent (one-shot or continuable), amend a running sub-agent, push a result to / consult Hermes from DSH, or see Hermes's conversation record in DSH. The plugin targets v0.6.4: it does NOT auto-inject Hermes turns into the current session (v0.3.6), it mirrors DSH sessions to Hermes ONLY for cwds that provably match a real Hermes project (HERMES_LINK_MIRROR_POLICY, default scoped since v0.6.0; off = manual opt-in, all = every session; hermes-* and noise events are always skipped), and it does NOT auto-load Hermes MEMORY.md (v0.2.3); every other cross-project channel remains explicit opt-in only.
 when_to_use: |
   The dsh-hermes-link plugin connects DSH to a Hermes Agent installation. DSH-side
   tools (callable from this session):
@@ -152,7 +152,7 @@ DSH-side plugin that makes Hermes Agent and DeepSeek Harness a single, bidirecti
 
 | Path | Direction | Purpose |
 |---|---|---|
-| `consult/<ts>-<uuid>.json` (carries `reply_secret`) → `consult-reply/<ticket>-<secret>.json` | DSH→Hermes→DSH | D2 consult (v0.2.2 secret suffix required) |
+| `consult/<ts>-<uuid>.json` (carries `reply_secret`) → `consult-reply/<ticket>-<secret>.json` + `consult/<ticket>.answered.json` | DSH→Hermes→DSH | D2 consult (v0.2.2 secret suffix required). The reply is deleted when a consult consumes it, so the `answered` marker is the durable evidence the TTL sweep and the channel health check read (v0.6.4); answered by the Hermes-side `dsh-link` plugin, or by hand. |
 | `dispatch-result/<task_id>.json` | DSH→Hermes | D1 task result + tokens |
 | `amend/<ts>-<task_id>-<nonce>.json` | Hermes→DSH | H4 mid-task amendment (v0.2.2 nonce required) |
 | `heartbeat/{ts}.json`, `heartbeat/latest.json` | DSH→Hermes | D3 heartbeat (60s) |
@@ -169,11 +169,20 @@ Each mirror line is `{"ts":<ms>,"cursor":<dsh event seq>,"source":"dsh","origin_
 
 ### File protocols (Hermes Home/outbox/hermes/) — v0.6.0 (C1)
 
-Producer (v0.6.3): `npx hermes-link-install-hermes-plugin` copies `hermes-plugin/dsh-outbox` into
-`<Hermes Home>/plugins/dsh-outbox/` — the documented out-of-tree plugin location — where it registers
-`on_session_end` (one `import` per Hermes turn end, plus a `notify` when the turn failed or was
-interrupted) and the `/dsh-notify <message>` slash command. Hermes must be restarted after installing
-(plugins are discovered at start-up). `GET /mcp/collab/doctor` reports whether it is present.
+Bridge plugin (v0.6.3, both directions since v0.6.4): `npx hermes-link-install-hermes-plugin` copies
+`hermes-plugin/dsh-link` into `<Hermes Home>/plugins/dsh-link/` — the documented out-of-tree plugin
+location — and Hermes loads it with `hermes plugins enable dsh-link` (effective on the next session).
+
+- **outbox half**: `on_session_end` → one `import` per Hermes turn end, a `notify` when the turn failed or
+  was interrupted, and `/dsh-notify <message>` for a human-written message.
+- **consult half**: a background poller answers `inbox/dsh/consult/` tickets with `ctx.llm.complete(...)`
+  and writes `consult-reply/<ticket>-<secret>.json` + `<ticket>.answered.json` (the durable marker DSH
+  uses once the reply file has been consumed). `/dsh-consult [n]` drains on demand; config knobs:
+  `plugins.entries.dsh-link.consult.{enabled,interval_seconds,ttl_hours,max_tokens,max_per_cycle,system_prompt}`.
+  Tickets older than `ttl_hours` are left to DSH's own expiry sweep.
+
+Hermes must be restarted after installing (plugins are discovered at start-up). `GET /mcp/collab/doctor`
+reports whether the bridge is present.
 
 | Path | Direction | Purpose |
 |---|---|---|

@@ -1,6 +1,0 @@
-name: dsh-outbox
-version: 0.1.0
-description: "Notify a local DeepSeek Harness (dsh-hermes-link) about Hermes turns by dropping plain JSON files into Hermes Home/outbox/hermes/. The DSH side consumes that directory (fs.watch + safety poll), imports the session, and archives each file into done/."
-author: "dsh-hermes-link"
-hooks:
-  - on_session_end
