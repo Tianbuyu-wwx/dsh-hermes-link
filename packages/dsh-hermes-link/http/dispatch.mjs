@@ -31,7 +31,7 @@ import {
   pickParentAgent,
 } from './dispatch-task.mjs'
 
-export const VERSION = '0.6.5'
+export const VERSION = '0.6.6'
 const BEARER_TOKEN = process.env.HERMES_LINK_TOKEN || ''
 
 // Re-exports for backward compat (tests / external consumers).
@@ -135,6 +135,10 @@ export function register(ctx, deps) {
       version: VERSION,
       hermes_home: hermesHome,
       importer_ready: !!importer,
+      // v0.6.6: the route the next import would pin, or null when none resolves --
+      // an import that pins nothing leaves the conversation's model/mode selectors
+      // blocked, which the pin scan finds only after the fact.
+      import_model_route: importer && typeof importer.modelRoute === 'function' ? importer.modelRoute() : null,
       persona_ready: !!personaLoader,
       consult_ready: !!consultClient,
       continuable_registry: deps.continuations ? 'on' : 'off',

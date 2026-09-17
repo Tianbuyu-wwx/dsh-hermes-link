@@ -642,6 +642,11 @@ await t('(j) model/selection: pinned from the deployment default, omitted when u
   promptDump(hermesHome, 's17', 'hello from j')
   // the stub materialises a REAL file, so each dir must exist before create()
   for (const d of ['with-default', 'no-default', 'env', 'bad-env']) mkdirSync(join(base, d), { recursive: true })
+  // v0.6.6: point DSH_HOME at an empty dir so the settings.yaml fallback cannot
+  // supply a route -- (j2)/(j4) assert that NOTHING is pinned when none resolves.
+  const prevDshHome = process.env.DSH_HOME
+  process.env.DSH_HOME = join(base, 'empty-dsh-home')
+  mkdirSync(process.env.DSH_HOME, { recursive: true })
 
   // (j1) deployment default present -> exactly one trailing model/selection
   const stub = makeStub({ dir: join(base, 'with-default') })
@@ -688,6 +693,37 @@ await t('(j) model/selection: pinned from the deployment default, omitted when u
     assert.equal(r4.modelSelection, null, 'a malformed spec falls through, never guesses')
   } finally {
     delete process.env.HERMES_LINK_IMPORT_MODEL
+    if (prevDshHome === undefined) delete process.env.DSH_HOME; else process.env.DSH_HOME = prevDshHome
+  }
+})
+// ---------------------------------------------------------------------------
+// (k) v0.6.6: the route must also resolve when ctx exposes NO agentDefaultModel
+// (production did exactly that: the injected service was unreachable, every
+// import silently skipped its model/selection pin, and only the live pin scan
+// noticed -- 33 sessions).
+// ---------------------------------------------------------------------------
+await t('(k) model route falls back to settings.yaml when ctx has no agentDefaultModel', async () => {
+  const base = tmp('k')
+  const hermesHome = join(base, 'hermes')
+  promptDump(hermesHome, 's18', 'hello from k')
+  const dshHome = join(base, 'dsh-home')
+  const outDir = join(base, 'out')
+  mkdirSync(dshHome, { recursive: true })
+  mkdirSync(outDir, { recursive: true })
+  writeFileSync(join(dshHome, 'settings.yaml'),
+    'agent-default-model:\n  provider: fallback-provider\n  model: fallback/model-id\n  reasoningEffort: high\n', 'utf8')
+  const prev = process.env.DSH_HOME
+  process.env.DSH_HOME = dshHome
+  try {
+    const stub = makeStub({ dir: outDir })
+    const importer = createImporter({ ctx: ctxFor(stub), hermesHome, workspaceDir: join(base, 'ws') })
+    const r = await silent(() => importer.importSession('s18'))
+    assert.equal(r.status, 'created')
+    assert.deepEqual(r.modelSelection, { provider: 'fallback-provider', model: 'fallback/model-id', reasoningEffort: 'high' })
+    const write = stub.handles.find((x) => x.access === 'write')
+    assert.equal(write.appended[write.appended.length - 1].type, 'model/selection', 'the pin is still the last event')
+  } finally {
+    if (prev === undefined) delete process.env.DSH_HOME; else process.env.DSH_HOME = prev
   }
 })
 

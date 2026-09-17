@@ -1,5 +1,13 @@
 # @tianbuyu-wwx/dsh-hermes-link
 
+## 0.6.6
+
+### Patch Changes
+
+- **Fixed: imports silently pinned no model route in production.** The importer's route resolver read `ctx.agentDefaultModel` directly, and that service turned out to be unreachable from the plugin's context — so every import since the pin shipped (33 sessions) appended no `model/selection` while every test stayed green (the tests inject the service by hand). The resolver now tries, in order: the injected service, the registry lookup `ctx.get('agentDefaultModel')`, and finally the deployment's own `agent-default-model` block in `$DSH_HOME/settings.yaml` (`HERMES_LINK_IMPORT_MODEL` still wins over all three). The live pin scan is what caught it — 33/178 sessions without a route — and `scripts/repair-imported-model-selection.mjs --apply` has pinned them.
+- **`GET /mcp/collab/health` now reports `import_model_route`** — the route the next import would pin, or `null` when none resolves. An import that pins nothing leaves the conversation's model and mode selectors blocked, and until now that was only visible after the fact.
+- Test: `test-import-migration` case (k) covers the settings fallback (no `agentDefaultModel` on the context at all).
+
 ## 0.6.5
 
 ### Minor Changes

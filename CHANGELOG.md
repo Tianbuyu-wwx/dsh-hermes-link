@@ -24,6 +24,15 @@ These commits existed and the work shipped through subsequent published versions
 
 ---
 
+## [0.6.6] — 2026-09-17
+
+### Fixed
+
+- **Imports pinned no model route in production while every test passed.** The resolver read `ctx.agentDefaultModel` directly and that service was unreachable from the plugin's context, so the 33 sessions imported since the pin shipped got no `model/selection` — which leaves a conversation's model *and* mode selectors blocked. It now falls back to `ctx.get('agentDefaultModel')` and then to the deployment's `agent-default-model` block in `settings.yaml`; the full self-check's pin scan caught the 33 (and the one imported by the end-to-end run), and they are repaired (append-only, backed up).
+- `GET /mcp/collab/health` reports `import_model_route` so "what would the next import pin?" is answerable live instead of after the fact.
+
+---
+
 ## [0.6.5] — 2026-09-17
 
 ### Added

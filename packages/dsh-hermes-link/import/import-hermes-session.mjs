@@ -153,12 +153,50 @@ function parseImportModelSpec(raw) {
   }
 }
 
-/** Read the deployment's default route; never throws (a missing service is normal). */
+/**
+ * Read the deployment's default route. Never throws: a missing service is normal.
+ *
+ * v0.6.6 - the service is looked up THREE ways, because the single direct read
+ * silently returned null in production while every test (which injects the service
+ * by hand) stayed green: 33 sessions imported after the pin shipped had no
+ * `model/selection` at all. Order: the injected service, the registry lookup
+ * (`ctx.get`, which also sees services published outside this plugin's scope),
+ * then the deployment's own settings file.
+ */
 function readDefaultSelection(ctx) {
   try {
-    const service = ctx && ctx.agentDefaultModel
-    if (!service || typeof service.currentSelection !== 'function') return null
-    return service.currentSelection()
+    const direct = ctx && ctx.agentDefaultModel
+    if (direct && typeof direct.currentSelection === 'function') return direct.currentSelection()
+  } catch { /* fall through */ }
+  try {
+    const viaRegistry = ctx && typeof ctx.get === 'function' ? ctx.get('agentDefaultModel') : null
+    if (viaRegistry && typeof viaRegistry.currentSelection === 'function') return viaRegistry.currentSelection()
+  } catch { /* fall through */ }
+  return readSettingsDefaultRoute()
+}
+
+/**
+ * Last-resort route source: the deployment's own `agent-default-model` block in
+ * `$DSH_HOME/settings.yaml` (the same file the repair tool reads). Deliberately a
+ * tiny targeted reader -- no YAML dependency, no cordis service, so it cannot be
+ * unavailable at import time.
+ */
+function readSettingsDefaultRoute() {
+  try {
+    const dshHome = process.env.DSH_HOME || join(process.env.USERPROFILE || process.env.HOME || '', '.dsh')
+    const text = readFileSync(join(dshHome, 'settings.yaml'), 'utf8')
+    const lines = String(text).split(/\r?\n/)
+    const start = lines.findIndex((l) => /^agent-default-model:\s*$/.test(l))
+    if (start === -1) return null
+    const block = {}
+    for (let i = start + 1; i < lines.length; i++) {
+      const line = lines[i]
+      if (/^\S/.test(line)) break
+      const m = /^\s+([A-Za-z][\w-]*):\s*(.+?)\s*$/.exec(line)
+      if (m) block[m[1]] = m[2].replace(/^["']|["']$/g, '')
+    }
+    if (!block.provider || !block.model) return null
+    return { provider: block.provider, model: block.model, ...(block.reasoningEffort ? { reasoningEffort: block.reasoningEffort } : {}) }
   } catch {
     return null
   }
@@ -1085,7 +1123,10 @@ export function createImporter({ ctx, hermesHome, workspaceDir, defaultModel }) 
   }
 
   // toPlatformPath / isUsableCwd are exposed for tests only (they are pure).
-  return { list, findOne, importSession, importAll, sync, renameAll, sessionsDir, hermesWorkspaceDir, unknownCwdDir, toPlatformPath, isUsableCwd }
+  // modelRoute() answers "what would the next import pin?" -- the live check that
+  // would have caught the v0.6.6 bug (imports silently pinned nothing because the
+  // agentDefaultModel service was unreachable) without reading 33 artifacts.
+  return { list, findOne, importSession, importAll, sync, renameAll, sessionsDir, hermesWorkspaceDir, unknownCwdDir, toPlatformPath, isUsableCwd, modelRoute: () => resolveImportModelSelection({ ctx }) }
 }
 
 // -----------------------------------------------------------------------------
