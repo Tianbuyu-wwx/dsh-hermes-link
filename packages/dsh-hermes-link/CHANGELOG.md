@@ -1,5 +1,12 @@
 # @tianbuyu-wwx/dsh-hermes-link
 
+## 0.6.11
+
+### Patch Changes
+
+- **Imported conversations now say what they are.** Every Hermes import is titled `[Hermes] …`, and a relabel pass runs right after the startup auto-sync so the ~180 sessions imported before the marker existed get labelled too (idempotent: a session already carrying the target title is skipped, so later starts write nothing). This is the cheap half of the P0-3 finding in `docs/ux-plan-v0.7.md`: a user reading a Hermes conversation in DSH could reasonably assume that replying there reaches Hermes — it does not, and the misunderstanding silently forks the conversation. (`hermes_followup`, a channel that would actually deliver a line back to Hermes, is still open.)
+- Tests: `test-import-migration` case (l) pins the prefix and the title budget.
+
 ## 0.6.10
 
 ### Minor Changes

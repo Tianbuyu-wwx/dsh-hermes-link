@@ -75,7 +75,7 @@ import { createDispatchStatusTool } from './tools/dispatch-status.mjs'
 
 const skillDir = fileURLToPath(new URL('./skills/dsh-hermes-link', import.meta.url))
 const MAX_FOUNDATION_SLICE_CHARS = 4096
-const VERSION = '0.6.10'
+const VERSION = '0.6.11'
 
 // -----------------------------------------------------------------------------
 // v0.3.2 F6 - register the canonical metric shape so the wire format is
@@ -474,6 +474,14 @@ export function apply(ctx) {
       try {
         const r = await importer.sync()
         console.log('[dsh-hermes-link] startup auto-sync: imported=' + r.imported + ' skipped=' + r.skipped + ' failed=' + r.failed)
+        // v0.6.11 - relabel once per start so every imported conversation says what it
+        // is ("[Hermes] ...", a snapshot) even for sessions imported before the
+        // marker existed. renameAll skips sessions whose title already matches, so
+        // this is a no-op on the second start.
+        if (typeof importer.renameAll === 'function') {
+          const n = await importer.renameAll()
+          if (n.renamed > 0) console.log('[dsh-hermes-link] relabelled ' + n.renamed + ' imported session(s) as Hermes snapshots')
+        }
       } catch (e) {
         console.warn('[dsh-hermes-link] startup auto-sync failed:', e && e.message || e)
       }

@@ -727,6 +727,23 @@ await t('(k) model route falls back to settings.yaml when ctx has no agentDefaul
   }
 })
 
+await t('(l) an imported conversation is labelled as a Hermes snapshot', async () => {
+  const base = tmp('l')
+  const hermesHome = join(base, 'hermes')
+  promptDump(hermesHome, 's19', 'what should I do about the failing nightly job?')
+  const outDir = join(base, 'out')
+  mkdirSync(outDir, { recursive: true })
+  const stub = makeStub({ dir: outDir })
+  const importer = createImporter({ ctx: ctxFor(stub), hermesHome, workspaceDir: join(base, 'ws') })
+  const r = await silent(() => importer.importSession('s19'))
+  assert.equal(r.status, 'created')
+  const write = stub.handles.find((x) => x.access === 'write')
+  const titleEvent = write.appended.find((e) => e.type === 'session/title')
+  assert.ok(titleEvent, 'the import writes a title')
+  assert.match(titleEvent.data.title, /^\[Hermes\] /, 'the title says this is a Hermes snapshot')
+  assert.ok(titleEvent.data.title.length <= 60, 'and stays within the title budget')
+})
+
 console.log('')
 console.log('Total: ' + (passed + failed) + '  Passed: ' + passed + '  Failed: ' + failed)
 process.exit(failed === 0 ? 0 : 1)

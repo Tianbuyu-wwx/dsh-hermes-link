@@ -1,6 +1,6 @@
 ---
 name: dsh-hermes-link
-description: Hermes ↔ DSH bidirectional link. Use when the user wants to import a Hermes session into DSH, load Hermes persona (SOUL + config), load Hermes memory scoped to the current working directory, dispatch a task to a DSH sub-agent (one-shot or continuable), amend a running sub-agent, push a result to / consult Hermes from DSH, or see Hermes's conversation record in DSH. The plugin targets v0.6.10: it does NOT auto-inject Hermes turns into the current session (v0.3.6), it mirrors DSH sessions to Hermes ONLY for cwds that provably match a real Hermes project (HERMES_LINK_MIRROR_POLICY, default scoped since v0.6.0; off = manual opt-in, all = every session; hermes-* and noise events are always skipped), and it does NOT auto-load Hermes MEMORY.md (v0.2.3); every other cross-project channel remains explicit opt-in only.
+description: Hermes ↔ DSH bidirectional link. Use when the user wants to import a Hermes session into DSH, load Hermes persona (SOUL + config), load Hermes memory scoped to the current working directory, dispatch a task to a DSH sub-agent (one-shot or continuable), amend a running sub-agent, push a result to / consult Hermes from DSH, or see Hermes's conversation record in DSH. The plugin targets v0.6.11: it does NOT auto-inject Hermes turns into the current session (v0.3.6), it mirrors DSH sessions to Hermes ONLY for cwds that provably match a real Hermes project (HERMES_LINK_MIRROR_POLICY, default scoped since v0.6.0; off = manual opt-in, all = every session; hermes-* and noise events are always skipped), and it does NOT auto-load Hermes MEMORY.md (v0.2.3); every other cross-project channel remains explicit opt-in only.
 when_to_use: |
   The dsh-hermes-link plugin connects DSH to a Hermes Agent installation. DSH-side
   tools (callable from this session):
@@ -176,6 +176,7 @@ Bridge plugin (v0.6.3, both directions since v0.6.4): `npx hermes-link-install-h
 `hermes-plugin/dsh-link` into `<Hermes Home>/plugins/dsh-link/` — the documented out-of-tree plugin
 location — and Hermes loads it with `hermes plugins enable dsh-link` (effective on the next session).
 
+- **snapshot labelling (v0.6.11)**: every imported conversation is titled `[Hermes] …` by the importer, and one relabel pass runs right after the startup auto-sync so sessions imported before the marker existed get it too (idempotent: a session already carrying the target title is skipped). It exists because a user reading a Hermes conversation in DSH could reasonably think replying there reaches Hermes -- it does not.
 - **outbox half**: `on_session_end` → one `import` per Hermes turn end, a `notify` when the turn failed or
   was interrupted, and `/dsh-notify <message>` for a human-written message.
 - **consult half**: a background poller answers `inbox/dsh/consult/` tickets with `ctx.llm.complete(...)`

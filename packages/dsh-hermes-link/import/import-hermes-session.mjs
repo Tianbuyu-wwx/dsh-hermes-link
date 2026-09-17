@@ -1110,6 +1110,9 @@ export function createImporter({ ctx, hermesHome, workspaceDir, defaultModel }) 
       const m = meta.get(sid) || {}
       const snippet = firstUserSnippetOf(s)
       const title = m.title || makeTitle(snippet, sid)
+      // Idempotent by construction: a startup relabel pass must not churn titles
+      // (or write anything) when the session already carries the target one.
+      if (String(s.title || '') === title) { results.push({ sessionId: id, status: 'unchanged', title }); continue }
       const err = await renameSession(ctx, s, title)
       if (err) {
         failed++
@@ -1270,6 +1273,9 @@ async function renameSession(ctx, session, title) {
   }
 }
 
+/** Marks an imported conversation as a Hermes snapshot (read-only here). */
+export const SNAPSHOT_PREFIX = '[Hermes] '
+
 /** Make a pinned session title from a snippet + short date from sid. */
 function makeTitle(snippet, hermesSessionId) {
   const m = /^(\d{4})(\d{2})(\d{2})/.exec(hermesSessionId || '')
@@ -1277,7 +1283,11 @@ function makeTitle(snippet, hermesSessionId) {
   const clean = (snippet || '').replace(/\s+/g, ' ').trim()
   const body = clean.slice(0, 36)
   const t = body + (date ? ` (${date})` : '')
-  return t.slice(0, 60)
+  // v0.6.11 - say what this is. An imported conversation is a READ-ONLY SNAPSHOT of a
+  // Hermes session: continuing it here does not reach Hermes, and users who assumed
+  // otherwise ended up with a silently forked conversation. The marker is the cheap
+  // half of that fix (a follow-up channel is the other half).
+  return (SNAPSHOT_PREFIX + t).slice(0, 60)
 }
 
 /** First user text snippet from a live DSH session (for renameAll on old imports). */

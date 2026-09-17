@@ -24,6 +24,14 @@ These commits existed and the work shipped through subsequent published versions
 
 ---
 
+## [0.6.11] — 2026-09-18
+
+### Fixed
+
+- **Imported Hermes conversations are visibly snapshots**: titled `[Hermes] …`, with an idempotent relabel pass after the startup auto-sync so pre-existing imports are labelled too. Replying in DSH never reached Hermes; assuming otherwise forked the conversation. (`hermes_followup`, the channel that would deliver a line back, remains open.)
+
+---
+
 ## [0.6.10] — 2026-09-18
 
 ### Added
