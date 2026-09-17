@@ -14,6 +14,7 @@ import { dirname, join } from 'node:path'
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
 const metricsPath = pathToFileURL(join(root, 'packages/dsh-hermes-link/services/metrics.mjs')).href
 const { createMetricsRegistry } = await import(metricsPath)
+const { createMetricCollector } = await import(pathToFileURL(join(root, 'packages/dsh-hermes-link/services/metric-collector.mjs')).href)
 
 let passed = 0, failed = 0
 function t(name, fn) {
@@ -189,6 +190,71 @@ t('case 10: serialize output has no Unicode control characters', () => {
   }
 })
 
+// --- v0.6.5: the collector must fill every gauge, and one bad value must not
+// --- abort the cycle (that bug reported 0 for uptime/build_info/sse for months)
+t('case 15: the collector fills every gauge and survives a non-finite input', () => {
+  const m = makeRegisteredRegistry()
+  const warnings = []
+  const collector = createMetricCollector({
+    metrics: m,
+    outbox: { outboxStats: () => ({ queueDepth: undefined, counters: { enqueued: 3, flushed: 1, flushRuns: 2 } }) },
+    continuations: { list: () => [{ status: 'started' }, { status: 'completed' }] },
+    sseBroker: { stats: () => ({ total_subscribers: 2, channels: 1 }) },
+    dispatcherCount: () => 3,
+    version: '0.0.0-test',
+    intervalMs: 60_000,
+    logger: { warn: (msg) => warnings.push(msg) },
+  })
+  const text = m.serialize()
+  const stats = collector.stats()
+  collector.stop()
+
+  // build_info carries a label only the collector supplies, which is what tells a
+  // real set() apart from serialize()'s zero-value placeholder. (uptime can legitimately
+  // floor to 0 in a test process that has only been alive for a moment.)
+  assert.ok(text.includes('hermes_link_build_info{version="0.0.0-test"} 1'), 'build_info must be set')
+  assert.match(text, /hermes_link_uptime_seconds \d+/)
+  assert.ok(text.includes('hermes_link_sse_channels 1'), 'sse_channels must be set')
+  assert.ok(text.includes('hermes_link_sse_clients 2'))
+  assert.ok(text.includes('hermes_link_active_dispatchers 3'))
+  assert.ok(text.includes('hermes_link_continuable_children{status="started"} 1'))
+  assert.ok(text.includes('hermes_link_outbox_queue_depth 0'), 'a non-finite input becomes 0')
+  assert.equal(stats.cycles, 1, 'the initial pass runs')
+  assert.deepEqual(stats.failures, {}, 'nothing was rejected')
+  assert.deepEqual(warnings, [], 'and nothing warned')
+
+  // Externally-owned totals are counters: the collector may only increment the
+  // DELTA it has not exported yet, and the total is monotonic across cycles.
+  collector.collectOnce()
+  const second = m.serialize()
+  collector.stop()
+  assert.ok(second.includes('hermes_link_outbox_flush_runs_total 2'), 'first cycle exports the whole total')
+  assert.ok(!second.includes('hermes_link_outbox_flush_runs_total 4'), 'the second cycle adds nothing new')
+  assert.deepEqual(collector.stats().failures, {}, 'counters are not rejected any more')
+})
+
+t('case 16: a rejected metric warns once and never stops the rest of the cycle', () => {
+  const m = createMetricsRegistry()          // empty registry: every set() is rejected
+  const warnings = []
+  const collector = createMetricCollector({
+    metrics: m,
+    outbox: { outboxStats: () => ({ queueDepth: 1, counters: {} }) },
+    version: 'x',
+    intervalMs: 60_000,
+    logger: { warn: (msg) => warnings.push(msg) },
+  })
+  collector.collectOnce()                    // second pass must not re-log
+  const stats = collector.stats()
+  collector.stop()
+
+  const failures = Object.keys(stats.failures)
+  assert.ok(failures.length > 3, 'every rejected metric is recorded: ' + failures.length)
+  assert.equal(stats.cycles, 2)
+  assert.equal(warnings.length, failures.length, 'one warning per metric, not one per cycle')
+  assert.match(warnings[0], /is not being updated/)
+})
+
+console.log('')
 console.log('')
 console.log(`Total: ${passed + failed}  Passed: ${passed}  Failed: ${failed}`)
 process.exit(failed === 0 ? 0 : 1)

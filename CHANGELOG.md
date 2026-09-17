@@ -24,6 +24,19 @@ These commits existed and the work shipped through subsequent published versions
 
 ---
 
+## [0.6.5] — 2026-09-17
+
+### Added
+
+- **Channel `signals` in the doctor.** The report now answers "did anything actually move?" alongside "is anything broken?" — dispatches, imports, consults, mirrors auto-enabled, outbox notifications, skipped events, expiry markers, queue depth, SSE channels, uptime. One exported `parsePrometheus` serves the in-process registry and the CLI's HTTP probe, so the same metric can never read differently in two places. Wired into `GET /mcp/collab/doctor`, the `hermes_link_doctor` tool and `npx hermes-link-doctor --url`, and printed as a table by the renderer.
+
+### Fixed
+
+- **The metric collector had been failing silently since v0.3.2** — the exact class of bug this phase exists to kill. One `try/catch` around the whole cycle plus `set()` calls on COUNTER metrics meant the cycle aborted at the first counter every tick, so `sse_clients`, `sse_channels`, `active_dispatchers`, `uptime_seconds` and `build_info` were never populated: every scrape said 0 and nothing anywhere said why. The collector now lives in `services/metric-collector.mjs` (testable, with a regression test), writes gauges through a per-value guard, exports externally-owned totals as monotonic counter deltas, reports each rejected metric once, and `hermes_link_continuables_registered_total` is incremented where continuables register.
+- The Hermes bridge check follows the `dsh-outbox` → `dsh-link` rename (an install made before it is still recognised).
+
+---
+
 ## [0.6.4] — 2026-09-17
 
 ### Added

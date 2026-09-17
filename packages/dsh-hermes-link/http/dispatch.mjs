@@ -31,7 +31,7 @@ import {
   pickParentAgent,
 } from './dispatch-task.mjs'
 
-export const VERSION = '0.6.4'
+export const VERSION = '0.6.5'
 const BEARER_TOKEN = process.env.HERMES_LINK_TOKEN || ''
 
 // Re-exports for backward compat (tests / external consumers).
@@ -293,6 +293,7 @@ export function register(ctx, deps) {
         const report = await runDoctor({
           hermesHome,
           dshHome: dshHome(),
+          metrics: deps.metrics,
           live: {
             mirrorPolicy: sessionMirror && sessionMirror.policyStatus ? sessionMirror.policyStatus() : null,
             outboxStats: hermesOutbox && hermesOutbox.stats ? hermesOutbox.stats() : null,

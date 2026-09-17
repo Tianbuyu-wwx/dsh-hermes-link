@@ -1,5 +1,17 @@
 # @tianbuyu-wwx/dsh-hermes-link
 
+## 0.6.5
+
+### Minor Changes
+
+- **The doctor now reports `signals`: what each channel has actually DONE, not just whether it can work.** "No failures" and "no traffic" used to look identical in the report — which is exactly how three dead channels survived an audit that read the code. The `signals` check carries dispatches, imports, consults, mirror sessions auto-enabled, outbox notifications, skipped events, expiry markers, queue depth, SSE channels and uptime.
+  - One parser (`parsePrometheus`, exported) serves both the in-process registry (`metrics.serialize()`) and the CLI reading `GET /mcp/collab/metrics` over HTTP, so the two can never drift into reporting different numbers for the same metric. Labels collapse into one number on purpose; per-label detail stays one curl away.
+  - Wired through all three surfaces: `GET /mcp/collab/doctor`, the session tool `hermes_link_doctor`, and `npx hermes-link-doctor --url <host> [--token <t>]` (which falls back to reading `/metrics` directly when the live probe is unavailable or auth-gated). `renderDoctor` prints the numbers as a table under the checks.
+
+### Patch Changes
+
+- **Fixed: the metric collector had been failing silently since v0.3.2.** Its whole cycle sat inside one `try/catch` that swallowed everything, and it called `set()` on metrics registered as COUNTERS (`hermes_link_outbox_flush_runs_total`, the dropped-`*` totals, `hermes_link_continuables_registered_total`) — which the registry refuses by contract — so everything after them (`sse_clients`, `sse_channels`, `active_dispatchers`, `uptime_seconds`, `build_info`) was never written. Every scrape reported 0 and nothing said why. The collector now lives in `services/metric-collector.mjs` (testable), writes gauges through a per-value guard, exports externally-owned totals as monotonic counter deltas, records each rejected metric once, and `hermes_link_continuables_registered_total` is incremented where continuables actually register.
+
 ## 0.6.4
 
 ### Minor Changes

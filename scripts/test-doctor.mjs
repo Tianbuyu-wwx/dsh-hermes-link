@@ -16,7 +16,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
 const pkg = join(root, 'packages', 'dsh-hermes-link')
-const { runDoctor, renderDoctor, DOCTOR_TTLS } = await import(pathToFileURL(join(pkg, 'services', 'doctor.mjs')).href)
+const { runDoctor, renderDoctor, parsePrometheus, DOCTOR_TTLS, SIGNAL_NAMES } = await import(pathToFileURL(join(pkg, 'services', 'doctor.mjs')).href)
 const { createConsultClient, DEFAULT_TICKET_TTL_MS, planConsultTimeout } = await import(pathToFileURL(join(pkg, 'services', 'consult-hermes.mjs')).href)
 
 let passed = 0, failed = 0
@@ -200,9 +200,9 @@ await t('producer: an absent Hermes-side plugin is a warning with the install hi
     assert.equal(c.status, 'warn')
     assert.match(c.hint, /hermes-link-install-hermes-plugin/)
 
-    mkdirSync(join(f.hermesHome, 'plugins', 'dsh-outbox'), { recursive: true })
-    writeFileSync(join(f.hermesHome, 'plugins', 'dsh-outbox', 'plugin.yaml'), 'name: dsh-outbox\n', 'utf8')
-    writeFileSync(join(f.hermesHome, 'plugins', 'dsh-outbox', '__init__.py'), 'def register(ctx): pass\n', 'utf8')
+    mkdirSync(join(f.hermesHome, 'plugins', 'dsh-link'), { recursive: true })
+    writeFileSync(join(f.hermesHome, 'plugins', 'dsh-link', 'plugin.yaml'), 'name: dsh-link\n', 'utf8')
+    writeFileSync(join(f.hermesHome, 'plugins', 'dsh-link', '__init__.py'), 'def register(ctx): pass\n', 'utf8')
     r = await runDoctor({ hermesHome: f.hermesHome, dshHome: f.dshHome })
     c = check(r, 'hermes_producer')
     assert.equal(c.status, 'ok')
@@ -293,6 +293,58 @@ await t('consult timeout plan: a dead channel waits 2s, an explicit timeout stil
   assert.equal(planConsultTimeout({ health: healthy, requestedMs: 15000, explicit: false }).timeoutMs, 15000)
   assert.equal(planConsultTimeout({ health: healthy, requestedMs: 15000, explicit: false }).warning, null)
   assert.equal(planConsultTimeout({}).timeoutMs, 15000)
+})
+
+await t('signals: parsePrometheus collapses labels, skips comments, ignores strangers', () => {
+  const text = [
+    '# HELP hermes_link_dispatch_total dispatches',
+    '# TYPE hermes_link_dispatch_total counter',
+    'hermes_link_dispatch_total{mode="one-shot",status="ok"} 3',
+    'hermes_link_dispatch_total{mode="continuable",status="ok"} 2',
+    'hermes_link_import_total{status="created"} 5',
+    'some_other_metric 99',
+    'hermes_link_uptime_seconds 42',
+    '',
+  ].join('\n')
+  const s = parsePrometheus(text)
+  assert.equal(s.hermes_link_dispatch_total, 5, 'labels collapse into one number')
+  assert.equal(s.hermes_link_import_total, 5)
+  assert.equal(s.hermes_link_uptime_seconds, 42)
+  assert.equal(s.some_other_metric, undefined)
+  assert.ok(SIGNAL_NAMES.includes('hermes_link_hermes_outbox_total'))
+  assert.deepEqual(parsePrometheus(''), {})
+  assert.deepEqual(parsePrometheus(null), {})
+})
+
+await t('signals: a metrics registry puts the channel numbers into the report', async () => {
+  const f = fixture()
+  try {
+    const registry = {
+      serialize: () => [
+        'hermes_link_dispatch_total{mode="one-shot",status="ok"} 7',
+        'hermes_link_hermes_outbox_total{kind="import",result="executed"} 3',
+        'hermes_link_consult_expired_total{bucket="new"} 2',
+        'hermes_link_sse_channels 1',
+      ].join('\n'),
+    }
+    const r = await runDoctor({ hermesHome: f.hermesHome, dshHome: f.dshHome, metrics: registry })
+    const c = check(r, 'signals')
+    assert.equal(c.status, 'ok')
+    assert.match(c.detail, /dispatch=7/)
+    assert.match(c.detail, /outbox=3/)
+    assert.match(c.detail, /consult_expired=2/)
+    assert.equal(c.data.hermes_link_dispatch_total, 7)
+    assert.match(renderDoctor(r), /signals since load:/)
+
+    // No registry -> no signals check (the CLI path adds it from /metrics instead).
+    const without = await runDoctor({ hermesHome: f.hermesHome, dshHome: f.dshHome })
+    assert.equal(check(without, 'signals'), undefined)
+
+    // A broken registry must never turn into a failure of its own.
+    const broken = await runDoctor({ hermesHome: f.hermesHome, dshHome: f.dshHome, metrics: { serialize() { throw new Error('boom') } } })
+    assert.equal(broken.summary.fail, 0)
+    assert.equal(check(broken, 'signals'), undefined)
+  } finally { f.cleanup() }
 })
 
 console.log('')

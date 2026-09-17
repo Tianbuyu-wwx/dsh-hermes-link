@@ -51,6 +51,7 @@ import { createOutbox } from './services/outbox.mjs'
 import { createOutboxRotation } from './services/outbox-rotation.mjs'
 import { createSessionMirror } from './services/session-mirror.mjs'
 import { createHermesOutboxConsumer } from './services/hermes-outbox-consumer.mjs'
+import { createMetricCollector } from './services/metric-collector.mjs'
 import { openContinuations, TERMINAL_STATUSES } from './services/continuations.mjs'
 import { createSseBroker } from './services/sse-broker.mjs'
 import { createMetricsRegistry } from './services/metrics.mjs'
@@ -73,7 +74,7 @@ import { createDispatchStatusTool } from './tools/dispatch-status.mjs'
 
 const skillDir = fileURLToPath(new URL('./skills/dsh-hermes-link', import.meta.url))
 const MAX_FOUNDATION_SLICE_CHARS = 4096
-const VERSION = '0.6.4'
+const VERSION = '0.6.5'
 
 // -----------------------------------------------------------------------------
 // v0.3.2 F6 - register the canonical metric shape so the wire format is
@@ -270,6 +271,9 @@ export function apply(ctx) {
   const continuations = openContinuations(auditStateDir(), {
     onChange: ({ kind, child_id, task_id, fields, entry }) => {
       if (kind === 'register') {
+        // The counter the collector used to (wrongly) set(): a registration is an
+        // increment, and set() on a counter throws by contract.
+        try { metrics.inc('hermes_link_continuables_registered_total') } catch (_e) { /* never load-bearing */ }
         sseBroker.attachTask(task_id, { child_id, parent_agent_id: entry.parent_agent_id, skill: entry.skill, model: entry.model })
         sseBroker.publish(task_id, { kind: 'lifecycle', data: { status: 'started', child_id } })
       } else if (kind === 'update') {
@@ -408,7 +412,7 @@ export function apply(ctx) {
       ctx.tools.register(createDispatchStatusTool({ continuations, ctx }))
       // v0.6.2 - the doctor, callable from the session (same module as the CLI
       // and the /mcp/collab/doctor route).
-      ctx.tools.register(createDoctorTool({ hermesHome, sessionMirror, hermesOutbox }))
+      ctx.tools.register(createDoctorTool({ hermesHome, sessionMirror, hermesOutbox, metrics }))
       console.log('[dsh-hermes-link v' + VERSION + '] tools registered: list_hermes_sessions, import_hermes_session, load_hermes_persona, consult_hermes, mirror_session_to_hermes, session_mirror, load_hermes_project_memory, rotate_outbox_now, dispatch_status, hermes_link_doctor')
     }
   } catch (e) {
@@ -511,48 +515,15 @@ export function apply(ctx) {
     console.warn('[dsh-hermes-link] consult sweep init failed:', e && e.message || e)
   }
 
-  // 12. v0.3.2 F6 - metric collector (gauges only; counters are incremented in-place).
-  const metricCollector = (() => {
-    function childrenByStatus() {
-      const map = {}
-      if (!continuations || typeof continuations.list !== 'function') return map
-      for (const row of continuations.list({ limit: 500 })) {
-        const s = row.status || 'unknown'
-        map[s] = (map[s] || 0) + 1
-      }
-      return map
-    }
-    function collectOnce() {
-      try {
-        if (outbox && typeof outbox.outboxStats === 'function') {
-          const os = outbox.outboxStats()
-          metrics.set('hermes_link_outbox_queue_depth', os.queueDepth)
-          if (os.counters) {
-            metrics.set('hermes_link_outbox_items_queued', (os.counters.enqueued || 0) - (os.counters.flushed || 0))
-            metrics.set('hermes_link_outbox_flush_runs_total', os.counters.flushRuns || 0)
-            metrics.set('hermes_link_outbox_dropped_queue_full_total', os.counters.droppedQueueFull || 0)
-            metrics.set('hermes_link_outbox_dropped_retries_total', os.counters.droppedRetriesExhausted || 0)
-          }
-        }
-        const children = childrenByStatus()
-        const allStatuses = new Set([...Object.keys(children), 'started', 'idle', 'completed', 'error', 'interrupted', 'orphan', 'timeout'])
-        for (const s of allStatuses) metrics.set('hermes_link_continuable_children', children[s] || 0, { status: s })
-        metrics.set('hermes_link_continuables_registered_total', 0)
-        if (sseBroker && typeof sseBroker.stats === 'function') {
-          const ss = sseBroker.stats()
-          metrics.set('hermes_link_sse_clients', ss.total_subscribers || 0)
-          metrics.set('hermes_link_sse_channels', ss.channels || 0)
-        }
-        metrics.set('hermes_link_active_dispatchers', (typeof dispatcherCount === 'function') ? dispatcherCount() : 0)
-        metrics.set('hermes_link_uptime_seconds', Math.floor(process.uptime()))
-        metrics.set('hermes_link_build_info', 1, { version: VERSION })
-      } catch (_e) { /* swallow */ }
-    }
-    const t = setInterval(collectOnce, 5000)
-    t.unref?.()
-    collectOnce()
-    return { stop() { clearInterval(t) }, collectOnce }
-  })()
+  // 12. v0.3.2 F6 / v0.6.5 - metric collector. Extracted to
+  // services/metric-collector.mjs so it can be tested: the inline version swallowed
+  // every failure for the whole cycle, and one set() on a counter metric silently
+  // killed uptime/build_info/sse gauges on every tick since v0.3.2.
+  const metricCollector = createMetricCollector({
+    metrics, outbox, continuations, sseBroker,
+    dispatcherCount,
+    version: VERSION,
+  })
 
   // Disposable: on plugin unload, stop watchers + timers + DB.
   ctx.on('dispose', () => {

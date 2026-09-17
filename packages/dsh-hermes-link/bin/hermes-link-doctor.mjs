@@ -29,7 +29,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 // Resolve inside the package (bin/ and services/ are siblings), NOT from the
 // repository root: this file ships in the tarball, where no repo root exists.
 const here = dirname(fileURLToPath(import.meta.url))
-const { runDoctor, renderDoctor } = await import(pathToFileURL(join(here, '..', 'services', 'doctor.mjs')).href)
+const { runDoctor, renderDoctor, parsePrometheus } = await import(pathToFileURL(join(here, '..', 'services', 'doctor.mjs')).href)
 
 const args = process.argv.slice(2)
 const has = (f) => args.includes(f)
@@ -121,14 +121,33 @@ async function scanImportedPins(sessionsRoot) {
   return { scanned, missing }
 }
 
+const token = argOf('--token', process.env.HERMES_LINK_TOKEN || '')
+const authHeaders = token ? { authorization: 'Bearer ' + token } : undefined
+
 let live = null
+let signalsFromMetrics = null
 if (url) {
+  const base = url.replace(/\/+$/, '')
   try {
-    const res = await fetch(url.replace(/\/+$/, '') + '/mcp/collab/doctor')
+    const res = await fetch(base + '/mcp/collab/doctor', authHeaders ? { headers: authHeaders } : undefined)
     if (res.ok) live = await res.json()
     else console.warn('[doctor] live probe returned HTTP ' + res.status + ' (continuing with the filesystem probe)')
   } catch (e) {
     console.warn('[doctor] live probe failed: ' + (e && e.message || e) + ' (continuing with the filesystem probe)')
+  }
+  // The in-process probe runs the same module with the registry, so it carries the
+  // signals; without it (older plugin, or auth refused) read /metrics directly.
+  const liveSignals = live && Array.isArray(live.checks) ? live.checks.find((c) => c && c.id === 'signals') : null
+  if (!liveSignals) {
+    try {
+      const res = await fetch(base + '/mcp/collab/metrics', authHeaders ? { headers: authHeaders } : undefined)
+      if (res.ok) signalsFromMetrics = parsePrometheus(await res.text())
+      else console.warn('[doctor] metrics probe returned HTTP ' + res.status + ' (signals omitted)')
+    } catch (e) {
+      console.warn('[doctor] metrics probe failed: ' + (e && e.message || e) + ' (signals omitted)')
+    }
+  } else {
+    signalsFromMetrics = liveSignals.data || null
   }
 }
 
@@ -147,6 +166,23 @@ if (live) {
     status: 'ok',
     title: 'live plugin probe',
     detail: url + ' answered (policy + consumer state came from the running plugin)',
+  })
+}
+
+if (signalsFromMetrics) {
+  // Replace whatever the filesystem-only pass produced: the live numbers win.
+  report.checks = report.checks.filter((c) => c.id !== 'signals')
+  report.checks.push({
+    id: 'signals',
+    status: 'ok',
+    title: 'channel signals (live)',
+    detail: 'dispatch=' + (signalsFromMetrics.hermes_link_dispatch_total || 0) +
+      ' import=' + (signalsFromMetrics.hermes_link_import_total || 0) +
+      ' consult=' + (signalsFromMetrics.hermes_link_consult_total || 0) +
+      ' mirror_enabled=' + (signalsFromMetrics.hermes_link_mirror_policy_auto_enabled_total || 0) +
+      ' outbox=' + (signalsFromMetrics.hermes_link_hermes_outbox_total || 0) +
+      ' consult_expired=' + (signalsFromMetrics.hermes_link_consult_expired_total || 0),
+    data: signalsFromMetrics,
   })
 }
 

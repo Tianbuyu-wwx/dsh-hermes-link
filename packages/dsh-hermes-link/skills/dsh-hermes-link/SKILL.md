@@ -1,6 +1,6 @@
 ---
 name: dsh-hermes-link
-description: Hermes ↔ DSH bidirectional link. Use when the user wants to import a Hermes session into DSH, load Hermes persona (SOUL + config), load Hermes memory scoped to the current working directory, dispatch a task to a DSH sub-agent (one-shot or continuable), amend a running sub-agent, push a result to / consult Hermes from DSH, or see Hermes's conversation record in DSH. The plugin targets v0.6.4: it does NOT auto-inject Hermes turns into the current session (v0.3.6), it mirrors DSH sessions to Hermes ONLY for cwds that provably match a real Hermes project (HERMES_LINK_MIRROR_POLICY, default scoped since v0.6.0; off = manual opt-in, all = every session; hermes-* and noise events are always skipped), and it does NOT auto-load Hermes MEMORY.md (v0.2.3); every other cross-project channel remains explicit opt-in only.
+description: Hermes ↔ DSH bidirectional link. Use when the user wants to import a Hermes session into DSH, load Hermes persona (SOUL + config), load Hermes memory scoped to the current working directory, dispatch a task to a DSH sub-agent (one-shot or continuable), amend a running sub-agent, push a result to / consult Hermes from DSH, or see Hermes's conversation record in DSH. The plugin targets v0.6.5: it does NOT auto-inject Hermes turns into the current session (v0.3.6), it mirrors DSH sessions to Hermes ONLY for cwds that provably match a real Hermes project (HERMES_LINK_MIRROR_POLICY, default scoped since v0.6.0; off = manual opt-in, all = every session; hermes-* and noise events are always skipped), and it does NOT auto-load Hermes MEMORY.md (v0.2.3); every other cross-project channel remains explicit opt-in only.
 when_to_use: |
   The dsh-hermes-link plugin connects DSH to a Hermes Agent installation. DSH-side
   tools (callable from this session):
@@ -123,7 +123,7 @@ DSH-side plugin that makes Hermes Agent and DeepSeek Harness a single, bidirecti
 | `hermes_inbox` | Read the shared conversation record (`tail`/`format` params). |
 | `hermes_inbox_append` | Append a turn to the shared record so Hermes sees it next session-start. |
 | `hermes_clear_injected` | Audit-only: report how many Hermes turns were auto-injected into THIS session by an older dsh-hermes-link / hermes-foundation version, and point the user at "open a new session" (DSH Session.events are append-only / deep-frozen and cannot be retroactively removed). |
-| `hermes_link_doctor` | v0.6.2: run the runtime self-check from inside the session (heartbeat freshness, whether enabled mirrors still advance, consult backlog with ages, amend writability, outbox state). Same module as `npx hermes-link-doctor` and `GET /mcp/collab/doctor`; `json=true` returns the raw report. |
+| `hermes_link_doctor` | v0.6.2: run the runtime self-check from inside the session (heartbeat freshness, whether enabled mirrors still advance, consult backlog with ages, amend writability, outbox state, bridge installed, and v0.6.5 channel `signals`). Same module as `npx hermes-link-doctor` and `GET /mcp/collab/doctor`; `json=true` returns the raw report. |
 | `session_mirror` (scope actions) | v0.6.2: `action=projects` / `add-project` / `remove-project` (`path=<dir>`) edit the plugin-owned scope file `<DSH_HOME>/dsh-hermes-link/mirror-projects.json`, which keeps local paths in scope when the project key Hermes recorded is stale. Written as bare UTF-8 and applied to the NEXT event — no restart. |
 
 ## HTTP (Hermes-side)
@@ -138,7 +138,7 @@ DSH-side plugin that makes Hermes Agent and DeepSeek Harness a single, bidirecti
 - `GET  /mcp/collab/session-stream` (v0.6.0) — SSE feed of newly mirrored DSH session events for `?session_id=<sid>` (since_seq / timeout_ms supported).
 - `GET  /mcp/collab/session-mirror/status` (v0.6.0) — mirror state for one or all sessions. Returns `policy` (resolved policy + `extra_projects`) and `decisions` (per-session verdict + reason) so "why is nothing mirrored?" is answerable; `?session_id=` adds that session's `decision`.
 - `GET  /mcp/collab/hermes-outbox/status` (v0.6.0 C1) — Hermes→DSH notification consumer state: watched dirs + executed/duplicate/rejected/failed counters, `last_error`, `pending_retries`.
-- `GET  /mcp/collab/doctor` (v0.6.0 D) — runtime self-check as JSON: heartbeat freshness, mirror policy + whether enabled mirrors still advance, consult backlog with ages, amend writability, outbox state. Same module as `npm run doctor`, plus the live in-process state.
+- `GET  /mcp/collab/doctor` (v0.6.0 D) — runtime self-check as JSON: heartbeat freshness, mirror policy + whether enabled mirrors still advance, consult backlog with ages, amend writability, outbox state, whether the Hermes-side bridge is installed, and (v0.6.5) a `signals` check with what each channel has actually done. Same module as `npm run doctor`, plus the live in-process state.
 - `GET  /mcp/collab/stream` (v0.3.4 F1) — `text/event-stream` of real-time events
   for a continuable task. Query params: `task_id` (required), `since_seq`
   (default 0), `timeout_ms` (default 0 = no auto-close). Bearer auth same as main routes.

@@ -30,6 +30,56 @@ export const DOCTOR_TTLS = Object.freeze({
   consultMs: 24 * 60 * 60 * 1000, // a ticket older than a day is backlog
 })
 
+/**
+ * The signals worth having in one place: what the plugin has DONE, and what it is
+ * holding right now. Every name is registered in index.mjs registerMetricsShape().
+ */
+export const SIGNAL_NAMES = Object.freeze([
+  'hermes_link_dispatch_total',
+  'hermes_link_import_total',
+  'hermes_link_consult_total',
+  'hermes_link_amend_total',
+  'hermes_link_rate_limited_total',
+  'hermes_link_mirror_policy_auto_enabled_total',
+  'hermes_link_mirror_events_skipped_total',
+  'hermes_link_hermes_outbox_total',
+  'hermes_link_consult_expired_total',
+  'hermes_link_continuable_children',
+  'hermes_link_outbox_queue_depth',
+  'hermes_link_sse_channels',
+  'hermes_link_uptime_seconds',
+])
+
+/**
+ * Sum the Prometheus exposition lines for a set of metric names.
+ *
+ * Labels are collapsed on purpose: the report is a summary ("has this channel
+ * moved at all?"), and the per-label detail is one `GET /mcp/collab/metrics`
+ * away. ONE parser serves both callers -- the in-process registry
+ * (`metrics.serialize()`) and the CLI reading the HTTP endpoint -- so the two
+ * can never drift into reporting different numbers for the same metric.
+ *
+ * @param {string} text Prometheus text exposition (v0.0.4)
+ * @param {readonly string[]} [names]
+ * @returns {Record<string, number>}
+ */
+export function parsePrometheus(text, names = SIGNAL_NAMES) {
+  const wanted = new Set(names)
+  const out = {}
+  for (const line of String(text || '').split(/\r?\n/)) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith('#')) continue
+    const brace = trimmed.indexOf('{')
+    const name = (brace === -1 ? trimmed.split(/\s+/)[0] : trimmed.slice(0, brace)).trim()
+    if (!wanted.has(name)) continue
+    const rest = brace === -1 ? trimmed.slice(name.length) : trimmed.slice(trimmed.lastIndexOf('}') + 1)
+    const value = Number(rest.trim().split(/\s+/)[0])
+    if (!Number.isFinite(value)) continue
+    out[name] = (out[name] || 0) + value
+  }
+  return out
+}
+
 const ok = (id, title, detail, extra) => ({ id, status: 'ok', title, detail, ...extra })
 const warn = (id, title, detail, hint, extra) => ({ id, status: 'warn', title, detail, ...(hint ? { hint } : {}), ...extra })
 const fail = (id, title, detail, hint, extra) => ({ id, status: 'fail', title, detail, ...(hint ? { hint } : {}), ...extra })
@@ -69,9 +119,12 @@ function readJson(path) {
  * @param {number} [args.now]
  * @param {object} [args.ttl]
  * @param {Function} [args.scanImportedPins] optional async (stateDir) => {scanned, missing:[ids], error?}
+ * @param {object} [args.metrics] the metrics registry (anything with serialize()); when
+ *   present the report carries a `signals` check with the numbers that say whether each
+ *   channel has moved at all
  * @returns {Promise<object>} report
  */
-export async function runDoctor({ hermesHome, dshHome, live = null, now = Date.now(), ttl = {}, scanImportedPins = null } = {}) {
+export async function runDoctor({ hermesHome, dshHome, live = null, now = Date.now(), ttl = {}, scanImportedPins = null, metrics = null } = {}) {
   const T = { ...DOCTOR_TTLS, ...ttl }
   const checks = []
   const inboxDsh = join(hermesHome, 'inbox', 'dsh')
@@ -241,16 +294,43 @@ export async function runDoctor({ hermesHome, dshHome, live = null, now = Date.n
   // ---- 5b. the Hermes-side producer (the other half of the reverse channel) --
   // A consumer with no producer looks exactly like "nothing to do": this is the
   // check that tells the two apart.
-  const producerDir = join(hermesHome, 'plugins', 'dsh-outbox')
+  // The plugin was renamed dsh-outbox -> dsh-link in v0.6.4 (it carries the consult
+  // half too); an install made before that rename still works and is still reported
+  // as installed, just under its old directory.
+  const producerCandidates = [join(hermesHome, 'plugins', 'dsh-link'), join(hermesHome, 'plugins', 'dsh-outbox')]
+  const producerDir = producerCandidates.find((dir) => existsSync(join(dir, 'plugin.yaml')) && existsSync(join(dir, '__init__.py'))) || producerCandidates[0]
   const producerInstalled = existsSync(join(producerDir, 'plugin.yaml')) && existsSync(join(producerDir, '__init__.py'))
   const produced = doneFiles.length + waiting.length
   if (producerInstalled) {
-    checks.push(ok('hermes_producer', 'Hermes producer plugin', 'installed at ' + producerDir + '; ' + produced + ' notification file(s) seen (pending + archived)'))
+    checks.push(ok('hermes_producer', 'Hermes bridge plugin', 'installed at ' + producerDir + '; ' + produced + ' notification file(s) seen (pending + archived)'))
   } else {
-    checks.push(warn('hermes_producer', 'Hermes producer plugin',
+    checks.push(warn('hermes_producer', 'Hermes bridge plugin',
       'not installed (' + producerDir + ' missing)',
-      'run: npx hermes-link-install-hermes-plugin (then restart Hermes) -- without it nothing writes outbox/hermes/, so the reverse channel stays idle',
+      'run: npx hermes-link-install-hermes-plugin (then restart Hermes) -- without it nothing writes outbox/hermes/ and nothing answers inbox/dsh/consult/',
       { data: { plugin_dir: producerDir, produced_files: produced } }))
+  }
+
+  // ---- 5c. signals: what each channel has actually done ----------------------
+  // The checks above say whether a channel CAN work. This says whether it HAS:
+  // "no dispatch failures" and "no dispatches" look identical otherwise, and that
+  // is exactly how three broken channels survived an audit that read the code.
+  let metricsText = ''
+  try {
+    if (metrics && typeof metrics.serialize === 'function') metricsText = String(metrics.serialize() || '')
+  } catch (_e) { metricsText = '' }
+  if (metricsText) {
+    const signals = parsePrometheus(metricsText)
+    const detail = 'dispatch=' + (signals.hermes_link_dispatch_total || 0) +
+      ' import=' + (signals.hermes_link_import_total || 0) +
+      ' consult=' + (signals.hermes_link_consult_total || 0) +
+      ' mirror_enabled=' + (signals.hermes_link_mirror_policy_auto_enabled_total || 0) +
+      ' outbox=' + (signals.hermes_link_hermes_outbox_total || 0) +
+      ' outbox_failed_or_skipped=' + (signals.hermes_link_mirror_events_skipped_total || 0) +
+      ' consult_expired=' + (signals.hermes_link_consult_expired_total || 0) +
+      ' queue=' + (signals.hermes_link_outbox_queue_depth || 0) +
+      ' sse_channels=' + (signals.hermes_link_sse_channels || 0) +
+      ' uptime=' + Math.round(signals.hermes_link_uptime_seconds || 0) + 's'
+    checks.push(ok('signals', 'channel signals (since plugin load)', detail, { data: signals }))
   }
 
   // ---- 6. optional: imported sessions whose model route is unavailable ------
@@ -296,5 +376,13 @@ export function renderDoctor(report) {
   }
   lines.push('')
   lines.push('  ' + report.summary.ok + ' ok, ' + report.summary.warn + ' warn, ' + report.summary.fail + ' fail')
+  const signals = report.checks.find((c) => c && c.id === 'signals' && c.data)
+  if (signals) {
+    lines.push('')
+    lines.push('  signals since load:')
+    for (const [name, value] of Object.entries(signals.data)) {
+      lines.push('    ' + name.replace(/^hermes_link_/, '').padEnd(34) + value)
+    }
+  }
   return lines.join('\n')
 }
