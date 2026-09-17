@@ -549,6 +549,36 @@ await t('e2e: POST /mcp/collab with empty body returns 400 invalid_request', asy
   } finally { await s.close() }
 })
 
+// ---------------------------------------------------------------------------
+// (v0.6.2) Wiring guard. /mcp/collab/metrics served 503 in production for
+// months because index.mjs never passed `metrics` into registerHttp, while this
+// suite builds its OWN deps and therefore never noticed. Every deps.* the HTTP
+// layer reads must be provided by the production call.
+// ---------------------------------------------------------------------------
+await t('wiring: every deps.* the HTTP layer reads is passed by index.mjs', async () => {
+  // Whole-line comments are dropped first: dispatch.mjs documents the plumbing
+  // in prose ("Raw token is kept in the plumbing (deps.bearerKey)"), which is not
+  // a dependency the production call has to provide.
+  const strip = (src) => src.split(/\r?\n/).filter((l) => !/^\s*\/\//.test(l)).join('\n')
+  const dispatchSrc = strip(readFileSync(join(root, 'packages/dsh-hermes-link/http/dispatch.mjs'), 'utf8'))
+  const indexSrc = readFileSync(join(root, 'packages/dsh-hermes-link/index.mjs'), 'utf8')
+  // Both shapes count: `deps.metrics` directly, and the destructuring form
+  // `const { a, b } = deps` the HTTP layer actually uses for most of them.
+  const direct = [...dispatchSrc.matchAll(/deps\.([A-Za-z_$][\w$]*)/g)].map((m) => m[1])
+  const destructured = [...dispatchSrc.matchAll(/const\s*\{([^}]*)\}\s*=\s*deps\b/g)]
+    .flatMap((m) => m[1].split(',').map((s) => s.trim().split(':').pop().trim()).filter(Boolean))
+  const read = [...new Set([...direct, ...destructured])]
+  assert.ok(read.length >= 8, 'expected the HTTP layer to read several deps, found ' + read.length + ': ' + read.join(', '))
+  const callStart = indexSrc.indexOf('registerHttp(ctx, {')
+  assert.ok(callStart > 0, 'registerHttp(ctx, {...}) not found in index.mjs')
+  const callEnd = indexSrc.indexOf('})', callStart)
+  assert.ok(callEnd > callStart, 'could not delimit the registerHttp call')
+  const body = indexSrc.slice(callStart, callEnd)
+  const passed = new Set([...body.matchAll(/^\s*([A-Za-z_$][\w$]*),/gm)].map((m) => m[1]))
+  const missing = read.filter((k) => !passed.has(k))
+  assert.deepEqual(missing, [], 'index.mjs does not pass: ' + missing.join(', '))
+})
+
 console.log('')
 console.log(`Total: ${passed + failed}  Passed: ${passed}  Failed: ${failed}`)
 process.exit(failed === 0 ? 0 : 1)

@@ -424,6 +424,12 @@ export function apply(ctx) {
       sseBroker,
       sessionMirror,
       hermesOutbox,
+      // v0.6.2 fix: /mcp/collab/metrics reads deps.metrics and returns 503
+      // without it -- it was documented (README/SKILL, "21 counters + 9 gauges")
+      // and exercised by the e2e suite, which builds its OWN deps and therefore
+      // never noticed that index.mjs forgot to pass the registry. Production has
+      // been serving "# metrics registry not initialized" all along.
+      metrics,
     })
   } catch (e) {
     console.error('[dsh-hermes-link] HTTP route registration failed:', e && e.message || e)

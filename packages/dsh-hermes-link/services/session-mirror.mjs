@@ -64,22 +64,44 @@ export function createSessionMirror({ hermesHome, outbox, sseBroker, metrics, ma
   let projectsFileCache = { mtimeMs: -1, revision: 0, list: [] }
 
   function projectsFromFile() {
+    let mtimeMs = -1
+    let text = null
     try {
       const st = statSync(projectsFile)
-      if (st.mtimeMs === projectsFileCache.mtimeMs) return projectsFileCache
-      const parsed = JSON.parse(readFileSync(projectsFile, 'utf8'))
-      const raw = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.projects) ? parsed.projects : [])
-      const list = []
-      for (const p of raw) { const folded = foldCwd(p); if (folded && !list.includes(folded)) list.push(folded) }
-      projectsFileCache = { mtimeMs: st.mtimeMs, revision: projectsFileCache.revision + 1, list }
-      return projectsFileCache
+      mtimeMs = st.mtimeMs
+      if (mtimeMs === projectsFileCache.mtimeMs) return projectsFileCache
+      text = readFileSync(projectsFile, 'utf8')
     } catch (_e) {
-      // absent/unreadable: fall back to the env list, never fail the mirror. A
-      // file that DISAPPEARS must also bump the revision so cached decisions
-      // stop applying.
-      if (projectsFileCache.mtimeMs !== -1) projectsFileCache = { mtimeMs: -1, revision: projectsFileCache.revision + 1, list: [] }
+      // Absent/unreadable file: fall back to the env list, never fail the mirror.
+      // A file that DISAPPEARS (or one whose error clears) must bump the revision
+      // so cached decisions stop applying.
+      if (projectsFileCache.mtimeMs !== -1 || projectsFileCache.error) {
+        projectsFileCache = { mtimeMs: -1, revision: projectsFileCache.revision + 1, list: [], error: null }
+      }
       return projectsFileCache
     }
+    let list = []
+    let error = null
+    try {
+      // BOM-tolerant. Windows tooling (PowerShell `Set-Content -Encoding utf8`,
+      // Notepad) writes UTF-8 WITH a BOM and JSON.parse refuses it. Live evidence
+      // 2026-09-17: the first real mirror-projects.json was written exactly that
+      // way, and the mirror stayed silently OFF with the file sitting right there
+      // (extra_projects: [], projects_file_revision: 0) -- the same BOM trap that
+      // already bit the outbox consumer, consult sweep and doctor.
+      const stripped = text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text
+      const parsed = JSON.parse(stripped)
+      const raw = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.projects) ? parsed.projects : [])
+      for (const p of raw) { const folded = foldCwd(p); if (folded && !list.includes(folded)) list.push(folded) }
+    } catch (e) {
+      error = String((e && e.message) || e)
+      // A broken config must be VISIBLE, never a silent no-op: warn once per change.
+      console.warn('[dsh-hermes-link] ' + projectsFile + ' is unreadable (' + error + ') -- falling back to ' +
+        MIRROR_PROJECTS_ENV_VAR + ' only; the mirror scope is NOT what the file says')
+    }
+    if (mtimeMs === projectsFileCache.mtimeMs && error === projectsFileCache.error) return projectsFileCache
+    projectsFileCache = { mtimeMs, revision: projectsFileCache.revision + 1, list, error }
+    return projectsFileCache
   }
 
   /** Merged, folded in-scope list (env first, then the plugin-owned file). */
@@ -223,6 +245,10 @@ export function createSessionMirror({ hermesHome, outbox, sseBroker, metrics, ma
       projects_env_var: MIRROR_PROJECTS_ENV_VAR,
       projects_file: projectsFile,
       projects_file_revision: projectsFromFile().revision,
+      // Non-null when the file exists but could not be parsed: the mirror is
+      // then running on the env list alone, which is exactly the state that must
+      // never be silent again.
+      projects_file_error: projectsFromFile().error || null,
     }
   }
 
@@ -393,11 +419,23 @@ export function createSessionMirror({ hermesHome, outbox, sseBroker, metrics, ma
    * @param {string} sessionId
    * @returns {{decision: string, reason: string, via?: string|null, cwd: string}|null}
    */
+  /**
+   * Decision keys are packed as `<safeId>\u0000<cwd>\u0000<configRevision>`.
+   * Split on the separator instead of slicing: a slice left the revision glued
+   * to the cwd in every diagnostic (`...dsh-hermes-link\u00000`), which made the
+   * new "why is nothing mirrored?" output look broken.
+   */
+  function parseDecisionKey(key) {
+    const parts = String(key).split('\u0000')
+    return { session_id: parts[0] || '', cwd: parts[1] || '', revision: parts[2] === undefined ? null : Number(parts[2]) }
+  }
+
   function decisionFor(sessionId) {
     const safeId = safeSessionId(sessionId)
     for (const [key, decision] of decisions) {
       if (key.startsWith(safeId + '\u0000')) {
-        return { ...decision, cwd: key.slice(safeId.length + 1) }
+        const parsed = parseDecisionKey(key)
+        return { ...decision, cwd: parsed.cwd, revision: parsed.revision }
       }
     }
     return null
@@ -407,12 +445,8 @@ export function createSessionMirror({ hermesHome, outbox, sseBroker, metrics, ma
   function decisionLog() {
     const out = []
     for (const [key, decision] of decisions) {
-      const sep = key.indexOf('\u0000')
-      out.push({
-        session_id: sep === -1 ? key : key.slice(0, sep),
-        cwd: sep === -1 ? '' : key.slice(sep + 1),
-        ...decision,
-      })
+      const parsed = parseDecisionKey(key)
+      out.push({ ...parsed, ...decision, cwd: parsed.cwd })
     }
     return out
   }

@@ -123,11 +123,21 @@ export async function runDoctor({ hermesHome, dshHome, live = null, now = Date.n
 
   if (live && live.mirrorPolicy) {
     const p = live.mirrorPolicy
-    const detail = 'policy=' + p.policy + (p.extra_projects && p.extra_projects.length ? ' extra_projects=' + p.extra_projects.length : '') +
-      '; auto-enabled=' + (p.auto_enabled_sessions || 0) + '; opted-out=' + (p.opted_out_sessions || 0)
-    checks.push(p.policy === 'off'
-      ? warn('mirror_policy', 'mirror policy', detail, 'HERMES_LINK_MIRROR_POLICY=off mirrors nothing unless a session opts in explicitly')
-      : ok('mirror_policy', 'mirror policy', detail))
+    const detail = 'policy=' + p.policy +
+      (p.extra_projects && p.extra_projects.length ? ' extra_projects=' + p.extra_projects.length : '') +
+      '; auto-enabled=' + (p.auto_enabled_sessions || 0) + '; opted-out=' + (p.opted_out_sessions || 0) +
+      (p.projects_file ? '; projects_file=' + p.projects_file : '')
+    if (p.projects_file_error) {
+      // The state that was silent until 2026-09-17: a config file that exists but
+      // cannot be parsed leaves the mirror on the env list alone, so the scope is
+      // NOT what the file says -- and nothing used to report it.
+      checks.push(warn('mirror_policy', 'mirror policy', detail + '; projects file UNREADABLE: ' + p.projects_file_error,
+        'the mirror is running on ' + (p.projects_env_var || 'HERMES_LINK_MIRROR_PROJECTS') + ' alone -- fix or remove ' + p.projects_file))
+    } else if (p.policy === 'off') {
+      checks.push(warn('mirror_policy', 'mirror policy', detail, 'HERMES_LINK_MIRROR_POLICY=off mirrors nothing unless a session opts in explicitly'))
+    } else {
+      checks.push(ok('mirror_policy', 'mirror policy', detail))
+    }
   } else {
     checks.push(ok('mirror_policy', 'mirror policy', '(not resolved in-process; run the doctor through DSH for the live policy)'))
   }

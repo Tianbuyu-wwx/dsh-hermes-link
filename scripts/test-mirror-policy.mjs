@@ -728,6 +728,56 @@ t('projects: a malformed projects file never breaks the env list', () => {
   } finally { env.cleanup() }
 })
 
+t('projects: a UTF-8 BOM in mirror-projects.json does not disable the file', () => {
+  const env = makeDirs()
+  try {
+    seedStateDb(env.hermesHome, [])
+    const stateDir = join(env.dshHome, 'dsh-hermes-link')
+    mkdirSync(stateDir, { recursive: true })
+    // PowerShell's `Set-Content -Encoding utf8` writes exactly this.
+    writeFileSync(join(stateDir, 'mirror-projects.json'), '\uFEFF' + JSON.stringify({ projects: [env.otherDir] }), 'utf8')
+    const ob = createOutbox({ hermesHome: env.hermesHome })
+    const sm = createSessionMirror({ hermesHome: env.hermesHome, outbox: ob, env: { [POLICY_ENV_VAR]: 'scoped' } })
+    assert.equal(sm.policyStatus().projects_file_error, null)
+    assert.deepEqual(sm.policyStatus().extra_projects, [foldCwd(env.otherDir)], 'a BOM must not hide the configured projects')
+    assert.equal(sm.isEnabled('sess-bom', { cwd: env.otherDir }), true)
+    ob.flushNow()
+  } finally { env.cleanup() }
+})
+
+t('projects: a broken projects file is REPORTED, never silently ignored', () => {
+  const env = makeDirs()
+  try {
+    seedStateDb(env.hermesHome, [])
+    const stateDir = join(env.dshHome, 'dsh-hermes-link')
+    mkdirSync(stateDir, { recursive: true })
+    writeFileSync(join(stateDir, 'mirror-projects.json'), '{ oops', 'utf8')
+    const ob = createOutbox({ hermesHome: env.hermesHome })
+    const sm = createSessionMirror({ hermesHome: env.hermesHome, outbox: ob, env: { [POLICY_ENV_VAR]: 'scoped', [MIRROR_PROJECTS_ENV_VAR]: env.projectDir } })
+    const p = sm.policyStatus()
+    assert.match(String(p.projects_file_error), /JSON|Unexpected|position/i)
+    assert.deepEqual(p.extra_projects, [foldCwd(env.projectDir)], 'the env list still applies')
+    ob.flushNow()
+  } finally { env.cleanup() }
+})
+
+t('diagnostics: decisionFor/decisionLog report a clean cwd, not the packed key', () => {
+  const env = makeDirs()
+  try {
+    seedStateDb(env.hermesHome, [{ id: 'h-1', cwd: env.projectDir }])
+    const ob = createOutbox({ hermesHome: env.hermesHome })
+    const sm = createSessionMirror({ hermesHome: env.hermesHome, outbox: ob, env: { [POLICY_ENV_VAR]: 'scoped' } })
+    assert.equal(sm.isEnabled('sess-d', { cwd: env.projectDir }), true)
+    const d = sm.decisionFor('sess-d')
+    assert.equal(d.cwd, env.projectDir, 'the config revision must not leak into cwd')
+    assert.equal(typeof d.revision, 'number')
+    const logged = sm.decisionLog().find((e) => e.session_id === 'sess-d')
+    assert.equal(logged.cwd, env.projectDir)
+    assert.match(String(logged.reason), /scope_match|extra_project/)
+    ob.flushNow()
+  } finally { env.cleanup() }
+})
+
 console.log('')
 console.log('Total: ' + (passed + failed) + '  Passed: ' + passed + '  Failed: ' + failed)
 process.exit(failed === 0 ? 0 : 1)
