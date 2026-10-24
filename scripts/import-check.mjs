@@ -23,12 +23,12 @@ try {
   }
 }
 if (!hasDshHost) {
-  // A skip that exits 0 is indistinguishable from a pass: measured 2026-10-24, this line let a
-  // plugin with five undeclared host imports ship "green" while `import` of the entry point threw.
-  // Report WHICH package was missing and make the skip visible in the exit code unless the caller
-  // asked to tolerate a host-less sandbox (`--allow-no-host`, CI default keeps working).
+  // A skip that exits 0 cannot be told apart from a pass. Measured 2026-10-24: this line let a
+  // plugin whose entry point throws on import report green, because the throw looked like
+  // "no host here". Name what was not verified and make the skip visible unless the caller
+  // explicitly accepts a host-less sandbox, so CI keeps working while the hole stays visible.
   console.log('(import-check SKIPPED — no @deepseek-ai/* host checkout available)')
-  console.log('  not verified: every module import, top-level execution')
+  console.log('  not verified: module import, top-level execution of every listed module')
   if (!process.argv.includes('--allow-no-host')) {
     console.log('  verdict: NOT VERIFIED (pass --allow-no-host to accept a host-less run)')
     process.exit(2)
