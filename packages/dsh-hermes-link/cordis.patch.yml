@@ -5,4 +5,4 @@
 #   pwsh -File scripts/install-dsh-hermes-link.ps1
 - insert:
     - id: dsh-hermes-link
-      name: 'dsh-hermes-link'
+      name: '@tianbuyu-wwx/dsh-hermes-link'
