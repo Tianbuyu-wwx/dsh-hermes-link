@@ -1,6 +1,6 @@
 // services/setup.mjs
 //
-// v0.6.10 - the planning half of `npx dsh-hermes-link-setup`.
+// v0.6.10 - the planning half of `npx --package @tianbuyu-wwx/dsh-hermes-link hermes-link-setup`.
 //
 // WHY: installing the bridge took six steps spread across the README (copy the Hermes
 // plugin, enable it there, restart Hermes, restart DSH, verify, troubleshoot), and every

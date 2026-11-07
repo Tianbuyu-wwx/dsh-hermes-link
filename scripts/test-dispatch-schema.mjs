@@ -99,6 +99,20 @@ t('case 13: formatPersona includes mode / provider / task envelope', () => {
   assert.ok(p.includes('Do NOT call tools beyond the one allowed tool'))
 })
 
+t('case 14: cwd and parent_session_id are accepted', () => {
+  assert.equal(validateSpec({ ...MINIMAL, cwd: '/tmp/x', parent_session_id: 'session-1' }), null)
+})
+
+t('case 15: non-string cwd fails', () => {
+  const err = validateSpec({ ...MINIMAL, cwd: 42 })
+  assert.ok(err && err.includes('cwd must be string'))
+})
+
+t('case 16: over-long parent_session_id fails', () => {
+  const err = validateSpec({ ...MINIMAL, parent_session_id: 'x'.repeat(129) })
+  assert.ok(err && err.includes('parent_session_id'))
+})
+
 console.log('')
 console.log(`Total: ${passed + failed}  Passed: ${passed}  Failed: ${failed}`)
 process.exit(failed === 0 ? 0 : 1)

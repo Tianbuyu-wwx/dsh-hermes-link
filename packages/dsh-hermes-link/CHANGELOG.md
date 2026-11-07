@@ -1,5 +1,30 @@
 # @tianbuyu-wwx/dsh-hermes-link
 
+## 0.6.13
+
+### Patch Changes
+
+- **`dispatch_task` works again on dsh 0.2.x.** The subagent service replaced
+  `start(provider, request)` with `startActivation({ provider, label, signal, delivery, request })`
+  and the child spec lost `toolFilter` / `persona`. The one-shot path now awaits
+  `activation.result`; the child inherits the parent's tools and preset, so the persona envelope
+  is no longer injected. `mode=continuable` still targets the old API and now fails with an
+  explicit `E_UNSUPPORTED` instead of `ctx.subagents.startContinuable is not a function`.
+- **`cwd` and `parent_session_id` on `dispatch_task`.** `cwd` runs the child in a chosen
+  directory; a child inherits the *parent session's* sandbox workspace, so writes outside it are
+  still denied — pick a parent session whose workspace is the target. `parent_session_id` pins
+  the parent instead of letting dispatch take the first live root, and `cwd` now breaks ties by
+  matching the parent session's cwd.
+
+## 0.6.12
+
+### Patch Changes
+
+- **npm installs could not start.** `cordis.patch.yml` used the unscoped `dsh-hermes-link` as the entry name (fatal `ERR_MODULE_NOT_FOUND` in the profile loader) and `index.mjs` touched `metrics` before its `const` initializer (fatal `ReferenceError` on every `apply()`).
+- **POSIX Hermes Home detection** now prefers `~/.hermes` (hermes-agent's platform default) over `~/.local/share/hermes`, which stays as a legacy fallback — persona, sessions, config and `state.db` were being read from an empty directory.
+- Added the missing `bin` entries for `hermes-link-setup` and `hermes-link-consult-admin`.
+- Corrected every `npx <bin>` invocation to `npx --package @tianbuyu-wwx/dsh-hermes-link <bin>`, and `hermes-plugin/README.md`'s stale `plugins/dsh-bridge` path to `plugins/dsh-link`.
+
 ## 0.6.11
 
 ### Patch Changes

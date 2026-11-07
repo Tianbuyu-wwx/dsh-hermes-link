@@ -75,7 +75,7 @@ import { createDispatchStatusTool } from './tools/dispatch-status.mjs'
 
 const skillDir = fileURLToPath(new URL('./skills/dsh-hermes-link', import.meta.url))
 const MAX_FOUNDATION_SLICE_CHARS = 4096
-const VERSION = '0.6.11'
+const VERSION = '0.6.13'
 
 // -----------------------------------------------------------------------------
 // v0.3.2 F6 - register the canonical metric shape so the wire format is
@@ -180,8 +180,14 @@ export function detectHermesHome() {
     const candidate = join(local, 'hermes')
     if (existsSync(candidate)) return candidate
   }
-  // POSIX fallback (Hermes Home is hermes-agent's venv root, not ~/.hermes)
-  return join(homedir(), '.local', 'share', 'hermes')
+  // POSIX: hermes-agent's platform default is ~/.hermes (hermes_constants.py:
+  // _platform_default_hermes_home returns user_home() / ".hermes"). Older layouts
+  // kept the data directory under ~/.local/share/hermes, so that stays a fallback.
+  const native = join(homedir(), '.hermes')
+  if (existsSync(native)) return native
+  const legacy = join(homedir(), '.local', 'share', 'hermes')
+  if (existsSync(legacy)) return legacy
+  return native
 }
 
 function readText(p) {
@@ -238,6 +244,7 @@ export function apply(ctx) {
   const hermesWorkspaceDir = join(process.env.DSH_HOME || join(homedir(), '.dsh'), 'hermes-workspace')
   const importer = ctx.sessions ? createImporter({ ctx, hermesHome, workspaceDir: hermesWorkspaceDir }) : null
   const personaLoader = { loadPersona: (h, opts) => loadPersona(h || hermesHome, opts) }
+  const metrics = createMetricsRegistry()
   const consultClient = createConsultClient({ hermesHome, metrics })
   const outbox = createOutbox({ hermesHome })
   // v0.3.1 F2 - file rotation for the outbox (heartbeat/usage/memory-suggest/session-mirror).
@@ -246,7 +253,6 @@ export function apply(ctx) {
   // v0.6.0 (D1) - per-token rate-limit + daily token budget. Hot-reload via plugin restart.
   // Set HERMES_LINK_RATE_LIMIT_RPM=0 (or _DAILY_TOKENS=0) to disable that axis.
   buildRateLimiterFromEnv()
-  const metrics = createMetricsRegistry()
   registerMetricsShape(metrics, { VERSION })
   // Wire audit + outbox + sse counter bridges
   setAuditMetrics(metrics)

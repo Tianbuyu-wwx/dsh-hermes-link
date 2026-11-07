@@ -1,8 +1,12 @@
 # dsh-hermes-link — DSH bundle profile patch.
 # Activates this plugin via:
-#   dsh plugin --profile <profile> add ./packages/dsh-hermes-link
+#   dsh plugin --profile <profile> add @tianbuyu-wwx/dsh-hermes-link
 # OR (simpler, recommended):
 #   pwsh -File scripts/install-dsh-hermes-link.ps1
+#
+# The entry name MUST be the published package name: the loader resolves it as a
+# bare specifier from the profile directory, so an unscoped 'dsh-hermes-link'
+# fails with ERR_MODULE_NOT_FOUND when the package came from npm.
 - insert:
     - id: dsh-hermes-link
-      name: 'dsh-hermes-link'
+      name: '@tianbuyu-wwx/dsh-hermes-link'

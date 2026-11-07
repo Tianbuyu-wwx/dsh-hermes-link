@@ -33,7 +33,7 @@ export async function handleDispatchTask(ctx, args, deps) {
   const err = validateSpec(args)
   if (err) return { _error: mcpError(null, 'E_INVALID_SPEC', err) }
 
-  const parent = pickParentAgent(ctx)
+  const parent = pickParentAgent(ctx, args)
   if (!parent) {
     return { _error: mcpError(null, 'E_NO_LIVE_AGENT', 'no live agent available; dsh session must be running to dispatch a task') }
   }
@@ -80,6 +80,15 @@ export async function handleDispatchTask(ctx, args, deps) {
   })
 
   if (mode === 'continuable') {
+    // The 0.2.x dsh subagent service dropped startContinuable in favour of
+    // startActivation (durable children via prepareContinuable + a reserved childId).
+    // That path is not ported yet, so fail loudly instead of "... is not a function".
+    if (typeof ctx.subagents.startContinuable !== 'function') {
+      clearTimeout(timer)
+      dispatchers.delete(taskId)
+      return { _error: mcpError(null, 'E_UNSUPPORTED',
+        'this dsh build has no subagents.startContinuable(): continuable dispatch is not ported to startActivation yet, use mode=one-shot') }
+    }
     try {
       const spawnResult = await ctx.subagents.startContinuable({
         provider,
@@ -184,17 +193,25 @@ export async function handleDispatchTask(ctx, args, deps) {
   // one-shot path
   let runResult, error, run
   try {
-    run = await ctx.subagents.start(PROVIDER_NAME, {
+    // dsh 0.2.x replaced subagents.start(provider, request) with
+    // startActivation({ provider, label, signal, delivery, request }).
+    // SubagentStartRequest carries no toolFilter and no persona: the child inherits the
+    // parent's tool set and preset, so the persona envelope is not applied here.
+    const activation = await ctx.subagents.startActivation({
+      provider: PROVIDER_NAME,
       label: 'dsh-hermes-link:' + taskId,
-      prompt: [{ type: 'text', text: args.task }],
-      parent,
       signal: controller.signal,
-      toolFilter: { allow: [args.skill] },
-      persona,
-      agentOptions: { provider: DEFAULT_LLM_PROVIDER, model, maxTokens: args.max_tokens || DEFAULT_MAX_TOKENS },
-      maxDepth: 1,
+      delivery: 'caller',
+      request: {
+        prompt: [{ type: 'text', text: args.task }],
+        parent,
+        ...(typeof args.cwd === 'string' && args.cwd ? { cwd: args.cwd } : {}),
+        agentOptions: { provider: DEFAULT_LLM_PROVIDER, model, maxTokens: args.max_tokens || DEFAULT_MAX_TOKENS },
+        maxDepth: 1,
+      },
     })
-    runResult = await run.result
+    run = { id: activation.childId, dispose: () => activation.dispose() }
+    runResult = await activation.result
   } catch (e) {
     error = e
   }
@@ -461,12 +478,20 @@ export function extractOutputText(content) {
   return parts.join('\n').trim()
 }
 
-export function pickParentAgent(ctx) {
-  const roots = ctx.agents && ctx.agents.roots && ctx.agents.roots()
-  if (roots && roots.length > 0) return roots[0]
-  const all = ctx.agents && ctx.agents.list && ctx.agents.list()
-  if (all && all.length > 0) return all[0]
-  return null
+export function pickParentAgent(ctx, args) {
+  const roots = (ctx.agents && ctx.agents.roots && ctx.agents.roots()) || []
+  const all = roots.length > 0 ? roots : ((ctx.agents && ctx.agents.list && ctx.agents.list()) || [])
+  // Deterministic parent selection: an explicit id wins, then a root whose session cwd
+  // matches the requested cwd (a child inherits the parent session's sandbox workspace),
+  // otherwise the first live root (the historical behaviour).
+  const wantId = args && typeof args.parent_session_id === 'string' ? args.parent_session_id : ''
+  if (wantId) return all.find((a) => a && String(a.id) === wantId) || null
+  const wantCwd = args && typeof args.cwd === 'string' ? args.cwd : ''
+  if (wantCwd) {
+    const hit = all.find((a) => a && a.session && a.session.header && a.session.header.cwd === wantCwd)
+    if (hit) return hit
+  }
+  return all.length > 0 ? all[0] : null
 }
 
 function truncate(s, max) {

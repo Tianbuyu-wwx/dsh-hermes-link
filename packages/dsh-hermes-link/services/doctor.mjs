@@ -306,7 +306,7 @@ export async function runDoctor({ hermesHome, dshHome, live = null, now = Date.n
   } else {
     checks.push(warn('hermes_producer', 'Hermes bridge plugin',
       'not installed (' + producerDir + ' missing)',
-      'run: npx hermes-link-install-hermes-plugin (then restart Hermes) -- without it nothing writes outbox/hermes/ and nothing answers inbox/dsh/consult/',
+      'run: npx --package @tianbuyu-wwx/dsh-hermes-link hermes-link-install-hermes-plugin (then restart Hermes) -- without it nothing writes outbox/hermes/ and nothing answers inbox/dsh/consult/',
       { data: { plugin_dir: producerDir, produced_files: produced } }))
   }
 

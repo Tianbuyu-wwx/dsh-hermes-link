@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "dsh-hermes-link://dispatch-spec.schema.json",
-  "title": "Hermes → DSH dispatch spec (dsh-hermes-link v0.6.11)",
+  "title": "Hermes → DSH dispatch spec (dsh-hermes-link v0.6.13)",
   "description": "JSON-RPC 2.0 /tools/call dispatch_task arguments. Slim field surface; no audit-only fields at the protocol level (audit is server-side).",
   "type": "object",
   "additionalProperties": false,
@@ -10,6 +10,8 @@
     "task_id":           { "type": "string", "minLength": 1, "maxLength": 128, "description": "Hermes-minted unique id; idempotency key." },
     "skill":             { "type": "string", "minLength": 1, "maxLength": 64,  "description": "Tool name to allow in the spawned sub-agent's toolFilter." },
     "task":              { "type": "string", "minLength": 1, "maxLength": 8000, "description": "Free-text task description." },
+    "cwd":               { "type": "string", "maxLength": 4096, "description": "Working directory for the spawned child (defaults to the parent session cwd). Must exist; the dsh sandbox only allows writes under the parent session's workspace." },
+    "parent_session_id": { "type": "string", "maxLength": 128, "description": "Optional dsh session id to dispatch under. Defaults to the first live root, or the root whose session cwd matches cwd." },
     "args":              { "type": "object", "description": "Skill-specific structured arguments." },
     "knowledge_subset":  { "type": "array",  "maxItems": 16, "description": "Hermes-picked knowledge fragments, ≤2KB total.",
                             "items": {

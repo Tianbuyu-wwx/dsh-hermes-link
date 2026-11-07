@@ -8,7 +8,7 @@
 // short list of things only a human can do (the restarts).
 //
 // USAGE
-//   npx dsh-hermes-link-setup [--dry-run] [--hermes-home <dir>] [--url <dsh url>] [--json]
+//   npx --package @tianbuyu-wwx/dsh-hermes-link hermes-link-setup [--dry-run] [--hermes-home <dir>] [--url <dsh url>] [--json]
 //
 // EXIT: 0 everything is in place (restarts aside), 1 something still needs a human,
 //       2 bad usage / Hermes home not found.

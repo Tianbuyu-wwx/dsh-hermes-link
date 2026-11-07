@@ -34,7 +34,7 @@
 
 ## 四、开发计划（按优先级，含验收标准）
 
-### P0-1 一条命令接入：`npx dsh-hermes-link-setup`
+### P0-1 一条命令接入：`npx --package @tianbuyu-wwx/dsh-hermes-link hermes-link-setup`
 - 做：检测 Hermes home → 复制插件 → 调 `hermes plugins enable dsh-link`（找不到 hermes CLI 就打印精确命令）
   → 检查必要配置 → 跑一次 self-check → 打印"下一步：重启 Hermes / 重启 DSH"。
 - 验收：干净机器上从零到 `hermes_link_status` 全绿 ≤ 2 条命令；每步可 `--dry-run`。
