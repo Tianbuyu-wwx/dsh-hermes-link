@@ -13,11 +13,11 @@
 // This CLI measures the filesystem (and, with --url, the live plugin).
 //
 // USAGE
-//   npx hermes-link-doctor                                 # filesystem probe
-//   npx hermes-link-doctor --url http://127.0.0.1:3080     # + live policy/consumer state
-//   npx hermes-link-doctor --json                          # machine readable
-//   npx hermes-link-doctor --strict                        # warnings fail the exit code
-//   npx hermes-link-doctor --pin-scan                      # also read every imported session (slow)
+//   npx --package @tianbuyu-wwx/dsh-hermes-link hermes-link-doctor                                 # filesystem probe
+//   npx --package @tianbuyu-wwx/dsh-hermes-link hermes-link-doctor --url http://127.0.0.1:3080     # + live policy/consumer state
+//   npx --package @tianbuyu-wwx/dsh-hermes-link hermes-link-doctor --json                          # machine readable
+//   npx --package @tianbuyu-wwx/dsh-hermes-link hermes-link-doctor --strict                        # warnings fail the exit code
+//   npx --package @tianbuyu-wwx/dsh-hermes-link hermes-link-doctor --pin-scan                      # also read every imported session (slow)
 //
 // EXIT: 0 = no failures (warnings ok unless --strict), 1 = failures, 2 = bad usage.
 

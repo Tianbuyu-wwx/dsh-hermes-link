@@ -11,9 +11,9 @@
 // doctor's backlog warning alive with no way to clear it short of editing files
 // by hand.
 //
-//   npx hermes-link-consult-admin                        # status
-//   npx hermes-link-consult-admin --purge-expired        # dry run
-//   npx hermes-link-consult-admin --purge-expired --apply
+//   npx --package @tianbuyu-wwx/dsh-hermes-link hermes-link-consult-admin                        # status
+//   npx --package @tianbuyu-wwx/dsh-hermes-link hermes-link-consult-admin --purge-expired        # dry run
+//   npx --package @tianbuyu-wwx/dsh-hermes-link hermes-link-consult-admin --purge-expired --apply
 
 import { existsSync } from 'node:fs'
 import { join, dirname } from 'node:path'

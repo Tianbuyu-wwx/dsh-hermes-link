@@ -87,7 +87,7 @@ export function summariseStatus({ report = null, outboxStats = null, consultHeal
     state: consult ? (consult.verdict === 'healthy' ? 'ok' : consult.verdict === 'degraded' ? 'warn' : 'fail') : 'unknown',
     detail: consult ? consult.note : 'not measured',
   })
-  if (consult && consult.verdict === 'dead') next.push('Hermes is not answering consult tickets -- start its gateway, or run: npx hermes-link-consult-admin')
+  if (consult && consult.verdict === 'dead') next.push('Hermes is not answering consult tickets -- start its gateway, or run: npx --package @tianbuyu-wwx/dsh-hermes-link hermes-link-consult-admin')
 
   // 5. the bridge plugin itself
   const bridge = checkOf(report, 'hermes_producer')

@@ -33,10 +33,10 @@
 //     (or an id prefixed 'hermes-') are considered
 //
 // USAGE
-//   npx hermes-link-repair-model-pins                       # dry run
-//   npx hermes-link-repair-model-pins --apply
-//   npx hermes-link-repair-model-pins --provider X --model Y [--effort Z]
-//   npx hermes-link-repair-model-pins --id hermes-20260710_232907_343d1e --apply
+//   npx --package @tianbuyu-wwx/dsh-hermes-link hermes-link-repair-model-pins                       # dry run
+//   npx --package @tianbuyu-wwx/dsh-hermes-link hermes-link-repair-model-pins --apply
+//   npx --package @tianbuyu-wwx/dsh-hermes-link hermes-link-repair-model-pins --provider X --model Y [--effort Z]
+//   npx --package @tianbuyu-wwx/dsh-hermes-link hermes-link-repair-model-pins --id hermes-20260710_232907_343d1e --apply
 //
 // SHIPPED WITH THE PACKAGE (v0.6.1): exposed as the `hermes-link-repair-model-pins`
 // bin; the repo's scripts/repair-imported-model-selection.mjs is a thin wrapper.

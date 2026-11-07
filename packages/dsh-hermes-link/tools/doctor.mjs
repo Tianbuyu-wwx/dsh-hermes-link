@@ -3,7 +3,7 @@
 // v0.6.2 - `hermes_link_doctor`: the runtime self-check, callable from inside a
 // DSH session.
 //
-// Until now the doctor was reachable only from a shell (`npx hermes-link-doctor`)
+// Until now the doctor was reachable only from a shell (`npx --package @tianbuyu-wwx/dsh-hermes-link hermes-link-doctor`)
 // or with curl (`GET /mcp/collab/doctor`). The failures it exists to catch --
 // a dead mirror, a consult backlog nobody consumes, an imported session whose
 // model route no adapter serves -- are exactly the ones a user notices as
