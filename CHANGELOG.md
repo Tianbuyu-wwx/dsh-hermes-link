@@ -24,6 +24,20 @@ These commits existed and the work shipped through subsequent published versions
 
 ---
 
+## [0.6.13] — 2026-11-07
+
+### Fixed
+
+- **`dispatch_task` targets the dsh 0.2.x subagent API.** `ctx.subagents.start(provider, request)` no longer exists; the service exposes `startActivation({ provider, label, signal, delivery, request })`. The one-shot path now calls it and awaits `activation.result` (`run = { id: activation.childId, dispose }`). `SubagentStartRequest` dropped `toolFilter` and `persona`, so the child inherits the parent's tool set and preset and the persona envelope is no longer injected.
+- **Continuable dispatch fails loudly on the new API.** `startContinuable` is gone from dsh 0.2.x; `mode=continuable` now returns `E_UNSUPPORTED` with the reason instead of surfacing `ctx.subagents.startContinuable is not a function` from a generic spawn failure.
+
+### Added
+
+- **`cwd` on `dispatch_task`.** Runs the child in an explicit directory (must exist). The child inherits the *parent session's* sandbox workspace, not its own cwd, so writes outside that workspace still fail — dispatch under a parent session whose workspace is the target directory.
+- **`parent_session_id` on `dispatch_task`.** Pins the parent session instead of taking the first live root; without it, `cwd` now selects the root whose `session.header.cwd` matches.
+
+---
+
 ## [0.6.12] — 2026-11-07
 
 ### Fixed

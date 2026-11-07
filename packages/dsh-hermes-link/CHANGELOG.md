@@ -1,5 +1,21 @@
 # @tianbuyu-wwx/dsh-hermes-link
 
+## 0.6.13
+
+### Patch Changes
+
+- **`dispatch_task` works again on dsh 0.2.x.** The subagent service replaced
+  `start(provider, request)` with `startActivation({ provider, label, signal, delivery, request })`
+  and the child spec lost `toolFilter` / `persona`. The one-shot path now awaits
+  `activation.result`; the child inherits the parent's tools and preset, so the persona envelope
+  is no longer injected. `mode=continuable` still targets the old API and now fails with an
+  explicit `E_UNSUPPORTED` instead of `ctx.subagents.startContinuable is not a function`.
+- **`cwd` and `parent_session_id` on `dispatch_task`.** `cwd` runs the child in a chosen
+  directory; a child inherits the *parent session's* sandbox workspace, so writes outside it are
+  still denied — pick a parent session whose workspace is the target. `parent_session_id` pins
+  the parent instead of letting dispatch take the first live root, and `cwd` now breaks ties by
+  matching the parent session's cwd.
+
 ## 0.6.12
 
 ### Patch Changes
