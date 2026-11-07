@@ -1,5 +1,14 @@
 # @tianbuyu-wwx/dsh-hermes-link
 
+## 0.6.12
+
+### Patch Changes
+
+- **npm installs could not start.** `cordis.patch.yml` used the unscoped `dsh-hermes-link` as the entry name (fatal `ERR_MODULE_NOT_FOUND` in the profile loader) and `index.mjs` touched `metrics` before its `const` initializer (fatal `ReferenceError` on every `apply()`).
+- **POSIX Hermes Home detection** now prefers `~/.hermes` (hermes-agent's platform default) over `~/.local/share/hermes`, which stays as a legacy fallback — persona, sessions, config and `state.db` were being read from an empty directory.
+- Added the missing `bin` entries for `hermes-link-setup` and `hermes-link-consult-admin`.
+- Corrected every `npx <bin>` invocation to `npx --package @tianbuyu-wwx/dsh-hermes-link <bin>`, and `hermes-plugin/README.md`'s stale `plugins/dsh-bridge` path to `plugins/dsh-link`.
+
 ## 0.6.11
 
 ### Patch Changes

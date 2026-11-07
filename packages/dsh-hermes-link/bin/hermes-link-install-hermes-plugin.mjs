@@ -13,9 +13,9 @@
 // setup wizard shares it; this stays the low-level, scriptable entry point.
 //
 // USAGE
-//   npx hermes-link-install-hermes-plugin             # install
-//   npx hermes-link-install-hermes-plugin --dry-run   # show what would happen
-//   npx hermes-link-install-hermes-plugin --hermes-home <dir>
+//   npx --package @tianbuyu-wwx/dsh-hermes-link hermes-link-install-hermes-plugin             # install
+//   npx --package @tianbuyu-wwx/dsh-hermes-link hermes-link-install-hermes-plugin --dry-run   # show what would happen
+//   npx --package @tianbuyu-wwx/dsh-hermes-link hermes-link-install-hermes-plugin --hermes-home <dir>
 //
 // EXIT: 0 installed (or already current), 2 = bad usage / Hermes home not found.
 
@@ -69,4 +69,4 @@ console.log('installed ' + plan.copied.length + ' file(s), plugin version ' + (s
 console.log('NEXT: restart Hermes (plugins are discovered at start-up), then verify with')
 console.log('  curl http://127.0.0.1:3080/mcp/collab/hermes-outbox/status   # DSH side counters')
 console.log('  dir "%LOCALAPPDATA%\\hermes\\outbox\\hermes"                  # produced notifications')
-console.log('  npx hermes-link-status                                        # one-glance health')
+console.log('  npx --package @tianbuyu-wwx/dsh-hermes-link hermes-link-doctor                                        # one-glance health')

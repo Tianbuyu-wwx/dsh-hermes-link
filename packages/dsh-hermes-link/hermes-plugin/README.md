@@ -1,4 +1,4 @@
-# hermes-plugin/dsh-bridge — the Hermes half of the reverse channel
+# hermes-plugin/dsh-link — the Hermes half of the reverse channel
 
 `Hermes Home/outbox/hermes/` was promised by `docs/DSH-HERMES-LINK-PLAN.md` ("Hermes 给 DSH 的主动通知")
 and the DSH-side consumer shipped in v0.6.0 (`services/hermes-outbox-consumer.mjs`, verified live).
@@ -8,11 +8,11 @@ This plugin is that producer.
 ## Install
 
 ```bash
-npx hermes-link-install-hermes-plugin            # copies this directory into <Hermes Home>/plugins/dsh-bridge
-npx hermes-link-install-hermes-plugin --dry-run  # show the target without writing
+npx --package @tianbuyu-wwx/dsh-hermes-link hermes-link-install-hermes-plugin            # copies this directory into <Hermes Home>/plugins/dsh-link
+npx --package @tianbuyu-wwx/dsh-hermes-link hermes-link-install-hermes-plugin --dry-run  # show the target without writing
 ```
 
-Then **restart Hermes** (plugins are discovered at start-up). Confirm with:
+Then run `hermes plugins enable dsh-link` — the running gateway reloads plugins in place. (Plugins are only *discovered* at start-up, so a fresh install still needs a Hermes restart the first time.) Confirm with:
 
 ```bash
 curl http://127.0.0.1:3080/mcp/collab/hermes-outbox/status   # DSH side: consumed/archived counters

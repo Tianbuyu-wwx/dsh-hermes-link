@@ -24,6 +24,21 @@ These commits existed and the work shipped through subsequent published versions
 
 ---
 
+## [0.6.12] — 2026-11-07
+
+### Fixed
+
+- **The plugin could not start from an npm install.** Two independent blockers, both fatal on every profile: `cordis.patch.yml` inserted the *unscoped* `dsh-hermes-link` entry name while the package publishes as `@tianbuyu-wwx/dsh-hermes-link`, so the profile loader failed with `ERR_MODULE_NOT_FOUND`; and `index.mjs` read `metrics` before its `const` initializer ran, so every `apply()` threw `ReferenceError: Cannot access 'metrics' before initialization`.
+- **Hermes Home was misdetected on POSIX.** The fallback was `~/.local/share/hermes`, but hermes-agent's platform default is `~/.hermes` (`hermes_constants.py: _platform_default_hermes_home`). `SOUL.md`, `sessions/`, `config.yaml` and `state.db` were read from an empty directory, so persona, import and consult silently saw nothing. `~/.hermes` is tried first now; `~/.local/share/hermes` remains as a legacy fallback.
+- **`hermes-link-setup` / `hermes-link-consult-admin` shipped without a `bin` entry**, so the documented `npx dsh-hermes-link-setup` (the v0.6.10 headline) could never resolve.
+
+### Documentation
+
+- `npx hermes-link-doctor` / `-install-hermes-plugin` / `-repair-model-pins` / `dsh-hermes-link-setup` returned 404: those are *bin* names and npx resolves its argument as a *package* name. READMEs, usage headers and the installer's NEXT hint now use `npx --package @tianbuyu-wwx/dsh-hermes-link <bin>`.
+- `hermes-plugin/README.md` pointed at `plugins/dsh-bridge`; the installer has always written `plugins/dsh-link`.
+
+---
+
 ## [0.6.11] — 2026-09-18
 
 ### Fixed
